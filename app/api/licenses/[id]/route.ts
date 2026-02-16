@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
 
 type Params = { params: Promise<{ id: string }> };
 
 // GET /api/licenses/:id — 라이선스 상세 조회
 export async function GET(request: NextRequest, { params }: Params) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   try {
     const { id } = await params;
     const license = await prisma.license.findUnique({
@@ -44,6 +47,8 @@ export async function GET(request: NextRequest, { params }: Params) {
 
 // PUT /api/licenses/:id — 라이선스 수정
 export async function PUT(request: NextRequest, { params }: Params) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   try {
     const { id } = await params;
     const body = await request.json();
@@ -80,6 +85,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
 // DELETE /api/licenses/:id — 라이선스 삭제
 export async function DELETE(request: NextRequest, { params }: Params) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   try {
     const { id } = await params;
     await prisma.license.delete({

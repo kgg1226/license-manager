@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
 
 type Params = { params: Promise<{ id: string }> };
 
 // GET /api/employees/:id — 조직원 상세 조회
 export async function GET(request: NextRequest, { params }: Params) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   try {
     const { id } = await params;
     const employee = await prisma.employee.findUnique({
@@ -36,6 +39,8 @@ export async function GET(request: NextRequest, { params }: Params) {
 
 // PUT /api/employees/:id — 조직원 수정
 export async function PUT(request: NextRequest, { params }: Params) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   try {
     const { id } = await params;
     const body = await request.json();
@@ -62,6 +67,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
 // DELETE /api/employees/:id — 조직원 삭제
 export async function DELETE(request: NextRequest, { params }: Params) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   try {
     const { id } = await params;
     await prisma.employee.delete({

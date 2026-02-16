@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
 import { google } from "googleapis";
 import * as fs from "fs";
 import * as path from "path";
 
 // POST /api/gws/sync — Google Workspace 사용자 동기화
 export async function POST() {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   try {
     // credential.json 파일 경로
     const credentialPath = path.join(process.cwd(), "credential.json");

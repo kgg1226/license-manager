@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
 
 // GET /api/licenses — 라이선스 목록 조회
 export async function GET() {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   try {
     const licenses = await prisma.license.findMany({
       include: {
@@ -32,6 +35,8 @@ export async function GET() {
 
 // POST /api/licenses — 라이선스 등록
 export async function POST(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   try {
     const body = await request.json();
     const { name, key, totalQuantity, purchaseDate, expiryDate, description } =
