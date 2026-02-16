@@ -1,0 +1,54 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ===== License =====
+model License {
+  id            Int          @id @default(autoincrement())
+  name          String
+  key           String?
+  totalQuantity Int
+  purchaseDate  DateTime
+  expiryDate    DateTime?
+  description   String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  assignments   Assignment[]
+}
+
+// ===== Employee =====
+model Employee {
+  id         Int          @id @default(autoincrement())
+  name       String
+  department String
+  email      String?      @unique
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  assignments Assignment[]
+}
+
+// ===== Assignment =====
+model Assignment {
+  id           Int       @id @default(autoincrement())
+  licenseId    Int
+  employeeId   Int
+  assignedDate DateTime  @default(now())
+  returnedDate DateTime?
+  createdAt    DateTime  @default(now())
+
+  license  License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([licenseId])
+  @@index([employeeId])
+}
