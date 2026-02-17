@@ -10,14 +10,23 @@ datasource db {
   provider = "sqlite"
 }
 
+enum Role {
+  ADMIN
+  USER
+}
+
 // ===== User =====
 model User {
-  id       Int       @id @default(autoincrement())
-  username String    @unique
-  password String
-  createdAt DateTime @default(now())
+  id        Int       @id @default(autoincrement())
+  username  String    @unique
+  password  String
+  email     String?   @unique
+  name      String?
+  role      Role      @default(USER)
+  googleId  String?   @unique
+  createdAt DateTime  @default(now())
 
-  sessions Session[]
+  sessions  Session[]
 }
 
 // ===== Session =====
@@ -34,17 +43,22 @@ model Session {
 
 // ===== License =====
 model License {
-  id            Int          @id @default(autoincrement())
-  name          String
-  key           String?
-  totalQuantity Int
-  purchaseDate  DateTime
-  expiryDate    DateTime?
-  description   String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id               Int          @id @default(autoincrement())
+  name             String
+  key              String?
+  totalQuantity    Int
+  price            Float?
+  purchaseDate     DateTime
+  expiryDate       DateTime?
+  contractDate     DateTime?
+  noticePeriodDays Int?
+  adminName        String?
+  description      String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
-  assignments   Assignment[]
+  assignments      Assignment[]
+  groupMembers     LicenseGroupMember[]
 }
 
 // ===== Employee =====
@@ -66,11 +80,56 @@ model Assignment {
   employeeId   Int
   assignedDate DateTime  @default(now())
   returnedDate DateTime?
+  reason       String?
   createdAt    DateTime  @default(now())
 
   license  License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
+  histories AssignmentHistory[]
+
   @@index([licenseId])
   @@index([employeeId])
+}
+
+// ===== AssignmentHistory =====
+model AssignmentHistory {
+  id           Int      @id @default(autoincrement())
+  assignmentId Int?
+  licenseId    Int
+  employeeId   Int
+  action       String   // ASSIGNED | RETURNED | REVOKED
+  reason       String?
+  createdAt    DateTime @default(now())
+
+  assignment Assignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+
+  @@index([employeeId])
+  @@index([licenseId])
+}
+
+// ===== LicenseGroup =====
+model LicenseGroup {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?
+  isDefault   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  members LicenseGroupMember[]
+}
+
+// ===== LicenseGroupMember =====
+model LicenseGroupMember {
+  id             Int      @id @default(autoincrement())
+  licenseGroupId Int
+  licenseId      Int
+  createdAt      DateTime @default(now())
+
+  licenseGroup LicenseGroup @relation(fields: [licenseGroupId], references: [id], onDelete: Cascade)
+  license      License      @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@unique([licenseGroupId, licenseId])
+  @@index([licenseId])
 }

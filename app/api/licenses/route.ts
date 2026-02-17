@@ -39,8 +39,10 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   try {
     const body = await request.json();
-    const { name, key, totalQuantity, purchaseDate, expiryDate, description } =
-      body;
+    const {
+      name, key, totalQuantity, price, purchaseDate, expiryDate,
+      contractDate, noticePeriodDays, adminName, description,
+    } = body;
 
     if (!name || totalQuantity === undefined || !purchaseDate) {
       return NextResponse.json(
@@ -54,8 +56,12 @@ export async function POST(request: NextRequest) {
         name,
         key: key || null,
         totalQuantity: Number(totalQuantity),
+        price: price != null ? Number(price) : null,
         purchaseDate: new Date(purchaseDate),
         expiryDate: expiryDate ? new Date(expiryDate) : null,
+        contractDate: contractDate ? new Date(contractDate) : null,
+        noticePeriodDays: noticePeriodDays != null ? Number(noticePeriodDays) : null,
+        adminName: adminName || null,
         description: description || null,
       },
     });

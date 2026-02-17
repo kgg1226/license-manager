@@ -11,13 +11,15 @@
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.4.0",
     "@prisma/client": "^7.4.0",
+    "@tailwindcss/postcss": "^4.1.18",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.6.2",
     "googleapis": "^171.4.0",
     "next": "16.1.5",
     "prisma": "^7.4.0",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "tailwindcss": "^4.1.18"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

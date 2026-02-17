@@ -52,24 +52,24 @@ export async function PUT(request: NextRequest, { params }: Params) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, key, totalQuantity, purchaseDate, expiryDate, description } =
-      body;
+    const {
+      name, key, totalQuantity, price, purchaseDate, expiryDate,
+      contractDate, noticePeriodDays, adminName, description,
+    } = body;
 
     const license = await prisma.license.update({
       where: { id: Number(id) },
       data: {
         ...(name !== undefined && { name }),
-        ...(key !== undefined && { key }),
-        ...(totalQuantity !== undefined && {
-          totalQuantity: Number(totalQuantity),
-        }),
-        ...(purchaseDate !== undefined && {
-          purchaseDate: new Date(purchaseDate),
-        }),
-        ...(expiryDate !== undefined && {
-          expiryDate: expiryDate ? new Date(expiryDate) : null,
-        }),
-        ...(description !== undefined && { description }),
+        ...(key !== undefined && { key: key || null }),
+        ...(totalQuantity !== undefined && { totalQuantity: Number(totalQuantity) }),
+        ...(price !== undefined && { price: price != null ? Number(price) : null }),
+        ...(purchaseDate !== undefined && { purchaseDate: new Date(purchaseDate) }),
+        ...(expiryDate !== undefined && { expiryDate: expiryDate ? new Date(expiryDate) : null }),
+        ...(contractDate !== undefined && { contractDate: contractDate ? new Date(contractDate) : null }),
+        ...(noticePeriodDays !== undefined && { noticePeriodDays: noticePeriodDays != null ? Number(noticePeriodDays) : null }),
+        ...(adminName !== undefined && { adminName: adminName || null }),
+        ...(description !== undefined && { description: description || null }),
       },
     });
 
