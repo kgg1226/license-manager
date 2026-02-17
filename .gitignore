@@ -83,4 +83,4 @@ Desktop.ini
 logs/
 *.log
 
-/app/generated/prisma
+/generated/prisma
