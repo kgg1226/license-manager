@@ -1,8 +1,20 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import DeleteButton from "./delete-button";
+import AssignButton from "./assign-button";
+import UnassignButton from "./unassign-button";
 
 export const dynamic = "force-dynamic";
+
+type SortField = "name" | "totalQuantity" | "assigned" | "expiryDate";
+type SortOrder = "asc" | "desc";
+
+const SORTABLE_COLUMNS: { key: SortField; label: string }[] = [
+  { key: "name", label: "라이선스명" },
+  { key: "totalQuantity", label: "수량" },
+  { key: "assigned", label: "배정 현황" },
+  { key: "expiryDate", label: "만료일" },
+];
 
 function formatPrice(price: number | null): string {
   if (price === null) return "—";
@@ -22,15 +34,9 @@ function getNoticeBadge(
   const diffMs = noticeDate.getTime() - now.getTime();
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffDays < 0) {
-    return { label: "기한 초과", variant: "red" };
-  }
-  if (diffDays <= 7) {
-    return { label: `D-${diffDays}`, variant: "red" };
-  }
-  if (diffDays <= 30) {
-    return { label: `D-${diffDays}`, variant: "yellow" };
-  }
+  if (diffDays < 0) return { label: "기한 초과", variant: "red" };
+  if (diffDays <= 7) return { label: `D-${diffDays}`, variant: "red" };
+  if (diffDays <= 30) return { label: `D-${diffDays}`, variant: "yellow" };
   return { label: `D-${diffDays}`, variant: "green" };
 }
 
@@ -40,17 +46,94 @@ const badgeColors = {
   green: "bg-green-100 text-green-700",
 };
 
-export default async function LicensesPage() {
+export default async function LicensesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string; order?: string }>;
+}) {
+  const params = await searchParams;
+  const sortField = (["name", "totalQuantity", "assigned", "expiryDate"].includes(params.sort ?? "")
+    ? params.sort
+    : "expiryDate") as SortField;
+  const sortOrder = (params.order === "asc" || params.order === "desc" ? params.order : "asc") as SortOrder;
+
   const licenses = await prisma.license.findMany({
-    orderBy: [
-      { expiryDate: { sort: "asc", nulls: "last" } },
-      { createdAt: "desc" },
-    ],
+    select: {
+      id: true,
+      name: true,
+      totalQuantity: true,
+      price: true,
+      purchaseDate: true,
+      expiryDate: true,
+      noticePeriodDays: true,
+      adminName: true,
+      assignments: {
+        where: { returnedDate: null },
+        select: {
+          id: true,
+          employeeId: true,
+          employee: { select: { name: true, department: true } },
+        },
+      },
+    },
   });
+
+  const enriched = licenses.map((license) => {
+    const assignedCount = license.assignments.length;
+    return {
+      ...license,
+      assignedCount,
+      remainingCount: license.totalQuantity - assignedCount,
+      assignedEmployeeIds: license.assignments.map((a) => a.employeeId),
+      assignedEmployees: license.assignments.map((a) => ({
+        assignmentId: a.id,
+        employeeId: a.employeeId,
+        employeeName: a.employee.name,
+        department: a.employee.department,
+      })),
+    };
+  });
+
+  enriched.sort((a, b) => {
+    let cmp = 0;
+    switch (sortField) {
+      case "name":
+        cmp = a.name.localeCompare(b.name, "ko");
+        break;
+      case "totalQuantity":
+        cmp = a.totalQuantity - b.totalQuantity;
+        break;
+      case "assigned":
+        cmp = a.assignedCount - b.assignedCount;
+        break;
+      case "expiryDate": {
+        const aTime = a.expiryDate?.getTime() ?? Infinity;
+        const bTime = b.expiryDate?.getTime() ?? Infinity;
+        cmp = aTime - bTime;
+        break;
+      }
+    }
+    return sortOrder === "desc" ? -cmp : cmp;
+  });
+
+  const employees = await prisma.employee.findMany({
+    select: { id: true, name: true, department: true },
+    orderBy: { name: "asc" },
+  });
+
+  function sortUrl(field: SortField): string {
+    const nextOrder = sortField === field && sortOrder === "asc" ? "desc" : "asc";
+    return `/licenses?sort=${field}&order=${nextOrder}`;
+  }
+
+  function sortIndicator(field: SortField): string {
+    if (sortField !== field) return "";
+    return sortOrder === "asc" ? " ↑" : " ↓";
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-10">
-      <div className="mx-auto max-w-6xl px-4">
+      <div className="mx-auto max-w-7xl px-4">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">라이선스 목록</h1>
           <Link
@@ -61,7 +144,7 @@ export default async function LicensesPage() {
           </Link>
         </div>
 
-        {licenses.length === 0 ? (
+        {enriched.length === 0 ? (
           <div className="rounded-lg bg-white p-12 text-center shadow-sm ring-1 ring-gray-200">
             <p className="text-gray-500">등록된 라이선스가 없습니다.</p>
             <Link
@@ -76,38 +159,61 @@ export default async function LicensesPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">라이선스명</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">수량</th>
+                  {SORTABLE_COLUMNS.map((col) => (
+                    <th key={col.key} className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                      <Link
+                        href={sortUrl(col.key)}
+                        className="inline-flex items-center gap-1 hover:text-gray-900"
+                      >
+                        {col.label}
+                        <span className="text-blue-500">{sortIndicator(col.key)}</span>
+                      </Link>
+                    </th>
+                  ))}
                   <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">금액</th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">담당자</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">구매일</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">만료일</th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">해지 통보</th>
                   <th className="px-4 py-3 text-center text-xs font-medium uppercase text-gray-500">관리</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {licenses.map((license) => {
+                {enriched.map((license) => {
                   const badge = getNoticeBadge(license.expiryDate, license.noticePeriodDays);
+                  const pct = license.totalQuantity > 0
+                    ? Math.round((license.assignedCount / license.totalQuantity) * 100)
+                    : 0;
+                  const barColor =
+                    pct >= 100 ? "bg-red-500" : pct >= 80 ? "bg-yellow-500" : "bg-blue-500";
+
                   return (
                     <tr key={license.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">
                         {license.name}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
+                      <td className="px-4 py-3 text-sm text-gray-600 tabular-nums">
                         {license.totalQuantity}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-20 rounded-full bg-gray-200">
+                            <div
+                              className={`h-2 rounded-full ${barColor}`}
+                              style={{ width: `${Math.min(pct, 100)}%` }}
+                            />
+                          </div>
+                          <span className="text-sm tabular-nums text-gray-600">
+                            {license.assignedCount} / {license.totalQuantity}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {license.expiryDate?.toLocaleDateString("ko-KR") ?? "—"}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600 text-right tabular-nums">
                         {formatPrice(license.price)}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
                         {license.adminName ?? "—"}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {license.purchaseDate.toLocaleDateString("ko-KR")}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {license.expiryDate?.toLocaleDateString("ko-KR") ?? "—"}
                       </td>
                       <td className="px-4 py-3 text-sm">
                         {badge ? (
@@ -119,7 +225,18 @@ export default async function LicensesPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <div className="flex items-center justify-center gap-2">
+                        <div className="flex items-center justify-center gap-1">
+                          <AssignButton
+                            licenseId={license.id}
+                            licenseName={license.name}
+                            remaining={license.remainingCount}
+                            employees={employees}
+                            assignedEmployeeIds={license.assignedEmployeeIds}
+                          />
+                          <UnassignButton
+                            licenseName={license.name}
+                            assignedEmployees={license.assignedEmployees}
+                          />
                           <Link
                             href={`/licenses/${license.id}`}
                             className="rounded px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50"
