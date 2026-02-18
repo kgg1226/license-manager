@@ -57,6 +57,7 @@ export default function EditLicenseForm({
 
   const initialNoticeType = resolveNoticePeriodType(license.noticePeriodDays);
   const [noticePeriodType, setNoticePeriodType] = useState(initialNoticeType);
+  const [isVolume, setIsVolume] = useState(license.isVolumeLicense);
   const [isDeleting, setIsDeleting] = useState(false);
   const [seats, setSeats] = useState(initialSeats);
 
@@ -104,7 +105,7 @@ export default function EditLicenseForm({
               />
             </Field>
 
-            {license.isVolumeLicense && (
+            {isVolume ? (
               <Field label="라이선스 키">
                 <input
                   type="text"
@@ -113,14 +114,12 @@ export default function EditLicenseForm({
                   className="input"
                 />
               </Field>
-            )}
-
-            {!license.isVolumeLicense && (
+            ) : (
               <input type="hidden" name="key" value="" />
             )}
 
             <label className="flex items-center gap-2">
-              <input type="checkbox" name="isVolumeLicense" defaultChecked={license.isVolumeLicense} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+              <input type="checkbox" name="isVolumeLicense" checked={isVolume} onChange={(e) => setIsVolume(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
               <span className="text-sm font-medium text-gray-700">볼륨 라이선스</span>
               <span className="text-xs text-gray-500">(하나의 키를 여러 명에게 배정 가능)</span>
             </label>
@@ -160,7 +159,7 @@ export default function EditLicenseForm({
           </fieldset>
 
           {/* 시트 목록 (개별 라이선스) */}
-          {!license.isVolumeLicense && seats.length > 0 && (
+          {!isVolume && seats.length > 0 && (
             <fieldset className="space-y-4">
               <legend className="text-base font-semibold text-gray-900 border-b border-gray-200 pb-2 w-full">
                 시트 ({seats.length}개)

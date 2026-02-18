@@ -15,6 +15,7 @@ const NOTICE_OPTIONS = [
 
 export default function NewLicensePage() {
   const [state, formAction, isPending] = useActionState(createLicense, initialState);
+  const [isVolume, setIsVolume] = useState(false);
   const [noticePeriodType, setNoticePeriodType] = useState("");
 
   return (
@@ -53,17 +54,23 @@ export default function NewLicensePage() {
               />
             </Field>
 
-            <Field label="라이선스 키">
-              <input
-                type="text"
-                name="key"
-                placeholder="예: XXXXX-XXXXX-XXXXX-XXXXX"
-                className="input"
-              />
-            </Field>
+            {isVolume ? (
+              <Field label="라이선스 키">
+                <input
+                  type="text"
+                  name="key"
+                  placeholder="예: XXXXX-XXXXX-XXXXX-XXXXX"
+                  className="input"
+                />
+              </Field>
+            ) : (
+              <p className="text-xs text-gray-500">
+                개별 라이선스의 키는 등록 후 수정 화면의 시트 목록에서 관리합니다.
+              </p>
+            )}
 
             <label className="flex items-center gap-2">
-              <input type="checkbox" name="isVolumeLicense" className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+              <input type="checkbox" name="isVolumeLicense" checked={isVolume} onChange={(e) => setIsVolume(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
               <span className="text-sm font-medium text-gray-700">볼륨 라이선스</span>
               <span className="text-xs text-gray-500">(하나의 키를 여러 명에게 배정 가능)</span>
             </label>

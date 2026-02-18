@@ -330,37 +330,52 @@ async function importEmployees(rows: Record<string, string>[]): Promise<ImportRe
           throw new Error(`그룹 "${row.groupName}"을(를) 찾을 수 없습니다.`);
         }
 
-        {
-          for (const member of group.members) {
-            const license = member.license;
-            const activeAssignments = await tx.assignment.findMany({
-              where: { licenseId: license.id, returnedDate: null },
-              select: { employeeId: true },
-            });
+        for (const member of group.members) {
+          const license = member.license;
+          const activeAssignments = await tx.assignment.findMany({
+            where: { licenseId: license.id, returnedDate: null },
+            select: { employeeId: true },
+          });
 
-            // Skip if already assigned to this employee
-            if (activeAssignments.some((a) => a.employeeId === employee.id)) continue;
+          // Skip if already assigned to this employee
+          if (activeAssignments.some((a) => a.employeeId === employee.id)) continue;
 
-            // Individual license: max 1 active
-            if (!license.isVolumeLicense && activeAssignments.length >= 1) continue;
-            // Volume license: check capacity
-            if (license.isVolumeLicense && activeAssignments.length >= license.totalQuantity) continue;
+          let seatId: number | null = null;
 
-            const keyType = license.isVolumeLicense ? "Volume Key" : "Individual Key";
-            const reason = `CSV Import - Auto-assigned via Group: ${group.name} (${keyType})`;
-            const assignment = await tx.assignment.create({
-              data: { licenseId: license.id, employeeId: employee.id, reason },
-            });
-            await tx.assignmentHistory.create({
-              data: {
-                assignmentId: assignment.id,
+          if (!license.isVolumeLicense) {
+            // 개별 라이선스: 빈 시트 찾기 (키 있는 시트 우선)
+            const availableSeats = await tx.licenseSeat.findMany({
+              where: {
                 licenseId: license.id,
-                employeeId: employee.id,
-                action: "ASSIGNED",
-                reason,
+                assignments: { none: { returnedDate: null } },
               },
+              orderBy: { id: "asc" },
             });
+            const sorted = [
+              ...availableSeats.filter((s) => s.key !== null),
+              ...availableSeats.filter((s) => s.key === null),
+            ];
+            if (sorted.length === 0) continue; // 빈 시트 없으면 건너뜀
+            seatId = sorted[0].id;
+          } else {
+            // 볼륨 라이선스: 수량 체크
+            if (activeAssignments.length >= license.totalQuantity) continue;
           }
+
+          const keyType = license.isVolumeLicense ? "Volume Key" : "Individual Key";
+          const reason = `CSV Import - Auto-assigned via Group: ${group.name} (${keyType})`;
+          const assignment = await tx.assignment.create({
+            data: { licenseId: license.id, employeeId: employee.id, seatId, reason },
+          });
+          await tx.assignmentHistory.create({
+            data: {
+              assignmentId: assignment.id,
+              licenseId: license.id,
+              employeeId: employee.id,
+              action: "ASSIGNED",
+              reason,
+            },
+          });
         }
       }
     }
@@ -483,27 +498,47 @@ async function importAssignments(rows: Record<string, string>[]): Promise<Import
         );
       }
 
-      // Check capacity
-      const activeCount = await tx.assignment.count({
-        where: { licenseId: license.id, returnedDate: null },
-      });
-
-      if (!license.isVolumeLicense && activeCount >= 1) {
-        throw new Error(
-          `행 ${rowNum}: 개별 라이선스 "${row.licenseName}"은(는) 이미 사용 중입니다.`
-        );
-      }
-      if (license.isVolumeLicense && activeCount >= license.totalQuantity) {
-        throw new Error(
-          `행 ${rowNum}: 볼륨 라이선스 "${row.licenseName}"의 잔여 수량이 없습니다.`
-        );
-      }
-
+      // Check capacity & find seat
+      let seatId: number | null = null;
       const reason = row.reason || "CSV Import";
+
+      if (!license.isVolumeLicense) {
+        // 개별 라이선스: 빈 시트 찾기 (키 있는 시트 우선)
+        const availableSeats = await tx.licenseSeat.findMany({
+          where: {
+            licenseId: license.id,
+            assignments: { none: { returnedDate: null } },
+          },
+          orderBy: { id: "asc" },
+        });
+        const sorted = [
+          ...availableSeats.filter((s) => s.key !== null),
+          ...availableSeats.filter((s) => s.key === null),
+        ];
+        if (sorted.length === 0) {
+          const totalSeats = await tx.licenseSeat.count({ where: { licenseId: license.id } });
+          throw new Error(
+            `행 ${rowNum}: 개별 라이선스 "${row.licenseName}"의 잔여 시트가 없습니다. (전체 ${totalSeats}개 모두 배정 중)`
+          );
+        }
+        seatId = sorted[0].id;
+      } else {
+        // 볼륨 라이선스: 수량 체크
+        const activeCount = await tx.assignment.count({
+          where: { licenseId: license.id, returnedDate: null },
+        });
+        if (activeCount >= license.totalQuantity) {
+          throw new Error(
+            `행 ${rowNum}: 볼륨 라이선스 "${row.licenseName}"의 잔여 수량이 없습니다. (${activeCount}/${license.totalQuantity} 배정 중)`
+          );
+        }
+      }
+
       const assignment = await tx.assignment.create({
         data: {
           licenseId: license.id,
           employeeId: employee.id,
+          seatId,
           assignedDate: row.assignedDate ?? new Date(),
           reason,
         },

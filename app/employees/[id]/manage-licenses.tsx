@@ -8,6 +8,9 @@ type AssignedLicense = {
   assignmentId: number;
   licenseId: number;
   licenseName: string;
+  isVolumeLicense: boolean;
+  seatKey: string | null;
+  volumeKey: string | null;
   assignedDate: string;
   reason: string | null;
 };
@@ -190,6 +193,7 @@ export default function ManageLicenses({
                   />
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">라이선스</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">키</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">배정일</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">사유</th>
               </tr>
@@ -211,6 +215,13 @@ export default function ManageLicenses({
                     />
                   </td>
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">{a.licenseName}</td>
+                  <td className="px-4 py-3 text-sm">
+                    {(() => {
+                      const key = a.isVolumeLicense ? a.volumeKey : a.seatKey;
+                      if (!key) return <span className="text-gray-400">—</span>;
+                      return <span className="font-mono text-gray-600">{key}</span>;
+                    })()}
+                  </td>
                   <td className="px-4 py-3 text-sm text-gray-600">{a.assignedDate}</td>
                   <td className="px-4 py-3 text-sm text-gray-500">{a.reason ?? "—"}</td>
                 </tr>

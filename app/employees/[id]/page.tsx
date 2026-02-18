@@ -11,7 +11,10 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
     where: { id: Number(id) },
     include: {
       assignments: {
-        include: { license: true },
+        include: {
+          license: true,
+          seat: { select: { key: true } },
+        },
         orderBy: { assignedDate: "desc" },
       },
     },
@@ -64,6 +67,9 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
     assignmentId: a.id,
     licenseId: a.licenseId,
     licenseName: a.license.name,
+    isVolumeLicense: a.license.isVolumeLicense,
+    seatKey: a.seat?.key ?? null,
+    volumeKey: a.license.isVolumeLicense ? a.license.key : null,
     assignedDate: a.assignedDate.toLocaleDateString("ko-KR"),
     reason: a.reason,
   }));
