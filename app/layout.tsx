@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import Providers from "./providers";
 import LogoutButton from "./logout-button";
 import { getCurrentUser } from "@/lib/auth";
@@ -26,7 +28,14 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const h = await headers();
+  const pathname = h.get("x-pathname") ?? "";
   const user = await getCurrentUser();
+
+  // 세션 쿠키는 있지만 DB 세션이 만료/삭제된 경우 로그인으로 리다이렉트
+  if (!user && pathname !== "/login") {
+    redirect("/login");
+  }
 
   return (
     <html lang="ko">
