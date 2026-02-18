@@ -75,10 +75,10 @@ export default function EditLicenseForm({
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">라이선스 수정</h1>
           <Link
-            href="/licenses"
+            href={`/licenses/${license.id}`}
             className="text-sm text-gray-500 hover:text-gray-700"
           >
-            &larr; 목록으로
+            &larr; 상세로
           </Link>
         </div>
 
@@ -105,18 +105,14 @@ export default function EditLicenseForm({
               />
             </Field>
 
-            {isVolume ? (
-              <Field label="라이선스 키">
-                <input
-                  type="text"
-                  name="key"
-                  defaultValue={license.key ?? ""}
-                  className="input"
-                />
-              </Field>
-            ) : (
-              <input type="hidden" name="key" value="" />
-            )}
+            <Field label="라이선스 키">
+              <input
+                type="text"
+                name="key"
+                defaultValue={license.key ?? ""}
+                className="input"
+              />
+            </Field>
 
             <label className="flex items-center gap-2">
               <input type="checkbox" name="isVolumeLicense" checked={isVolume} onChange={(e) => setIsVolume(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
@@ -288,7 +284,7 @@ export default function EditLicenseForm({
 
             <div className="flex items-center gap-3">
               <Link
-                href="/licenses"
+                href={`/licenses/${license.id}`}
                 className="rounded-md px-4 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50"
               >
                 취소
@@ -326,30 +322,10 @@ function SeatTable({
     setDupError(null);
   }, []);
 
-  async function checkDuplicate(key: string, seatId: number): Promise<string | null> {
-    if (!key.trim()) return null;
-    try {
-      const res = await fetch(`/api/seats/check-key?key=${encodeURIComponent(key)}&excludeSeatId=${seatId}`);
-      const data = await res.json();
-      if (data.duplicate) return `"${data.licenseName}"에 이미 등록된 키`;
-      return null;
-    } catch {
-      return null;
-    }
-  }
-
   async function handleSave(seatId: number) {
     const trimmed = editValue.trim();
     setSaving(true);
     setDupError(null);
-
-    // Check for duplicate key
-    const error = await checkDuplicate(trimmed, seatId);
-    if (error) {
-      setDupError(error);
-      setSaving(false);
-      return;
-    }
 
     try {
       const res = await fetch(`/api/seats/${seatId}`, {

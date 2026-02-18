@@ -3,6 +3,7 @@ import Link from "next/link";
 import DeleteButton from "./delete-button";
 import AssignButton from "./assign-button";
 import UnassignButton from "./unassign-button";
+import LicenseRow from "./license-row";
 
 export const dynamic = "force-dynamic";
 
@@ -197,7 +198,7 @@ export default async function LicensesPage({
                     pct >= 100 ? "bg-red-500" : pct >= 80 ? "bg-yellow-500" : "bg-blue-500";
 
                   return (
-                    <tr key={license.id} className="hover:bg-gray-50">
+                    <LicenseRow key={license.id} id={license.id}>
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">
                         <span className="inline-flex items-center gap-1.5">
                           {license.name}
@@ -248,7 +249,10 @@ export default async function LicensesPage({
                         )}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <div className="flex items-center justify-center gap-1">
+                        <div
+                          className="flex items-center justify-center gap-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <AssignButton
                             licenseId={license.id}
                             licenseName={license.name}
@@ -261,16 +265,10 @@ export default async function LicensesPage({
                             licenseName={license.name}
                             assignedEmployees={license.assignedEmployees}
                           />
-                          <Link
-                            href={`/licenses/${license.id}`}
-                            className="rounded px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50"
-                          >
-                            수정
-                          </Link>
                           <DeleteButton id={license.id} name={license.name} />
                         </div>
                       </td>
-                    </tr>
+                    </LicenseRow>
                   );
                 })}
               </tbody>
