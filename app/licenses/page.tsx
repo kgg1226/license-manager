@@ -249,10 +249,7 @@ export default async function LicensesPage({
                         )}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <div
-                          className="flex items-center justify-center gap-1"
-                          onClick={(e) => e.stopPropagation()}
-                        >
+                        <div className="flex items-center justify-center gap-1">
                           <AssignButton
                             licenseId={license.id}
                             licenseName={license.name}

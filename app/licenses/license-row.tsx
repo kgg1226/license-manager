@@ -13,7 +13,10 @@ export default function LicenseRow({
   return (
     <tr
       className="cursor-pointer hover:bg-gray-50"
-      onClick={() => router.push(`/licenses/${id}`)}
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest("button, a")) return;
+        router.push(`/licenses/${id}`);
+      }}
     >
       {children}
     </tr>
