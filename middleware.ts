@@ -1,38 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/api/auth/login"];
+const SESSION_COOKIE = "session_token";
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public paths
-  if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
-    return NextResponse.next();
+  const isPublicPath =
+    pathname === "/login" || pathname.startsWith("/api/auth/");
+
+  const sessionToken = request.cookies.get(SESSION_COOKIE)?.value;
+
+  if (!isPublicPath && !sessionToken) {
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Allow Next.js internals and static files
-  if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon") ||
-    pathname.includes(".")
-  ) {
-    return NextResponse.next();
-  }
-
-  const sessionToken = request.cookies.get("session_token")?.value;
-
-  if (!sessionToken) {
-    // API routes get 401
-    if (pathname.startsWith("/api/")) {
-      return NextResponse.json(
-        { error: "인증이 필요합니다." },
-        { status: 401 }
-      );
-    }
-
-    // Page routes redirect to login
-    const loginUrl = new URL("/login", request.url);
-    return NextResponse.redirect(loginUrl);
+  if (pathname === "/login" && sessionToken) {
+    return NextResponse.redirect(new URL("/licenses", request.url));
   }
 
   return NextResponse.next();

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import Providers from "./providers";
+import LogoutButton from "./logout-button";
+import { getCurrentUser } from "@/lib/auth";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -19,37 +21,48 @@ export const metadata: Metadata = {
   description: "License management system",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = await getCurrentUser();
+
   return (
     <html lang="ko">
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-[family-name:var(--font-geist-sans)] bg-gray-50 text-gray-900 antialiased`}
       >
-        <nav className="border-b border-gray-200 bg-white">
-          <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
-            <Link href="/licenses" className="text-sm font-bold text-gray-900">
-              License Manager
-            </Link>
-            <div className="flex gap-4">
-              <Link href="/licenses" className="text-sm text-gray-600 hover:text-gray-900">
-                라이선스
+        {user && (
+          <nav className="border-b border-gray-200 bg-white">
+            <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
+              <Link href="/licenses" className="text-sm font-bold text-gray-900">
+                License Manager
               </Link>
-              <Link href="/employees" className="text-sm text-gray-600 hover:text-gray-900">
-                조직원
-              </Link>
-              <Link href="/settings/groups" className="text-sm text-gray-600 hover:text-gray-900">
-                그룹 설정
-              </Link>
-              <Link href="/settings/import" className="text-sm text-gray-600 hover:text-gray-900">
-                데이터 가져오기
-              </Link>
+              <div className="flex flex-1 gap-4">
+                <Link href="/licenses" className="text-sm text-gray-600 hover:text-gray-900">
+                  라이선스
+                </Link>
+                <Link href="/employees" className="text-sm text-gray-600 hover:text-gray-900">
+                  조직원
+                </Link>
+                <Link href="/settings/groups" className="text-sm text-gray-600 hover:text-gray-900">
+                  그룹 설정
+                </Link>
+                <Link href="/settings/import" className="text-sm text-gray-600 hover:text-gray-900">
+                  데이터 가져오기
+                </Link>
+                <Link href="/history" className="text-sm text-gray-600 hover:text-gray-900">
+                  이력
+                </Link>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-gray-400">{user.username}</span>
+                <LogoutButton />
+              </div>
             </div>
-          </div>
-        </nav>
+          </nav>
+        )}
         <Providers>{children}</Providers>
       </body>
     </html>
