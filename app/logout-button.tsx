@@ -18,7 +18,7 @@ export default function LogoutButton() {
     <button
       onClick={handleLogout}
       disabled={isPending}
-      className="text-sm text-gray-500 hover:text-gray-900 disabled:opacity-50"
+      className="rounded-md px-2.5 py-1 text-xs font-medium text-gray-600 ring-1 ring-gray-300 hover:bg-gray-100 disabled:opacity-50"
     >
       {isPending ? "로그아웃 중..." : "로그아웃"}
     </button>

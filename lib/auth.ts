@@ -60,7 +60,7 @@ export async function getCurrentUser() {
   const session = await validateSession(token);
   if (!session) return null;
 
-  return { id: session.user.id, username: session.user.username };
+  return { id: session.user.id, username: session.user.username, role: session.user.role };
 }
 
 export { SESSION_COOKIE, SESSION_DURATION_MS };

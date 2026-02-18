@@ -55,9 +55,14 @@ export default async function RootLayout({
                 <Link href="/history" className="text-sm text-gray-600 hover:text-gray-900">
                   이력
                 </Link>
+                {user.role === "ADMIN" && (
+                  <Link href="/admin" className="text-sm text-purple-600 hover:text-purple-800">
+                    관리자
+                  </Link>
+                )}
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-400">{user.username}</span>
+              <div className="flex items-center gap-3 border-l border-gray-200 pl-4">
+                <span className="text-xs text-gray-400">{user.username}</span>
                 <LogoutButton />
               </div>
             </div>
