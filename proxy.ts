@@ -5,12 +5,7 @@ const PUBLIC_PATHS = ["/login", "/api/auth/login"];
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public paths
-  if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
-    return NextResponse.next();
-  }
-
-  // Allow Next.js internals and static files
+  // Next.js internals and static files — no header needed
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
@@ -19,25 +14,31 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Helper: pass through with x-pathname header so layout can read it
+  const passthrough = () => {
+    const res = NextResponse.next();
+    res.headers.set("x-pathname", pathname);
+    return res;
+  };
+
+  // Public paths — always allow
+  if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
+    return passthrough();
+  }
+
   const sessionToken = request.cookies.get("session_token")?.value;
 
   if (!sessionToken) {
-    // API routes get 401
     if (pathname.startsWith("/api/")) {
       return NextResponse.json(
         { error: "인증이 필요합니다." },
         { status: 401 }
       );
     }
-
-    // Page routes redirect to login
-    const loginUrl = new URL("/login", request.url);
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  const response = NextResponse.next();
-  response.headers.set("x-pathname", pathname);
-  return response;
+  return passthrough();
 }
 
 export const config = {
