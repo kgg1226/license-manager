@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { writeAuditLog } from "@/lib/audit-log";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -30,9 +31,32 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       }
     }
 
-    const seat = await prisma.licenseSeat.update({
-      where: { id: seatId },
-      data: { key: newKey },
+    const seat = await prisma.$transaction(async (tx) => {
+      const oldSeat = await tx.licenseSeat.findUnique({
+        where: { id: seatId },
+        select: { key: true, licenseId: true, license: { select: { name: true } } },
+      });
+
+      const updated = await tx.licenseSeat.update({
+        where: { id: seatId },
+        data: { key: newKey },
+      });
+
+      if (oldSeat && oldSeat.key !== newKey) {
+        await writeAuditLog(tx, {
+          entityType: "SEAT",
+          entityId: seatId,
+          action: "UPDATED",
+          actor: user.username,
+          details: {
+            summary: `${oldSeat.license.name} 시트 키 변경`,
+            licenseId: oldSeat.licenseId,
+            changes: { key: { from: oldSeat.key, to: newKey } },
+          },
+        });
+      }
+
+      return updated;
     });
 
     return NextResponse.json(seat);

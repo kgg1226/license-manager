@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { syncSeats, deleteAllSeats } from "@/lib/license-seats";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export type FormState = {
   errors?: Record<string, string>;
@@ -69,7 +70,19 @@ export async function updateLicense(
     await prisma.$transaction(async (tx) => {
       const existing = await tx.license.findUnique({
         where: { id },
-        select: { isVolumeLicense: true },
+        select: {
+          name: true,
+          key: true,
+          isVolumeLicense: true,
+          totalQuantity: true,
+          price: true,
+          purchaseDate: true,
+          expiryDate: true,
+          contractDate: true,
+          noticePeriodDays: true,
+          adminName: true,
+          description: true,
+        },
       });
       if (!existing) throw new Error("라이선스를 찾을 수 없습니다.");
 
@@ -87,31 +100,49 @@ export async function updateLicense(
         }
       }
 
-      await tx.license.update({
-        where: { id },
-        data: {
-          name: name.trim(),
-          key: isVolumeLicense ? (key?.trim() || null) : null,
-          isVolumeLicense,
-          totalQuantity: qty,
-          price: price ? Number(price) : null,
-          purchaseDate: new Date(purchaseDate),
-          expiryDate: expiryDate ? new Date(expiryDate) : null,
-          contractDate: contractDate ? new Date(contractDate) : null,
-          noticePeriodDays,
-          adminName: adminName?.trim() || null,
-          description: description?.trim() || null,
-        },
-      });
+      const newData = {
+        name: name.trim(),
+        key: isVolumeLicense ? (key?.trim() || null) : null,
+        isVolumeLicense,
+        totalQuantity: qty,
+        price: price ? Number(price) : null,
+        purchaseDate: new Date(purchaseDate),
+        expiryDate: expiryDate ? new Date(expiryDate) : null,
+        contractDate: contractDate ? new Date(contractDate) : null,
+        noticePeriodDays,
+        adminName: adminName?.trim() || null,
+        description: description?.trim() || null,
+      };
+
+      await tx.license.update({ where: { id }, data: newData });
+
+      // Build diff for audit log
+      const changes: Record<string, { from: unknown; to: unknown }> = {};
+      if (existing.name !== newData.name) changes.name = { from: existing.name, to: newData.name };
+      if (existing.totalQuantity !== newData.totalQuantity) changes.totalQuantity = { from: existing.totalQuantity, to: newData.totalQuantity };
+      if (existing.isVolumeLicense !== newData.isVolumeLicense) changes.isVolumeLicense = { from: existing.isVolumeLicense, to: newData.isVolumeLicense };
+      if ((existing.price ?? null) !== (newData.price ?? null)) changes.price = { from: existing.price, to: newData.price };
+      if (existing.noticePeriodDays !== newData.noticePeriodDays) changes.noticePeriodDays = { from: existing.noticePeriodDays, to: newData.noticePeriodDays };
+      if ((existing.adminName ?? null) !== (newData.adminName ?? null)) changes.adminName = { from: existing.adminName, to: newData.adminName };
+      if ((existing.key ?? null) !== (newData.key ?? null)) changes.key = { from: existing.key, to: newData.key };
+
+      if (Object.keys(changes).length > 0) {
+        await writeAuditLog(tx, {
+          entityType: "LICENSE",
+          entityId: id,
+          action: "UPDATED",
+          details: {
+            summary: `${newData.name} 수정`,
+            changes,
+          },
+        });
+      }
 
       if (!wasVolume && isVolumeLicense) {
-        // Individual → Volume: delete all seats (safe — we verified no active assignments above)
         await deleteAllSeats(tx, id);
       } else if (wasVolume && !isVolumeLicense) {
-        // Volume → Individual: create seats
         await syncSeats(tx, id, qty);
       } else if (!isVolumeLicense) {
-        // Stayed individual: sync seat count
         await syncSeats(tx, id, qty);
       }
     });
@@ -119,12 +150,26 @@ export async function updateLicense(
     return { message: e instanceof Error ? e.message : "라이선스 수정에 실패했습니다." };
   }
 
-  redirect("/licenses");
+  redirect(`/licenses/${id}`);
 }
 
 export async function deleteLicense(id: number): Promise<FormState> {
   try {
-    await prisma.license.delete({ where: { id } });
+    const license = await prisma.license.findUnique({
+      where: { id },
+      select: { name: true },
+    });
+
+    await prisma.$transaction(async (tx) => {
+      await writeAuditLog(tx, {
+        entityType: "LICENSE",
+        entityId: id,
+        action: "DELETED",
+        details: { summary: `${license?.name ?? id} 삭제` },
+      });
+
+      await tx.license.delete({ where: { id } });
+    });
   } catch {
     return { message: "라이선스 삭제에 실패했습니다." };
   }

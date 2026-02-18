@@ -8,6 +8,7 @@ import { parseDate, parseBoolean, requireField, parseNumber } from "@/lib/csv-im
 import { generateTemplateCsv } from "./templates";
 import { templates } from "./templates";
 import { syncSeats } from "@/lib/license-seats";
+import { writeAuditLog } from "@/lib/audit-log";
 
 // ─── Public Server Actions ─────────────────────────────────────────────
 
@@ -258,6 +259,19 @@ async function importLicenses(rows: Record<string, string>[]): Promise<ImportRes
   });
 
   revalidatePath("/licenses");
+
+  // Audit log for import (outside transaction — best-effort)
+  if (created + updated > 0) {
+    await prisma.auditLog.create({
+      data: {
+        entityType: "LICENSE",
+        entityId: 0,
+        action: "IMPORTED",
+        details: JSON.stringify({ summary: `라이선스 CSV 가져오기: ${created}건 생성, ${updated}건 수정` }),
+      },
+    });
+  }
+
   return { success: true, created, updated, errors: [] };
 }
 
@@ -383,6 +397,18 @@ async function importEmployees(rows: Record<string, string>[]): Promise<ImportRe
 
   revalidatePath("/employees");
   revalidatePath("/licenses");
+
+  if (created + updated > 0) {
+    await prisma.auditLog.create({
+      data: {
+        entityType: "EMPLOYEE",
+        entityId: 0,
+        action: "IMPORTED",
+        details: JSON.stringify({ summary: `조직원 CSV 가져오기: ${created}건 생성, ${updated}건 수정` }),
+      },
+    });
+  }
+
   return { success: true, created, updated, errors: [] };
 }
 
@@ -560,6 +586,18 @@ async function importAssignments(rows: Record<string, string>[]): Promise<Import
 
   revalidatePath("/licenses");
   revalidatePath("/employees");
+
+  if (created > 0) {
+    await prisma.auditLog.create({
+      data: {
+        entityType: "ASSIGNMENT",
+        entityId: 0,
+        action: "IMPORTED",
+        details: JSON.stringify({ summary: `배정 CSV 가져오기: ${created}건 생성` }),
+      },
+    });
+  }
+
   return { success: true, created, updated: 0, errors: [] };
 }
 
@@ -708,5 +746,17 @@ async function importSeats(rows: Record<string, string>[]): Promise<ImportResult
   });
 
   revalidatePath("/licenses");
+
+  if (updated > 0) {
+    await prisma.auditLog.create({
+      data: {
+        entityType: "SEAT",
+        entityId: 0,
+        action: "IMPORTED",
+        details: JSON.stringify({ summary: `시트 키 CSV 가져오기: ${updated}건 등록` }),
+      },
+    });
+  }
+
   return { success: true, created: 0, updated, errors: [] };
 }

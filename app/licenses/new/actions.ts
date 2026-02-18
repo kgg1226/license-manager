@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { syncSeats } from "@/lib/license-seats";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export type FormState = {
   errors?: Record<string, string>;
@@ -87,6 +88,15 @@ export async function createLicense(
     if (!isVolumeLicense) {
       await syncSeats(tx, license.id, qty);
     }
+
+    await writeAuditLog(tx, {
+      entityType: "LICENSE",
+      entityId: license.id,
+      action: "CREATED",
+      details: {
+        summary: `${name.trim()} 등록 (수량: ${qty}, ${isVolumeLicense ? "볼륨" : "개별"})`,
+      },
+    });
   });
 
   redirect("/licenses");

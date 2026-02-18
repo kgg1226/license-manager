@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { deleteLicense } from "./[id]/actions";
+import { deleteLicense } from "./[id]/edit/actions";
 
 export default function DeleteButton({ id, name }: { id: number; name: string }) {
   const [isDeleting, setIsDeleting] = useState(false);

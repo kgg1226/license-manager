@@ -152,3 +152,18 @@ model LicenseGroupMember {
   @@unique([licenseGroupId, licenseId])
   @@index([licenseId])
 }
+
+// ===== AuditLog =====
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  entityType String   // LICENSE | EMPLOYEE | ASSIGNMENT | SEAT
+  entityId   Int
+  action     String   // CREATED | UPDATED | DELETED | ASSIGNED | UNASSIGNED | REVOKED | IMPORTED
+  actor      String?
+  details    String?  // JSON
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([action])
+}

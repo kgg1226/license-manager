@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export type ActionResult = {
   success: boolean;
@@ -17,19 +18,17 @@ async function findAvailableSeat(
   tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
   licenseId: number
 ): Promise<number | null> {
-  // Find seats that have no active assignment
   const availableSeats = await tx.licenseSeat.findMany({
     where: {
       licenseId,
       assignments: { none: { returnedDate: null } },
     },
     orderBy: [
-      { key: "desc" }, // seats with key first (non-null sorts after null in desc)
+      { key: "desc" },
       { id: "asc" },
     ],
   });
 
-  // Sort: key present first, then key absent
   const sorted = [
     ...availableSeats.filter((s) => s.key !== null),
     ...availableSeats.filter((s) => s.key === null),
@@ -68,14 +67,12 @@ export async function assignLicenses(
 
         if (!license) { skipped.push(`ID ${licenseId}: 존재하지 않음`); continue; }
 
-        // Already assigned to this employee
         if (license.assignments.some((a) => a.employeeId === employeeId)) {
           skipped.push(`${license.name}: 이미 배정됨`);
           continue;
         }
 
         if (!license.isVolumeLicense) {
-          // Individual license: find available seat
           const seatId = await findAvailableSeat(tx, licenseId);
           if (!seatId) {
             skipped.push(`${license.name}: 잔여 시트 없음`);
@@ -95,8 +92,21 @@ export async function assignLicenses(
               reason: "Manual assignment (Individual Key)",
             },
           });
+
+          await writeAuditLog(tx, {
+            entityType: "ASSIGNMENT",
+            entityId: assignment.id,
+            action: "ASSIGNED",
+            details: {
+              summary: `${employee.name} → ${license.name}`,
+              employeeId,
+              employeeName: employee.name,
+              licenseId,
+              licenseName: license.name,
+              seatId,
+            },
+          });
         } else {
-          // Volume license: check total capacity
           if (license.assignments.length >= license.totalQuantity) {
             skipped.push(`${license.name}: 잔여 수량 없음`);
             continue;
@@ -113,6 +123,19 @@ export async function assignLicenses(
               employeeId,
               action: "ASSIGNED",
               reason: "Manual assignment (Volume Key)",
+            },
+          });
+
+          await writeAuditLog(tx, {
+            entityType: "ASSIGNMENT",
+            entityId: assignment.id,
+            action: "ASSIGNED",
+            details: {
+              summary: `${employee.name} → ${license.name} (Volume)`,
+              employeeId,
+              employeeName: employee.name,
+              licenseId,
+              licenseName: license.name,
             },
           });
         }
@@ -142,8 +165,6 @@ export async function assignLicenses(
 
 /**
  * Bulk-unassign multiple licenses from an employee within a single transaction.
- * Sets returnedDate instead of deleting, preserving history.
- * seatId is kept on the assignment record (seat becomes available again).
  */
 export async function unassignLicenses(
   employeeId: number,
@@ -153,15 +174,21 @@ export async function unassignLicenses(
 
   try {
     const result = await prisma.$transaction(async (tx) => {
+      const employee = await tx.employee.findUnique({
+        where: { id: employeeId },
+        select: { name: true },
+      });
+
       let returned = 0;
 
       for (const assignmentId of assignmentIds) {
         const assignment = await tx.assignment.findUnique({
           where: { id: assignmentId },
+          include: { license: { select: { name: true } } },
         });
 
         if (!assignment || assignment.employeeId !== employeeId) continue;
-        if (assignment.returnedDate) continue; // already returned
+        if (assignment.returnedDate) continue;
 
         await tx.assignment.update({
           where: { id: assignmentId },
@@ -175,6 +202,18 @@ export async function unassignLicenses(
             employeeId,
             action: "RETURNED",
             reason: "Manual unassignment",
+          },
+        });
+
+        await writeAuditLog(tx, {
+          entityType: "ASSIGNMENT",
+          entityId: assignmentId,
+          action: "UNASSIGNED",
+          details: {
+            summary: `${employee?.name ?? employeeId} ← ${assignment.license.name}`,
+            employeeId,
+            licenseId: assignment.licenseId,
+            licenseName: assignment.license.name,
           },
         });
 
