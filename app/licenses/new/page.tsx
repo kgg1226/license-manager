@@ -62,6 +62,12 @@ export default function NewLicensePage() {
               />
             </Field>
 
+            <label className="flex items-center gap-2">
+              <input type="checkbox" name="isVolumeLicense" className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+              <span className="text-sm font-medium text-gray-700">볼륨 라이선스</span>
+              <span className="text-xs text-gray-500">(하나의 키를 여러 명에게 배정 가능)</span>
+            </label>
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <Field label="수량" required error={state.errors?.totalQuantity}>
                 <input

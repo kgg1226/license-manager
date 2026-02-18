@@ -44,6 +44,9 @@ export default function RootLayout({
               <Link href="/settings/groups" className="text-sm text-gray-600 hover:text-gray-900">
                 그룹 설정
               </Link>
+              <Link href="/settings/import" className="text-sm text-gray-600 hover:text-gray-900">
+                데이터 가져오기
+              </Link>
             </div>
           </div>
         </nav>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { syncSeats } from "@/lib/license-seats";
 
 // GET /api/licenses — 라이선스 목록 조회
 export async function GET() {
@@ -12,6 +13,9 @@ export async function GET() {
         assignments: {
           where: { returnedDate: null },
         },
+        seats: {
+          select: { id: true, key: true },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -20,6 +24,7 @@ export async function GET() {
       ...license,
       assignedQuantity: license.assignments.length,
       remainingQuantity: license.totalQuantity - license.assignments.length,
+      missingKeyCount: license.isVolumeLicense ? 0 : license.seats.filter((s) => s.key === null).length,
       assignments: undefined,
     }));
 
@@ -51,19 +56,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const license = await prisma.license.create({
-      data: {
-        name,
-        key: key || null,
-        totalQuantity: Number(totalQuantity),
-        price: price != null ? Number(price) : null,
-        purchaseDate: new Date(purchaseDate),
-        expiryDate: expiryDate ? new Date(expiryDate) : null,
-        contractDate: contractDate ? new Date(contractDate) : null,
-        noticePeriodDays: noticePeriodDays != null ? Number(noticePeriodDays) : null,
-        adminName: adminName || null,
-        description: description || null,
-      },
+    const isVolumeLicense = body.isVolumeLicense ?? false;
+    const qty = Number(totalQuantity);
+
+    const license = await prisma.$transaction(async (tx) => {
+      const created = await tx.license.create({
+        data: {
+          name,
+          key: isVolumeLicense ? (key || null) : null,
+          isVolumeLicense,
+          totalQuantity: qty,
+          price: price != null ? Number(price) : null,
+          purchaseDate: new Date(purchaseDate),
+          expiryDate: expiryDate ? new Date(expiryDate) : null,
+          contractDate: contractDate ? new Date(contractDate) : null,
+          noticePeriodDays: noticePeriodDays != null ? Number(noticePeriodDays) : null,
+          adminName: adminName || null,
+          description: description || null,
+        },
+      });
+
+      if (!isVolumeLicense) {
+        await syncSeats(tx, created.id, qty);
+      }
+
+      return created;
     });
 
     return NextResponse.json(license, { status: 201 });

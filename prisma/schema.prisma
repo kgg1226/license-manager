@@ -46,6 +46,7 @@ model License {
   id               Int          @id @default(autoincrement())
   name             String
   key              String?
+  isVolumeLicense  Boolean      @default(false)
   totalQuantity    Int
   price            Float?
   purchaseDate     DateTime
@@ -58,6 +59,7 @@ model License {
   updatedAt        DateTime     @updatedAt
 
   assignments      Assignment[]
+  seats            LicenseSeat[]
   groupMembers     LicenseGroupMember[]
 }
 
@@ -73,23 +75,40 @@ model Employee {
   assignments Assignment[]
 }
 
+// ===== LicenseSeat =====
+model LicenseSeat {
+  id        Int      @id @default(autoincrement())
+  licenseId Int
+  key       String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  license     License      @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  assignments Assignment[]
+
+  @@index([licenseId])
+}
+
 // ===== Assignment =====
 model Assignment {
   id           Int       @id @default(autoincrement())
   licenseId    Int
   employeeId   Int
+  seatId       Int?
   assignedDate DateTime  @default(now())
   returnedDate DateTime?
   reason       String?
   createdAt    DateTime  @default(now())
 
-  license  License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
-  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  license  License      @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  employee Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  seat     LicenseSeat? @relation(fields: [seatId], references: [id], onDelete: SetNull)
 
   histories AssignmentHistory[]
 
   @@index([licenseId])
   @@index([employeeId])
+  @@index([seatId])
 }
 
 // ===== AssignmentHistory =====

@@ -10,6 +10,35 @@ export type ActionResult = {
 };
 
 /**
+ * Find an available seat for an individual license.
+ * Priority: seats with key first, then without key.
+ */
+async function findAvailableSeat(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  licenseId: number
+): Promise<number | null> {
+  // Find seats that have no active assignment
+  const availableSeats = await tx.licenseSeat.findMany({
+    where: {
+      licenseId,
+      assignments: { none: { returnedDate: null } },
+    },
+    orderBy: [
+      { key: "desc" }, // seats with key first (non-null sorts after null in desc)
+      { id: "asc" },
+    ],
+  });
+
+  // Sort: key present first, then key absent
+  const sorted = [
+    ...availableSeats.filter((s) => s.key !== null),
+    ...availableSeats.filter((s) => s.key === null),
+  ];
+
+  return sorted[0]?.id ?? null;
+}
+
+/**
  * Bulk-assign multiple licenses to an employee within a single transaction.
  */
 export async function assignLicenses(
@@ -31,6 +60,7 @@ export async function assignLicenses(
           where: { id: licenseId },
           select: {
             name: true,
+            isVolumeLicense: true,
             totalQuantity: true,
             assignments: { where: { returnedDate: null }, select: { employeeId: true } },
           },
@@ -44,25 +74,48 @@ export async function assignLicenses(
           continue;
         }
 
-        // No remaining capacity
-        if (license.assignments.length >= license.totalQuantity) {
-          skipped.push(`${license.name}: 잔여 수량 없음`);
-          continue;
+        if (!license.isVolumeLicense) {
+          // Individual license: find available seat
+          const seatId = await findAvailableSeat(tx, licenseId);
+          if (!seatId) {
+            skipped.push(`${license.name}: 잔여 시트 없음`);
+            continue;
+          }
+
+          const assignment = await tx.assignment.create({
+            data: { licenseId, employeeId, seatId, reason: "Manual assignment (Individual Key)" },
+          });
+
+          await tx.assignmentHistory.create({
+            data: {
+              assignmentId: assignment.id,
+              licenseId,
+              employeeId,
+              action: "ASSIGNED",
+              reason: "Manual assignment (Individual Key)",
+            },
+          });
+        } else {
+          // Volume license: check total capacity
+          if (license.assignments.length >= license.totalQuantity) {
+            skipped.push(`${license.name}: 잔여 수량 없음`);
+            continue;
+          }
+
+          const assignment = await tx.assignment.create({
+            data: { licenseId, employeeId, reason: "Manual assignment (Volume Key)" },
+          });
+
+          await tx.assignmentHistory.create({
+            data: {
+              assignmentId: assignment.id,
+              licenseId,
+              employeeId,
+              action: "ASSIGNED",
+              reason: "Manual assignment (Volume Key)",
+            },
+          });
         }
-
-        const assignment = await tx.assignment.create({
-          data: { licenseId, employeeId },
-        });
-
-        await tx.assignmentHistory.create({
-          data: {
-            assignmentId: assignment.id,
-            licenseId,
-            employeeId,
-            action: "ASSIGNED",
-            reason: "Manual assignment",
-          },
-        });
 
         assigned++;
       }
@@ -90,6 +143,7 @@ export async function assignLicenses(
 /**
  * Bulk-unassign multiple licenses from an employee within a single transaction.
  * Sets returnedDate instead of deleting, preserving history.
+ * seatId is kept on the assignment record (seat becomes available again).
  */
 export async function unassignLicenses(
   employeeId: number,

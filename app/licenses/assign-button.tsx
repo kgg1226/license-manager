@@ -12,12 +12,14 @@ export default function AssignButton({
   remaining,
   employees,
   assignedEmployeeIds,
+  isVolumeLicense = false,
 }: {
   licenseId: number;
   licenseName: string;
   remaining: number;
   employees: Employee[];
   assignedEmployeeIds: number[];
+  isVolumeLicense?: boolean;
 }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -71,10 +73,23 @@ export default function AssignButton({
           onClick={(e) => { if (e.target === e.currentTarget) close(); }}
         >
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="mb-1 text-lg font-semibold text-gray-900">라이선스 배정</h3>
-            <p className="mb-4 text-sm text-gray-500">
+            <h3 className="mb-1 text-lg font-semibold text-gray-900">
+              라이선스 배정
+              {isVolumeLicense && (
+                <span className="ml-2 rounded bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700">
+                  Volume License
+                </span>
+              )}
+            </h3>
+            <p className="mb-1 text-sm text-gray-500">
               {licenseName} — 잔여 {remaining}개
             </p>
+            {isVolumeLicense && (
+              <p className="mb-4 text-xs text-purple-600">
+                이 키는 배정 대상자와 공유됩니다.
+              </p>
+            )}
+            {!isVolumeLicense && <div className="mb-3" />}
 
             <input
               type="text"

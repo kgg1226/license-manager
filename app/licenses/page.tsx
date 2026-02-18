@@ -61,6 +61,7 @@ export default async function LicensesPage({
     select: {
       id: true,
       name: true,
+      isVolumeLicense: true,
       totalQuantity: true,
       price: true,
       purchaseDate: true,
@@ -75,15 +76,25 @@ export default async function LicensesPage({
           employee: { select: { name: true, department: true } },
         },
       },
+      seats: {
+        select: {
+          id: true,
+          key: true,
+        },
+      },
     },
   });
 
   const enriched = licenses.map((license) => {
     const assignedCount = license.assignments.length;
+    const maxCapacity = license.isVolumeLicense ? license.totalQuantity : license.seats.length || license.totalQuantity;
+    const missingKeyCount = license.isVolumeLicense ? 0 : license.seats.filter((s) => s.key === null).length;
     return {
       ...license,
       assignedCount,
-      remainingCount: license.totalQuantity - assignedCount,
+      maxCapacity,
+      missingKeyCount,
+      remainingCount: maxCapacity - assignedCount,
       assignedEmployeeIds: license.assignments.map((a) => a.employeeId),
       assignedEmployees: license.assignments.map((a) => ({
         assignmentId: a.id,
@@ -179,8 +190,8 @@ export default async function LicensesPage({
               <tbody className="divide-y divide-gray-100">
                 {enriched.map((license) => {
                   const badge = getNoticeBadge(license.expiryDate, license.noticePeriodDays);
-                  const pct = license.totalQuantity > 0
-                    ? Math.round((license.assignedCount / license.totalQuantity) * 100)
+                  const pct = license.maxCapacity > 0
+                    ? Math.round((license.assignedCount / license.maxCapacity) * 100)
                     : 0;
                   const barColor =
                     pct >= 100 ? "bg-red-500" : pct >= 80 ? "bg-yellow-500" : "bg-blue-500";
@@ -188,10 +199,22 @@ export default async function LicensesPage({
                   return (
                     <tr key={license.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                        {license.name}
+                        <span className="inline-flex items-center gap-1.5">
+                          {license.name}
+                          {license.isVolumeLicense && (
+                            <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700">
+                              Volume
+                            </span>
+                          )}
+                          {!license.isVolumeLicense && license.missingKeyCount > 0 && (
+                            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                              키 미등록 {license.missingKeyCount}
+                            </span>
+                          )}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600 tabular-nums">
-                        {license.totalQuantity}
+                        {license.maxCapacity}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -202,7 +225,7 @@ export default async function LicensesPage({
                             />
                           </div>
                           <span className="text-sm tabular-nums text-gray-600">
-                            {license.assignedCount} / {license.totalQuantity}
+                            {license.assignedCount} / {license.maxCapacity}
                           </span>
                         </div>
                       </td>
@@ -232,6 +255,7 @@ export default async function LicensesPage({
                             remaining={license.remainingCount}
                             employees={employees}
                             assignedEmployeeIds={license.assignedEmployeeIds}
+                            isVolumeLicense={license.isVolumeLicense}
                           />
                           <UnassignButton
                             licenseName={license.name}

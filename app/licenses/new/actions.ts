@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import { syncSeats } from "@/lib/license-seats";
 
 export type FormState = {
   errors?: Record<string, string>;
@@ -14,6 +15,7 @@ export async function createLicense(
 ): Promise<FormState> {
   const name = formData.get("name") as string;
   const key = formData.get("key") as string;
+  const isVolumeLicense = formData.get("isVolumeLicense") === "on";
   const totalQuantity = formData.get("totalQuantity") as string;
   const price = formData.get("price") as string;
   const purchaseDate = formData.get("purchaseDate") as string;
@@ -62,19 +64,29 @@ export async function createLicense(
     return { errors };
   }
 
-  await prisma.license.create({
-    data: {
-      name: name.trim(),
-      key: key?.trim() || null,
-      totalQuantity: Number(totalQuantity),
-      price: price ? Number(price) : null,
-      purchaseDate: new Date(purchaseDate),
-      expiryDate: expiryDate ? new Date(expiryDate) : null,
-      contractDate: contractDate ? new Date(contractDate) : null,
-      noticePeriodDays,
-      adminName: adminName?.trim() || null,
-      description: description?.trim() || null,
-    },
+  const qty = Number(totalQuantity);
+
+  await prisma.$transaction(async (tx) => {
+    const license = await tx.license.create({
+      data: {
+        name: name.trim(),
+        key: isVolumeLicense ? (key?.trim() || null) : null,
+        isVolumeLicense,
+        totalQuantity: qty,
+        price: price ? Number(price) : null,
+        purchaseDate: new Date(purchaseDate),
+        expiryDate: expiryDate ? new Date(expiryDate) : null,
+        contractDate: contractDate ? new Date(contractDate) : null,
+        noticePeriodDays,
+        adminName: adminName?.trim() || null,
+        description: description?.trim() || null,
+      },
+    });
+
+    // Individual license: create seats
+    if (!isVolumeLicense) {
+      await syncSeats(tx, license.id, qty);
+    }
   });
 
   redirect("/licenses");

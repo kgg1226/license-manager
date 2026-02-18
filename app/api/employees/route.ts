@@ -66,13 +66,18 @@ export async function POST(request: NextRequest) {
     for (const group of defaultGroups) {
       for (const member of group.members) {
         const license = member.license;
-        // Check remaining capacity
+        // Check capacity based on license type
         const activeCount = await prisma.assignment.count({
           where: { licenseId: license.id, returnedDate: null },
         });
-        if (activeCount >= license.totalQuantity) continue;
 
-        const reason = `Auto-assigned via Group: ${group.name}`;
+        // Individual license: max 1 assignment
+        if (!license.isVolumeLicense && activeCount >= 1) continue;
+        // Volume license: check total quantity
+        if (license.isVolumeLicense && activeCount >= license.totalQuantity) continue;
+
+        const keyType = license.isVolumeLicense ? "Volume Key" : "Individual Key";
+        const reason = `Auto-assigned via Group: ${group.name} (${keyType})`;
         const assignment = await prisma.assignment.create({
           data: {
             licenseId: license.id,

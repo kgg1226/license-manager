@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { syncSeats, deleteAllSeats } from "@/lib/license-seats";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -16,6 +17,15 @@ export async function GET(request: NextRequest, { params }: Params) {
         assignments: {
           include: { employee: true },
           orderBy: { assignedDate: "desc" },
+        },
+        seats: {
+          include: {
+            assignments: {
+              where: { returnedDate: null },
+              select: { employee: { select: { name: true } } },
+            },
+          },
+          orderBy: { id: "asc" },
         },
       },
     });
@@ -57,28 +67,66 @@ export async function PUT(request: NextRequest, { params }: Params) {
       contractDate, noticePeriodDays, adminName, description,
     } = body;
 
-    const license = await prisma.license.update({
-      where: { id: Number(id) },
-      data: {
-        ...(name !== undefined && { name }),
-        ...(key !== undefined && { key: key || null }),
-        ...(totalQuantity !== undefined && { totalQuantity: Number(totalQuantity) }),
-        ...(price !== undefined && { price: price != null ? Number(price) : null }),
-        ...(purchaseDate !== undefined && { purchaseDate: new Date(purchaseDate) }),
-        ...(expiryDate !== undefined && { expiryDate: expiryDate ? new Date(expiryDate) : null }),
-        ...(contractDate !== undefined && { contractDate: contractDate ? new Date(contractDate) : null }),
-        ...(noticePeriodDays !== undefined && { noticePeriodDays: noticePeriodDays != null ? Number(noticePeriodDays) : null }),
-        ...(adminName !== undefined && { adminName: adminName || null }),
-        ...(description !== undefined && { description: description || null }),
-      },
+    const licenseId = Number(id);
+    const isVolumeLicense = body.isVolumeLicense;
+
+    const license = await prisma.$transaction(async (tx) => {
+      const existing = await tx.license.findUnique({
+        where: { id: licenseId },
+        select: { isVolumeLicense: true },
+      });
+
+      // Risk 3: Block type conversion if active assignments exist
+      if (existing && isVolumeLicense !== undefined && existing.isVolumeLicense !== isVolumeLicense) {
+        const activeAssignments = await tx.assignment.count({
+          where: { licenseId, returnedDate: null },
+        });
+        if (activeAssignments > 0) {
+          throw new Error(
+            `활성 배정이 ${activeAssignments}건 있어 라이선스 유형을 변경할 수 없습니다. 먼저 모든 배정을 해제하세요.`
+          );
+        }
+      }
+
+      const updated = await tx.license.update({
+        where: { id: licenseId },
+        data: {
+          ...(name !== undefined && { name }),
+          ...(key !== undefined && { key: isVolumeLicense ? (key || null) : null }),
+          ...(isVolumeLicense !== undefined && { isVolumeLicense }),
+          ...(totalQuantity !== undefined && { totalQuantity: Number(totalQuantity) }),
+          ...(price !== undefined && { price: price != null ? Number(price) : null }),
+          ...(purchaseDate !== undefined && { purchaseDate: new Date(purchaseDate) }),
+          ...(expiryDate !== undefined && { expiryDate: expiryDate ? new Date(expiryDate) : null }),
+          ...(contractDate !== undefined && { contractDate: contractDate ? new Date(contractDate) : null }),
+          ...(noticePeriodDays !== undefined && { noticePeriodDays: noticePeriodDays != null ? Number(noticePeriodDays) : null }),
+          ...(adminName !== undefined && { adminName: adminName || null }),
+          ...(description !== undefined && { description: description || null }),
+        },
+      });
+
+      if (existing && isVolumeLicense !== undefined) {
+        if (!existing.isVolumeLicense && isVolumeLicense) {
+          await deleteAllSeats(tx, licenseId);
+        } else if (existing.isVolumeLicense && !isVolumeLicense) {
+          await syncSeats(tx, licenseId, totalQuantity !== undefined ? Number(totalQuantity) : updated.totalQuantity);
+        }
+      }
+
+      if (!updated.isVolumeLicense && totalQuantity !== undefined) {
+        await syncSeats(tx, licenseId, Number(totalQuantity));
+      }
+
+      return updated;
     });
 
     return NextResponse.json(license);
   } catch (error) {
     console.error("Failed to update license:", error);
+    const message = error instanceof Error ? error.message : "라이선스 수정에 실패했습니다.";
     return NextResponse.json(
-      { error: "라이선스 수정에 실패했습니다." },
-      { status: 500 }
+      { error: message },
+      { status: 400 }
     );
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useCallback } from "react";
 import { updateLicense, deleteLicense, type FormState } from "./actions";
 import Link from "next/link";
 
@@ -15,6 +15,7 @@ type License = {
   id: number;
   name: string;
   key: string | null;
+  isVolumeLicense: boolean;
   totalQuantity: number;
   price: number | null;
   purchaseDate: Date;
@@ -23,6 +24,12 @@ type License = {
   noticePeriodDays: number | null;
   adminName: string | null;
   description: string | null;
+};
+
+type Seat = {
+  id: number;
+  key: string | null;
+  assignedTo: { name: string; department: string } | null;
 };
 
 function toDateString(date: Date | null): string {
@@ -37,7 +44,13 @@ function resolveNoticePeriodType(days: number | null): string {
   return "custom";
 }
 
-export default function EditLicenseForm({ license }: { license: License }) {
+export default function EditLicenseForm({
+  license,
+  seats: initialSeats,
+}: {
+  license: License;
+  seats: Seat[];
+}) {
   const initialState: FormState = {};
   const boundUpdate = updateLicense.bind(null, license.id);
   const [state, formAction, isPending] = useActionState(boundUpdate, initialState);
@@ -45,6 +58,7 @@ export default function EditLicenseForm({ license }: { license: License }) {
   const initialNoticeType = resolveNoticePeriodType(license.noticePeriodDays);
   const [noticePeriodType, setNoticePeriodType] = useState(initialNoticeType);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [seats, setSeats] = useState(initialSeats);
 
   async function handleDelete() {
     if (!window.confirm("이 라이선스를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")) {
@@ -90,14 +104,26 @@ export default function EditLicenseForm({ license }: { license: License }) {
               />
             </Field>
 
-            <Field label="라이선스 키">
-              <input
-                type="text"
-                name="key"
-                defaultValue={license.key ?? ""}
-                className="input"
-              />
-            </Field>
+            {license.isVolumeLicense && (
+              <Field label="라이선스 키">
+                <input
+                  type="text"
+                  name="key"
+                  defaultValue={license.key ?? ""}
+                  className="input"
+                />
+              </Field>
+            )}
+
+            {!license.isVolumeLicense && (
+              <input type="hidden" name="key" value="" />
+            )}
+
+            <label className="flex items-center gap-2">
+              <input type="checkbox" name="isVolumeLicense" defaultChecked={license.isVolumeLicense} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+              <span className="text-sm font-medium text-gray-700">볼륨 라이선스</span>
+              <span className="text-xs text-gray-500">(하나의 키를 여러 명에게 배정 가능)</span>
+            </label>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <Field label="수량" required error={state.errors?.totalQuantity}>
@@ -132,6 +158,16 @@ export default function EditLicenseForm({ license }: { license: License }) {
               </Field>
             </div>
           </fieldset>
+
+          {/* 시트 목록 (개별 라이선스) */}
+          {!license.isVolumeLicense && seats.length > 0 && (
+            <fieldset className="space-y-4">
+              <legend className="text-base font-semibold text-gray-900 border-b border-gray-200 pb-2 w-full">
+                시트 ({seats.length}개)
+              </legend>
+              <SeatTable seats={seats} onSeatsChange={setSeats} />
+            </fieldset>
+          )}
 
           {/* 날짜 정보 */}
           <fieldset className="space-y-4">
@@ -268,6 +304,182 @@ export default function EditLicenseForm({ license }: { license: License }) {
             </div>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function SeatTable({
+  seats,
+  onSeatsChange,
+}: {
+  seats: Seat[];
+  onSeatsChange: (seats: Seat[]) => void;
+}) {
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [dupError, setDupError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const startEdit = useCallback((seat: Seat) => {
+    setEditingId(seat.id);
+    setEditValue(seat.key ?? "");
+    setDupError(null);
+  }, []);
+
+  async function checkDuplicate(key: string, seatId: number): Promise<string | null> {
+    if (!key.trim()) return null;
+    try {
+      const res = await fetch(`/api/seats/check-key?key=${encodeURIComponent(key)}&excludeSeatId=${seatId}`);
+      const data = await res.json();
+      if (data.duplicate) return `"${data.licenseName}"에 이미 등록된 키`;
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function handleSave(seatId: number) {
+    const trimmed = editValue.trim();
+    setSaving(true);
+    setDupError(null);
+
+    // Check for duplicate key
+    const error = await checkDuplicate(trimmed, seatId);
+    if (error) {
+      setDupError(error);
+      setSaving(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/seats/${seatId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: trimmed || null }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setDupError(data.error || "저장 실패");
+        setSaving(false);
+        return;
+      }
+
+      // Update local state
+      onSeatsChange(
+        seats.map((s) => (s.id === seatId ? { ...s, key: trimmed || null } : s))
+      );
+      setEditingId(null);
+    } catch {
+      setDupError("저장 실패");
+    }
+    setSaving(false);
+  }
+
+  function handleCancel() {
+    setEditingId(null);
+    setDupError(null);
+  }
+
+  const missingCount = seats.filter((s) => s.key === null).length;
+
+  return (
+    <div>
+      {missingCount > 0 && (
+        <p className="mb-2 text-xs text-amber-600">
+          키 미등록 {missingCount}건
+        </p>
+      )}
+      <div className="overflow-x-auto rounded-md border border-gray-200">
+        <table className="min-w-full divide-y divide-gray-200 text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">#</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">키</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">상태</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">배정자</th>
+              <th className="px-3 py-2 text-center text-xs font-medium text-gray-500">관리</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {seats.map((seat, idx) => (
+              <tr key={seat.id} className="hover:bg-gray-50">
+                <td className="px-3 py-2 text-gray-500 tabular-nums">{idx + 1}</td>
+                <td className="px-3 py-2">
+                  {editingId === seat.id ? (
+                    <div>
+                      <input
+                        type="text"
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        className="input text-sm"
+                        placeholder="라이선스 키 입력"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") { e.preventDefault(); handleSave(seat.id); }
+                          if (e.key === "Escape") handleCancel();
+                        }}
+                      />
+                      {dupError && (
+                        <p className="mt-1 text-xs text-red-600">{dupError}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <span className={seat.key ? "font-mono text-gray-900" : "text-gray-400 italic"}>
+                      {seat.key ?? "미등록"}
+                    </span>
+                  )}
+                </td>
+                <td className="px-3 py-2">
+                  {seat.assignedTo ? (
+                    <span className="inline-block rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                      사용 중
+                    </span>
+                  ) : (
+                    <span className="inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                      미배정
+                    </span>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-gray-600">
+                  {seat.assignedTo
+                    ? `${seat.assignedTo.name} (${seat.assignedTo.department})`
+                    : "—"}
+                </td>
+                <td className="px-3 py-2 text-center">
+                  {editingId === seat.id ? (
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleSave(seat.id)}
+                        disabled={saving}
+                        className="rounded px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+                      >
+                        {saving ? "..." : "저장"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancel}
+                        className="rounded px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100"
+                      >
+                        취소
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => startEdit(seat)}
+                      className="rounded px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50"
+                    >
+                      편집
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
