@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -10,12 +7,6 @@ datasource db {
   provider = "sqlite"
 }
 
-enum Role {
-  ADMIN
-  USER
-}
-
-// ===== User =====
 model User {
   id        Int       @id @default(autoincrement())
   username  String    @unique
@@ -24,29 +15,26 @@ model User {
   name      String?
   role      Role      @default(USER)
   googleId  String?   @unique
+  isActive  Boolean   @default(true)
   createdAt DateTime  @default(now())
-
   sessions  Session[]
 }
 
-// ===== Session =====
 model Session {
-  id        String   @id // UUID
+  id        String   @id
   userId    Int
   expiresAt DateTime
   createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
-// ===== License =====
 model License {
-  id               Int          @id @default(autoincrement())
+  id               Int                  @id @default(autoincrement())
   name             String
   key              String?
-  isVolumeLicense  Boolean      @default(false)
+  isVolumeLicense  Boolean              @default(false)
   totalQuantity    Int
   price            Float?
   purchaseDate     DateTime
@@ -55,115 +43,104 @@ model License {
   noticePeriodDays Int?
   adminName        String?
   description      String?
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
   assignments      Assignment[]
-  seats            LicenseSeat[]
   groupMembers     LicenseGroupMember[]
+  seats            LicenseSeat[]
 }
 
-// ===== Employee =====
 model Employee {
-  id         Int          @id @default(autoincrement())
-  name       String
-  department String
-  email      String?      @unique
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
-
+  id          Int          @id @default(autoincrement())
+  name        String
+  department  String
+  email       String?      @unique
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
   assignments Assignment[]
 }
 
-// ===== LicenseSeat =====
 model LicenseSeat {
-  id        Int      @id @default(autoincrement())
-  licenseId Int
-  key       String?  @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  license     License      @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  id          Int          @id @default(autoincrement())
+  licenseId   Int
+  key         String?      @unique
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
   assignments Assignment[]
+  license     License      @relation(fields: [licenseId], references: [id], onDelete: Cascade)
 
   @@index([licenseId])
 }
 
-// ===== Assignment =====
 model Assignment {
-  id           Int       @id @default(autoincrement())
+  id           Int                 @id @default(autoincrement())
   licenseId    Int
   employeeId   Int
   seatId       Int?
-  assignedDate DateTime  @default(now())
+  assignedDate DateTime            @default(now())
   returnedDate DateTime?
   reason       String?
-  createdAt    DateTime  @default(now())
-
-  license  License      @relation(fields: [licenseId], references: [id], onDelete: Cascade)
-  employee Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  seat     LicenseSeat? @relation(fields: [seatId], references: [id], onDelete: SetNull)
-
-  histories AssignmentHistory[]
+  createdAt    DateTime            @default(now())
+  seat         LicenseSeat?        @relation(fields: [seatId], references: [id])
+  employee     Employee            @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  license      License             @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  histories    AssignmentHistory[]
 
   @@index([licenseId])
   @@index([employeeId])
   @@index([seatId])
 }
 
-// ===== AssignmentHistory =====
 model AssignmentHistory {
-  id           Int      @id @default(autoincrement())
+  id           Int         @id @default(autoincrement())
   assignmentId Int?
   licenseId    Int
   employeeId   Int
-  action       String   // ASSIGNED | RETURNED | REVOKED
+  action       String
   reason       String?
-  createdAt    DateTime @default(now())
-
-  assignment Assignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now())
+  assignment   Assignment? @relation(fields: [assignmentId], references: [id])
 
   @@index([employeeId])
   @@index([licenseId])
 }
 
-// ===== LicenseGroup =====
 model LicenseGroup {
-  id          Int       @id @default(autoincrement())
-  name        String    @unique
+  id          Int                  @id @default(autoincrement())
+  name        String               @unique
   description String?
-  isDefault   Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  members LicenseGroupMember[]
+  isDefault   Boolean              @default(false)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  members     LicenseGroupMember[]
 }
 
-// ===== LicenseGroupMember =====
 model LicenseGroupMember {
-  id             Int      @id @default(autoincrement())
+  id             Int          @id @default(autoincrement())
   licenseGroupId Int
   licenseId      Int
-  createdAt      DateTime @default(now())
-
-  licenseGroup LicenseGroup @relation(fields: [licenseGroupId], references: [id], onDelete: Cascade)
-  license      License      @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  license        License      @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  licenseGroup   LicenseGroup @relation(fields: [licenseGroupId], references: [id], onDelete: Cascade)
 
   @@unique([licenseGroupId, licenseId])
   @@index([licenseId])
 }
 
-// ===== AuditLog =====
 model AuditLog {
   id         Int      @id @default(autoincrement())
-  entityType String   // LICENSE | EMPLOYEE | ASSIGNMENT | SEAT
+  entityType String
   entityId   Int
-  action     String   // CREATED | UPDATED | DELETED | ASSIGNED | UNASSIGNED | REVOKED | IMPORTED
+  action     String
   actor      String?
-  details    String?  // JSON
+  details    String?
   createdAt  DateTime @default(now())
 
   @@index([entityType, entityId])
   @@index([createdAt])
-  @@index([action])
+}
+
+enum Role {
+  ADMIN
+  USER
 }

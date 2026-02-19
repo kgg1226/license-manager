@@ -8,6 +8,12 @@
     "start": "next start",
     "lint": "eslint"
   },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.4.0",
     "@prisma/client": "^7.4.0",
@@ -22,6 +28,7 @@
     "prisma": "^7.4.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "sqlite3": "^5.1.7",
     "tailwindcss": "^4.1.18"
   },
   "devDependencies": {

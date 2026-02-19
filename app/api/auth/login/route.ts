@@ -27,6 +27,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!user.isActive) {
+      return NextResponse.json(
+        { error: "비활성화된 계정입니다. 관리자에게 문의하세요." },
+        { status: 403 }
+      );
+    }
+
     const sessionId = await createSession(user.id);
 
     const response = NextResponse.json({

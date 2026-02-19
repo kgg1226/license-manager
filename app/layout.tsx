@@ -65,7 +65,7 @@ export default async function RootLayout({
                   이력
                 </Link>
                 {user.role === "ADMIN" && (
-                  <Link href="/admin" className="text-sm text-purple-600 hover:text-purple-800">
+                  <Link href="/admin/users" className="text-sm text-purple-600 hover:text-purple-800">
                     관리자
                   </Link>
                 )}

@@ -24,38 +24,19 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
 
   if (!employee) notFound();
 
-  const [assignmentHistory, auditLogs] = await Promise.all([
-    prisma.assignmentHistory.findMany({
-      where: { employeeId: employee.id },
-      orderBy: { createdAt: "desc" },
-      take: 30,
-      select: {
-        id: true,
-        licenseId: true,
-        action: true,
-        reason: true,
-        createdAt: true,
-        assignment: { select: { license: { select: { name: true } } } },
-      },
-    }),
-    prisma.auditLog.findMany({
-      where: {
-        OR: [
-          { entityType: "EMPLOYEE", entityId: employeeId },
-          { entityType: "ASSIGNMENT", details: { contains: `"employeeId":${employeeId}` } },
-        ],
-      },
-      orderBy: { createdAt: "desc" },
-      take: 30,
-      select: {
-        id: true,
-        action: true,
-        actor: true,
-        details: true,
-        createdAt: true,
-      },
-    }),
-  ]);
+  const assignmentHistory = await prisma.assignmentHistory.findMany({
+    where: { employeeId: employee.id },
+    orderBy: { createdAt: "desc" },
+    take: 30,
+    select: {
+      id: true,
+      licenseId: true,
+      action: true,
+      reason: true,
+      createdAt: true,
+      assignment: { select: { license: { select: { name: true } } } },
+    },
+  });
 
   // All licenses for the assign modal
   const allLicenses = await prisma.license.findMany({
@@ -103,40 +84,21 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
     createdAt: Date;
   };
 
-  const history: HistoryEntry[] = [
-    ...assignmentHistory.map((h) => {
-      const licenseName = h.assignment?.license?.name ?? `License #${h.licenseId}`;
-      const actionLabel = h.action === "ASSIGNED" ? "배정" : h.action === "RETURNED" ? "반납" : "해제";
-      return {
-        id: `ah-${h.id}`,
-        action: h.action,
-        description: `${licenseName} — ${actionLabel}${h.reason ? ` (${h.reason})` : ""}`,
-        createdAt: h.createdAt,
-      };
-    }),
-    ...auditLogs
-      .filter((a) => !["ASSIGNED", "UNASSIGNED", "REVOKED", "RETURNED"].includes(a.action))
-      .map((a) => {
-        let desc = a.action;
-        if (a.details) {
-          try {
-            const d = JSON.parse(a.details);
-            if (d.summary) desc = d.summary;
-          } catch {}
-        }
-        return {
-          id: `al-${a.id}`,
-          action: a.action,
-          description: `${desc}${a.actor ? ` — ${a.actor}` : ""}`,
-          createdAt: a.createdAt,
-        };
-      }),
-  ];
+  const history: HistoryEntry[] = assignmentHistory.map((h) => {
+    const licenseName = h.assignment?.license?.name ?? `License #${h.licenseId}`;
+    const actionLabel = h.action === "ASSIGNED" ? "배정" : h.action === "RETURNED" ? "반납" : "해제";
+    return {
+      id: `ah-${h.id}`,
+      action: h.action,
+      description: `${licenseName} — ${actionLabel}${h.reason ? ` (${h.reason})` : ""}`,
+      createdAt: h.createdAt,
+    };
+  });
 
   history.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   const displayHistory = history.slice(0, 30);
 
-  const totalHistoryCount = assignmentHistory.length + auditLogs.length;
+  const totalHistoryCount = assignmentHistory.length;
 
   const actionBadge: Record<string, string> = {
     ASSIGNED: "text-green-700 bg-green-50",
