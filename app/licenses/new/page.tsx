@@ -8,7 +8,9 @@ import {
   VALID_CURRENCIES,
   CURRENCY_LABELS,
   CURRENCY_SYMBOLS,
+  calcRenewalDate,
   type Currency,
+  type PaymentCycle,
 } from "@/lib/cost-calculator";
 
 const initialState: FormState = {};
@@ -35,11 +37,16 @@ export default function NewLicensePage() {
   const [quantityStr, setQuantityStr] = useState("");
   const [unitPriceStr, setUnitPriceStr] = useState("");
   const [currency, setCurrency] = useState<Currency>("KRW");
+  const [paymentCycle, setPaymentCycle] = useState<PaymentCycle>("YEARLY");
+  const [purchaseDateStr, setPurchaseDateStr] = useState("");
 
   const qty = parseFloat(quantityStr);
   const quantity = isFinite(qty) && qty > 0 ? qty : null;
   const up = parseFloat(unitPriceStr);
   const unitPrice = isFinite(up) && up >= 0 ? up : null;
+
+  // Auto-compute renewal date whenever purchase date or payment cycle changes
+  const renewalDateStr = calcRenewalDate(purchaseDateStr, paymentCycle);
 
   return (
     <div className="min-h-screen bg-gray-50 py-10">
@@ -177,6 +184,8 @@ export default function NewLicensePage() {
 
           {/* 비용 계산 */}
           <CostCalculatorSection
+            paymentCycle={paymentCycle}
+            onPaymentCycleChange={setPaymentCycle}
             quantity={quantity}
             unitPrice={unitPrice}
             currency={currency}
@@ -190,22 +199,31 @@ export default function NewLicensePage() {
             </legend>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="구매일" required error={state.errors?.purchaseDate}>
+              <Field label="구매일 (시작일)" required error={state.errors?.purchaseDate}>
                 <input
                   type="date"
                   name="purchaseDate"
                   required
+                  value={purchaseDateStr}
+                  onChange={(e) => setPurchaseDateStr(e.target.value)}
                   className="input"
                 />
               </Field>
 
-              <Field label="만료일">
-                <input
-                  type="date"
-                  name="expiryDate"
-                  className="input"
-                />
-              </Field>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  갱신일{" "}
+                  <span className="text-xs font-normal text-gray-400">(자동 계산)</span>
+                </label>
+                <div className="input flex cursor-not-allowed items-center bg-gray-50 text-gray-500">
+                  {renewalDateStr || "—"}
+                </div>
+                {/* Submit the computed renewal date as expiryDate */}
+                <input type="hidden" name="expiryDate" value={renewalDateStr} />
+                <p className="mt-1 text-xs text-gray-400">
+                  구매일과 납부 주기에 따라 자동 계산됩니다.
+                </p>
+              </div>
             </div>
           </fieldset>
 
@@ -216,7 +234,7 @@ export default function NewLicensePage() {
             </legend>
 
             <p className="text-xs text-gray-500">
-              만료일로부터 며칠 전에 해지 통보가 필요한지 설정합니다.
+              갱신일로부터 며칠 전에 해지 통보가 필요한지 설정합니다.
             </p>
 
             <div className="flex flex-wrap gap-3">

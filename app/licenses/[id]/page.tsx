@@ -297,7 +297,7 @@ export default async function LicenseDetailPage({
             />
             <InfoItem
               icon={<Calendar className="h-4 w-4" />}
-              label="만료일"
+              label="갱신일"
               value={formatDate(license.expiryDate)}
             />
             <InfoItem
@@ -315,7 +315,7 @@ export default async function LicenseDetailPage({
               label="해지 통보"
               value={
                 license.noticePeriodDays
-                  ? `만료 ${license.noticePeriodDays}일 전`
+                  ? `갱신 ${license.noticePeriodDays}일 전`
                   : "—"
               }
             />

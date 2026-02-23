@@ -11,25 +11,25 @@ import {
 } from "@/lib/cost-calculator";
 
 export default function CostCalculatorSection({
+  paymentCycle,
+  onPaymentCycleChange,
   quantity,
   unitPrice,
   currency,
   initialValues,
   errors,
 }: {
+  paymentCycle: PaymentCycle;
+  onPaymentCycleChange: (c: PaymentCycle) => void;
   quantity: number | null;
   unitPrice: number | null;
   currency: Currency;
   initialValues?: {
-    paymentCycle: PaymentCycle | null;
     exchangeRate: number;
     isVatIncluded: boolean;
   };
   errors?: Record<string, string>;
 }) {
-  const [paymentCycle, setPaymentCycle] = useState<PaymentCycle>(
-    initialValues?.paymentCycle ?? "YEARLY"
-  );
   const [exchangeRateStr, setExchangeRateStr] = useState(
     (initialValues?.exchangeRate ?? 1).toString()
   );
@@ -95,7 +95,7 @@ export default function CostCalculatorSection({
                 type="radio"
                 value={cycle}
                 checked={paymentCycle === cycle}
-                onChange={() => setPaymentCycle(cycle)}
+                onChange={() => onPaymentCycleChange(cycle)}
                 className="sr-only"
               />
               {PAYMENT_CYCLE_LABELS[cycle]}

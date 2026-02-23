@@ -58,3 +58,33 @@ export const PAYMENT_CYCLE_LABELS: Record<PaymentCycle, string> = {
   MONTHLY: "월 납부",
   YEARLY: "연 납부",
 };
+
+/**
+ * Auto-calculate the next renewal date from a purchase date string (YYYY-MM-DD)
+ * and a payment cycle. Handles end-of-month clamping (e.g. Jan 31 + 1 month = Feb 28/29).
+ * Returns "" if input is invalid.
+ */
+export function calcRenewalDate(
+  purchaseDateStr: string,
+  paymentCycle: PaymentCycle
+): string {
+  if (!purchaseDateStr) return "";
+  // Parse as local time — avoids UTC-offset day shifts
+  const d = new Date(purchaseDateStr + "T00:00:00");
+  if (isNaN(d.getTime())) return "";
+
+  const origDay = d.getDate();
+  if (paymentCycle === "MONTHLY") {
+    d.setMonth(d.getMonth() + 1);
+  } else {
+    d.setFullYear(d.getFullYear() + 1);
+  }
+  // If JS rolled the day over (e.g. Jan 31 → Mar 2), clamp to the last day
+  // of the intended month by rewinding to day 0 of the next month.
+  if (d.getDate() !== origDay) d.setDate(0);
+
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}

@@ -114,14 +114,14 @@ export default async function DashboardPage() {
             accent="green"
           />
           <MetricCard
-            title="30일 내 만료"
+            title="30일 내 갱신"
             value={expiring30.toLocaleString("ko-KR")}
             unit="개"
             description="즉각적인 갱신·해지 검토 필요"
             accent={expiring30 > 0 ? "red" : "gray"}
           />
           <MetricCard
-            title="90일 내 만료"
+            title="90일 내 갱신"
             value={expiring90.toLocaleString("ko-KR")}
             unit="개"
             description="사전 계획이 필요한 라이선스"

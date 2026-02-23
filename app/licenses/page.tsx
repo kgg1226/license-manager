@@ -14,7 +14,7 @@ const SORTABLE_COLUMNS: { key: SortField; label: string }[] = [
   { key: "name", label: "라이선스명" },
   { key: "totalQuantity", label: "수량" },
   { key: "assigned", label: "배정 현황" },
-  { key: "expiryDate", label: "만료일" },
+  { key: "expiryDate", label: "갱신일" },
 ];
 
 function formatAnnualCost(
