@@ -17,9 +17,14 @@ const SORTABLE_COLUMNS: { key: SortField; label: string }[] = [
   { key: "expiryDate", label: "만료일" },
 ];
 
-function formatPrice(price: number | null): string {
-  if (price === null) return "—";
-  return price.toLocaleString("ko-KR") + "원";
+function formatAnnualCost(
+  totalAmountKRW: number | null,
+  paymentCycle: "MONTHLY" | "YEARLY" | null
+): string {
+  if (!totalAmountKRW || !paymentCycle) return "—";
+  const annual =
+    paymentCycle === "YEARLY" ? totalAmountKRW : totalAmountKRW * 12;
+  return "₩" + annual.toLocaleString("ko-KR");
 }
 
 function getNoticeBadge(
@@ -64,7 +69,8 @@ export default async function LicensesPage({
       name: true,
       licenseType: true,
       totalQuantity: true,
-      price: true,
+      totalAmountKRW: true,
+      paymentCycle: true,
       purchaseDate: true,
       expiryDate: true,
       noticePeriodDays: true,
@@ -186,7 +192,7 @@ export default async function LicensesPage({
                       </Link>
                     </th>
                   ))}
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">금액</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">연간 비용</th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">담당자</th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">해지 통보</th>
                   <th className="px-4 py-3 text-center text-xs font-medium uppercase text-gray-500">관리</th>
@@ -243,7 +249,7 @@ export default async function LicensesPage({
                         {license.expiryDate?.toLocaleDateString("ko-KR") ?? "—"}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600 text-right tabular-nums">
-                        {formatPrice(license.price)}
+                        {formatAnnualCost(license.totalAmountKRW, license.paymentCycle)}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
                         {license.adminName ?? "—"}

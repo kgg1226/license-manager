@@ -4,7 +4,13 @@ import { useActionState, useState, useCallback } from "react";
 import { updateLicense, deleteLicense, type FormState } from "./actions";
 import Link from "next/link";
 import CostCalculatorSection from "@/app/licenses/_components/cost-calculator-section";
-import type { PaymentCycle, Currency } from "@/lib/cost-calculator";
+import {
+  VALID_CURRENCIES,
+  CURRENCY_LABELS,
+  CURRENCY_SYMBOLS,
+  type PaymentCycle,
+  type Currency,
+} from "@/lib/cost-calculator";
 
 const NOTICE_OPTIONS = [
   { value: "", label: "설정 안 함" },
@@ -27,14 +33,12 @@ type License = {
   key: string | null;
   licenseType: LicenseType;
   totalQuantity: number;
-  price: number | null;
   purchaseDate: Date;
   expiryDate: Date | null;
   noticePeriodDays: number | null;
   adminName: string | null;
   description: string | null;
   paymentCycle: PaymentCycle | null;
-  quantity: number | null;
   unitPrice: number | null;
   currency: Currency;
   exchangeRate: number;
@@ -75,6 +79,14 @@ export default function EditLicenseForm({
   const [licenseType, setLicenseType] = useState<LicenseType>(license.licenseType);
   const [isDeleting, setIsDeleting] = useState(false);
   const [seats, setSeats] = useState(initialSeats);
+  const [quantityStr, setQuantityStr] = useState(license.totalQuantity.toString());
+  const [unitPriceStr, setUnitPriceStr] = useState(license.unitPrice?.toString() ?? "");
+  const [currency, setCurrency] = useState<Currency>(license.currency);
+
+  const qty = parseFloat(quantityStr);
+  const quantity = isFinite(qty) && qty > 0 ? qty : null;
+  const up = parseFloat(unitPriceStr);
+  const unitPrice = isFinite(up) && up >= 0 ? up : null;
 
   async function handleDelete() {
     if (!window.confirm("이 라이선스를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")) {
@@ -166,32 +178,63 @@ export default function EditLicenseForm({
                   name="totalQuantity"
                   min={1}
                   required
-                  defaultValue={license.totalQuantity}
+                  value={quantityStr}
+                  onChange={(e) => setQuantityStr(e.target.value)}
                   className="input"
                 />
               </Field>
 
-              <Field label="금액 (원)" error={state.errors?.price}>
+              <Field label={`단가 (${CURRENCY_SYMBOLS[currency]})`} error={state.errors?.unitPrice}>
                 <input
                   type="number"
-                  name="price"
+                  name="unitPrice"
                   min={0}
                   step="any"
-                  defaultValue={license.price ?? ""}
+                  value={unitPriceStr}
+                  onChange={(e) => setUnitPriceStr(e.target.value)}
+                  placeholder="0"
                   className="input"
                 />
               </Field>
 
-              <Field label="담당자명">
-                <input
-                  type="text"
-                  name="adminName"
-                  defaultValue={license.adminName ?? ""}
+              <Field label="통화">
+                <select
+                  name="currency"
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value as Currency)}
                   className="input"
-                />
+                >
+                  {VALID_CURRENCIES.map((c) => (
+                    <option key={c} value={c}>
+                      {CURRENCY_LABELS[c]}
+                    </option>
+                  ))}
+                </select>
               </Field>
             </div>
+
+            <Field label="담당자명">
+              <input
+                type="text"
+                name="adminName"
+                defaultValue={license.adminName ?? ""}
+                className="input"
+              />
+            </Field>
           </fieldset>
+
+          {/* 비용 계산 */}
+          <CostCalculatorSection
+            quantity={quantity}
+            unitPrice={unitPrice}
+            currency={currency}
+            initialValues={{
+              paymentCycle: license.paymentCycle,
+              exchangeRate: license.exchangeRate,
+              isVatIncluded: license.isVatIncluded,
+            }}
+            errors={state.errors}
+          />
 
           {/* 시트 목록 (개별 라이선스만) */}
           {licenseType === "KEY_BASED" && seats.length > 0 && (
@@ -300,19 +343,6 @@ export default function EditLicenseForm({
               />
             </Field>
           </fieldset>
-
-          {/* 비용 계산 */}
-          <CostCalculatorSection
-            initialValues={{
-              paymentCycle: license.paymentCycle,
-              quantity: license.quantity,
-              unitPrice: license.unitPrice,
-              currency: license.currency,
-              exchangeRate: license.exchangeRate,
-              isVatIncluded: license.isVatIncluded,
-            }}
-            errors={state.errors}
-          />
 
           {/* 제출 / 삭제 */}
           <div className="flex items-center justify-between border-t border-gray-200 pt-4">

@@ -49,6 +49,9 @@ export default async function RootLayout({
                 License Manager
               </Link>
               <div className="flex flex-1 gap-4">
+                <Link href="/dashboard" className="text-sm text-gray-600 hover:text-gray-900">
+                  대시보드
+                </Link>
                 <Link href="/licenses" className="text-sm text-gray-600 hover:text-gray-900">
                   라이선스
                 </Link>

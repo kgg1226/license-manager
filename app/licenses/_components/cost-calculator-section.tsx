@@ -1,44 +1,34 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   computeCost,
-  CURRENCY_LABELS,
   CURRENCY_SYMBOLS,
   PAYMENT_CYCLE_LABELS,
-  VALID_CURRENCIES,
   VALID_PAYMENT_CYCLES,
   type PaymentCycle,
   type Currency,
 } from "@/lib/cost-calculator";
 
-type InitialValues = {
-  paymentCycle: PaymentCycle | null;
-  quantity: number | null;
-  unitPrice: number | null;
-  currency: Currency;
-  exchangeRate: number;
-  isVatIncluded: boolean;
-};
-
 export default function CostCalculatorSection({
+  quantity,
+  unitPrice,
+  currency,
   initialValues,
   errors,
 }: {
-  initialValues?: InitialValues;
+  quantity: number | null;
+  unitPrice: number | null;
+  currency: Currency;
+  initialValues?: {
+    paymentCycle: PaymentCycle | null;
+    exchangeRate: number;
+    isVatIncluded: boolean;
+  };
   errors?: Record<string, string>;
 }) {
   const [paymentCycle, setPaymentCycle] = useState<PaymentCycle>(
     initialValues?.paymentCycle ?? "YEARLY"
-  );
-  const [quantityStr, setQuantityStr] = useState(
-    initialValues?.quantity?.toString() ?? ""
-  );
-  const [unitPriceStr, setUnitPriceStr] = useState(
-    initialValues?.unitPrice?.toString() ?? ""
-  );
-  const [currency, setCurrency] = useState<Currency>(
-    initialValues?.currency ?? "KRW"
   );
   const [exchangeRateStr, setExchangeRateStr] = useState(
     (initialValues?.exchangeRate ?? 1).toString()
@@ -47,20 +37,30 @@ export default function CostCalculatorSection({
     initialValues?.isVatIncluded ?? false
   );
 
+  useEffect(() => {
+    if (currency === "KRW") setExchangeRateStr("1");
+  }, [currency]);
+
   const preview = useMemo(() => {
-    const qty = parseFloat(quantityStr);
-    const price = parseFloat(unitPriceStr);
     const rate = parseFloat(exchangeRateStr);
-    if (!isFinite(qty) || qty <= 0 || !isFinite(price) || price < 0) return null;
+    if (
+      quantity === null ||
+      !isFinite(quantity) ||
+      quantity <= 0 ||
+      unitPrice === null ||
+      !isFinite(unitPrice) ||
+      unitPrice < 0
+    )
+      return null;
     return computeCost({
       paymentCycle,
-      quantity: qty,
-      unitPrice: price,
+      quantity,
+      unitPrice,
       currency,
       exchangeRate: isFinite(rate) && rate > 0 ? rate : 1,
       isVatIncluded,
     });
-  }, [paymentCycle, quantityStr, unitPriceStr, currency, exchangeRateStr, isVatIncluded]);
+  }, [paymentCycle, quantity, unitPrice, currency, exchangeRateStr, isVatIncluded]);
 
   const symbol = CURRENCY_SYMBOLS[currency];
 
@@ -73,8 +73,8 @@ export default function CostCalculatorSection({
 
       {/* Hidden inputs — always submitted with the form */}
       <input type="hidden" name="paymentCycle" value={paymentCycle} />
-      <input type="hidden" name="currency" value={currency} />
       <input type="hidden" name="isVatIncluded" value={isVatIncluded ? "true" : "false"} />
+      <input type="hidden" name="quantity" value={quantity ?? ""} />
 
       {/* Payment cycle */}
       <div>
@@ -104,93 +104,29 @@ export default function CostCalculatorSection({
         </div>
       </div>
 
-      {/* Quantity + Currency */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
-            결제 수량
-          </label>
-          <input
-            type="number"
-            name="quantity"
-            min={1}
-            step={1}
-            value={quantityStr}
-            onChange={(e) => setQuantityStr(e.target.value)}
-            placeholder="예: 10"
-            className="input"
-          />
-          {errors?.quantity && (
-            <p className="mt-1 text-xs text-red-600">{errors.quantity}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
-            통화
-          </label>
-          <select
-            value={currency}
-            onChange={(e) => {
-              const c = e.target.value as Currency;
-              setCurrency(c);
-              if (c === "KRW") setExchangeRateStr("1");
-            }}
-            className="input"
-          >
-            {VALID_CURRENCIES.map((c) => (
-              <option key={c} value={c}>
-                {CURRENCY_LABELS[c]}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Unit price + Exchange rate */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
-            단가 ({symbol})
-          </label>
-          <input
-            type="number"
-            name="unitPrice"
-            min={0}
-            step="any"
-            value={unitPriceStr}
-            onChange={(e) => setUnitPriceStr(e.target.value)}
-            placeholder="0"
-            className="input"
-          />
-          {errors?.unitPrice && (
-            <p className="mt-1 text-xs text-red-600">{errors.unitPrice}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
-            환율 ({symbol} → ₩)
-          </label>
-          <input
-            type="number"
-            name="exchangeRate"
-            min={0.000001}
-            step="any"
-            value={exchangeRateStr}
-            onChange={(e) => setExchangeRateStr(e.target.value)}
-            disabled={currency === "KRW"}
-            placeholder="1"
-            className="input disabled:bg-gray-100 disabled:text-gray-400"
-          />
-          {currency === "KRW" ? (
-            <p className="mt-1 text-xs text-gray-400">KRW는 환율 변환 불필요</p>
-          ) : (
-            errors?.exchangeRate && (
-              <p className="mt-1 text-xs text-red-600">{errors.exchangeRate}</p>
-            )
-          )}
-        </div>
+      {/* Exchange rate */}
+      <div>
+        <label className="mb-1 block text-sm font-medium text-gray-700">
+          환율 ({symbol} → ₩)
+        </label>
+        <input
+          type="number"
+          name="exchangeRate"
+          min={0.000001}
+          step="any"
+          value={exchangeRateStr}
+          onChange={(e) => setExchangeRateStr(e.target.value)}
+          disabled={currency === "KRW"}
+          placeholder="1"
+          className="input disabled:bg-gray-100 disabled:text-gray-400"
+        />
+        {currency === "KRW" ? (
+          <p className="mt-1 text-xs text-gray-400">KRW는 환율 변환 불필요</p>
+        ) : (
+          errors?.exchangeRate && (
+            <p className="mt-1 text-xs text-red-600">{errors.exchangeRate}</p>
+          )
+        )}
       </div>
 
       {/* VAT toggle */}
@@ -211,16 +147,12 @@ export default function CostCalculatorSection({
         </p>
       </div>
 
-      {/* Live preview */}
-      {preview && (
-        <div className="rounded-md bg-blue-50 p-4 ring-1 ring-blue-200">
-          <h4 className="mb-3 text-sm font-semibold text-blue-900">
-            계산 결과 미리보기
-          </h4>
+      {/* Read-only results panel */}
+      <div className="rounded-md bg-gray-50 p-4 ring-1 ring-gray-200">
+        <h4 className="mb-3 text-sm font-semibold text-gray-900">계산 결과</h4>
+        {preview ? (
           <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-            <dt className="text-gray-600">
-              공급가액 ({symbol})
-            </dt>
+            <dt className="text-gray-600">공급가액 ({symbol})</dt>
             <dd className="text-right font-medium text-gray-900">
               {preview.subtotal.toLocaleString("ko-KR")}
             </dd>
@@ -239,9 +171,7 @@ export default function CostCalculatorSection({
               </>
             )}
 
-            <dt className="font-medium text-gray-700">
-              합계 ({symbol})
-            </dt>
+            <dt className="font-medium text-gray-700">합계 ({symbol})</dt>
             <dd className="text-right font-semibold text-blue-700">
               {preview.totalAmountForeign.toLocaleString("ko-KR")}
             </dd>
@@ -255,7 +185,7 @@ export default function CostCalculatorSection({
               </>
             )}
 
-            <dt className="col-span-2 mt-1 border-t border-blue-200 pt-2 text-xs font-medium uppercase text-gray-500">
+            <dt className="col-span-2 mt-1 border-t border-gray-200 pt-2 text-xs font-medium uppercase text-gray-500">
               환산
             </dt>
             <dt className="text-gray-600">월 환산 (₩)</dt>
@@ -267,8 +197,12 @@ export default function CostCalculatorSection({
               ₩{preview.annualKRW.toLocaleString("ko-KR")}
             </dd>
           </dl>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm text-gray-400">
+            수량과 단가를 입력하면 자동으로 계산됩니다.
+          </p>
+        )}
+      </div>
     </fieldset>
   );
 }

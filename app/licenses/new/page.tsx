@@ -4,6 +4,12 @@ import { useActionState, useState } from "react";
 import { createLicense, type FormState } from "./actions";
 import Link from "next/link";
 import CostCalculatorSection from "@/app/licenses/_components/cost-calculator-section";
+import {
+  VALID_CURRENCIES,
+  CURRENCY_LABELS,
+  CURRENCY_SYMBOLS,
+  type Currency,
+} from "@/lib/cost-calculator";
 
 const initialState: FormState = {};
 
@@ -26,6 +32,14 @@ export default function NewLicensePage() {
   const [state, formAction, isPending] = useActionState(createLicense, initialState);
   const [licenseType, setLicenseType] = useState<LicenseType>("KEY_BASED");
   const [noticePeriodType, setNoticePeriodType] = useState("");
+  const [quantityStr, setQuantityStr] = useState("");
+  const [unitPriceStr, setUnitPriceStr] = useState("");
+  const [currency, setCurrency] = useState<Currency>("KRW");
+
+  const qty = parseFloat(quantityStr);
+  const quantity = isFinite(qty) && qty > 0 ? qty : null;
+  const up = parseFloat(unitPriceStr);
+  const unitPrice = isFinite(up) && up >= 0 ? up : null;
 
   return (
     <div className="min-h-screen bg-gray-50 py-10">
@@ -115,32 +129,59 @@ export default function NewLicensePage() {
                   name="totalQuantity"
                   min={1}
                   required
+                  value={quantityStr}
+                  onChange={(e) => setQuantityStr(e.target.value)}
                   placeholder="1"
                   className="input"
                 />
               </Field>
 
-              <Field label="금액 (원)" error={state.errors?.price}>
+              <Field label={`단가 (${CURRENCY_SYMBOLS[currency]})`} error={state.errors?.unitPrice}>
                 <input
                   type="number"
-                  name="price"
+                  name="unitPrice"
                   min={0}
                   step="any"
+                  value={unitPriceStr}
+                  onChange={(e) => setUnitPriceStr(e.target.value)}
                   placeholder="0"
                   className="input"
                 />
               </Field>
 
-              <Field label="담당자명">
-                <input
-                  type="text"
-                  name="adminName"
-                  placeholder="예: 홍길동"
+              <Field label="통화">
+                <select
+                  name="currency"
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value as Currency)}
                   className="input"
-                />
+                >
+                  {VALID_CURRENCIES.map((c) => (
+                    <option key={c} value={c}>
+                      {CURRENCY_LABELS[c]}
+                    </option>
+                  ))}
+                </select>
               </Field>
             </div>
+
+            <Field label="담당자명">
+              <input
+                type="text"
+                name="adminName"
+                placeholder="예: 홍길동"
+                className="input"
+              />
+            </Field>
           </fieldset>
+
+          {/* 비용 계산 */}
+          <CostCalculatorSection
+            quantity={quantity}
+            unitPrice={unitPrice}
+            currency={currency}
+            errors={state.errors}
+          />
 
           {/* 날짜 정보 */}
           <fieldset className="space-y-4">
@@ -232,9 +273,6 @@ export default function NewLicensePage() {
               />
             </Field>
           </fieldset>
-
-          {/* 비용 계산 */}
-          <CostCalculatorSection errors={state.errors} />
 
           {/* 제출 */}
           <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
