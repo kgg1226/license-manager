@@ -5,6 +5,7 @@ import { assignLicenses } from "@/lib/assignment-actions";
 import { useToast } from "@/app/toast";
 
 type Employee = { id: number; name: string; department: string };
+type LicenseType = "NO_KEY" | "KEY_BASED" | "VOLUME";
 
 export default function AssignButton({
   licenseId,
@@ -12,14 +13,14 @@ export default function AssignButton({
   remaining,
   employees,
   assignedEmployeeIds,
-  isVolumeLicense = false,
+  licenseType = "KEY_BASED",
 }: {
   licenseId: number;
   licenseName: string;
   remaining: number;
   employees: Employee[];
   assignedEmployeeIds: number[];
-  isVolumeLicense?: boolean;
+  licenseType?: LicenseType;
 }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -44,7 +45,6 @@ export default function AssignButton({
       if (next.has(empId)) {
         next.delete(empId);
       } else {
-        // Don't exceed remaining capacity
         if (next.size >= remaining) return prev;
         next.add(empId);
       }
@@ -56,7 +56,6 @@ export default function AssignButton({
     if (selected.size === 0) return;
     setIsPending(true);
 
-    // Assign the license to each selected employee
     let totalAssigned = 0;
     const errors: string[] = [];
 
@@ -86,6 +85,13 @@ export default function AssignButton({
     setSelected(new Set());
   }
 
+  const typeLabel =
+    licenseType === "VOLUME"
+      ? "Volume License"
+      : licenseType === "NO_KEY"
+        ? "No-Key License"
+        : null;
+
   return (
     <>
       <button
@@ -105,9 +111,13 @@ export default function AssignButton({
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="mb-1 text-lg font-semibold text-gray-900">
               라이선스 배정
-              {isVolumeLicense && (
-                <span className="ml-2 rounded bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700">
-                  Volume License
+              {typeLabel && (
+                <span className={`ml-2 rounded px-2 py-0.5 text-xs font-semibold ${
+                  licenseType === "VOLUME"
+                    ? "bg-purple-100 text-purple-700"
+                    : "bg-gray-100 text-gray-600"
+                }`}>
+                  {typeLabel}
                 </span>
               )}
             </h3>
@@ -122,12 +132,12 @@ export default function AssignButton({
                 )}
               </p>
             )}
-            {isVolumeLicense && (
+            {licenseType === "VOLUME" && (
               <p className="mb-3 text-xs text-purple-600">
                 이 키는 배정 대상자와 공유됩니다.
               </p>
             )}
-            {!isVolumeLicense && <div className="mb-2" />}
+            {licenseType !== "VOLUME" && <div className="mb-2" />}
 
             <input
               type="text"

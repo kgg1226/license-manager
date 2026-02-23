@@ -11,7 +11,7 @@ export type ActionResult = {
 };
 
 /**
- * Find an available seat for an individual license.
+ * Find an available seat for a KEY_BASED license.
  * Priority: seats with key first, then without key.
  */
 async function findAvailableSeat(
@@ -39,6 +39,10 @@ async function findAvailableSeat(
 
 /**
  * Bulk-assign multiple licenses to an employee within a single transaction.
+ * Supports all three license types:
+ *   - KEY_BASED: assigns an individual seat
+ *   - VOLUME:    count-based capacity, shared key
+ *   - NO_KEY:    count-based capacity, no key required
  */
 export async function assignLicenses(
   employeeId: number,
@@ -59,7 +63,7 @@ export async function assignLicenses(
           where: { id: licenseId },
           select: {
             name: true,
-            isVolumeLicense: true,
+            licenseType: true,
             totalQuantity: true,
             assignments: { where: { returnedDate: null }, select: { employeeId: true } },
           },
@@ -72,7 +76,7 @@ export async function assignLicenses(
           continue;
         }
 
-        if (!license.isVolumeLicense) {
+        if (license.licenseType === "KEY_BASED") {
           const seatId = await findAvailableSeat(tx, licenseId);
           if (!seatId) {
             skipped.push(`${license.name}: 잔여 시트 없음`);
@@ -107,13 +111,18 @@ export async function assignLicenses(
             },
           });
         } else {
+          // VOLUME and NO_KEY: count-based capacity
           if (license.assignments.length >= license.totalQuantity) {
             skipped.push(`${license.name}: 잔여 수량 없음`);
             continue;
           }
 
+          const reason = license.licenseType === "VOLUME"
+            ? "Manual assignment (Volume Key)"
+            : "Manual assignment (No Key)";
+
           const assignment = await tx.assignment.create({
-            data: { licenseId, employeeId, reason: "Manual assignment (Volume Key)" },
+            data: { licenseId, employeeId, reason },
           });
 
           await tx.assignmentHistory.create({
@@ -122,7 +131,7 @@ export async function assignLicenses(
               licenseId,
               employeeId,
               action: "ASSIGNED",
-              reason: "Manual assignment (Volume Key)",
+              reason,
             },
           });
 
@@ -131,7 +140,7 @@ export async function assignLicenses(
             entityId: assignment.id,
             action: "ASSIGNED",
             details: {
-              summary: `${employee.name} → ${license.name} (Volume)`,
+              summary: `${employee.name} → ${license.name}${license.licenseType === "VOLUME" ? " (Volume)" : " (No Key)"}`,
               employeeId,
               employeeName: employee.name,
               licenseId,

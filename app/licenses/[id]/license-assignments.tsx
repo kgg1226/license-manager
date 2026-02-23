@@ -5,6 +5,8 @@ import { unassignLicenses } from "@/lib/assignment-actions";
 import { useToast } from "@/app/toast";
 import Link from "next/link";
 
+type LicenseType = "NO_KEY" | "KEY_BASED" | "VOLUME";
+
 type AssignmentRow = {
   assignmentId: number;
   employeeId: number;
@@ -12,7 +14,7 @@ type AssignmentRow = {
   department: string;
   assignedDate: string;
   seatKey: string | null;
-  isVolumeLicense: boolean;
+  licenseType: LicenseType;
   volumeKey: string | null;
 };
 
@@ -49,7 +51,6 @@ export default function LicenseAssignments({
     setConfirm(false);
     setIsPending(true);
 
-    // Group assignments by employeeId for proper unassign calls
     const byEmployee = new Map<number, number[]>();
     for (const a of assignments) {
       if (selected.has(a.assignmentId)) {
@@ -60,7 +61,7 @@ export default function LicenseAssignments({
     }
 
     let total = 0;
-    let errors: string[] = [];
+    const errors: string[] = [];
     for (const [empId, ids] of byEmployee) {
       const result = await unassignLicenses(empId, ids);
       if (result.success) {
@@ -130,7 +131,11 @@ export default function LicenseAssignments({
             </thead>
             <tbody className="divide-y divide-gray-100">
               {assignments.map((a) => {
-                const key = a.isVolumeLicense ? a.volumeKey : a.seatKey;
+                const key = a.licenseType === "VOLUME"
+                  ? a.volumeKey
+                  : a.licenseType === "KEY_BASED"
+                    ? a.seatKey
+                    : null;
                 return (
                   <tr
                     key={a.assignmentId}

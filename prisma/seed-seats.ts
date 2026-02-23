@@ -10,7 +10,7 @@ async function main() {
   console.log("Starting seat migration...");
 
   const individualLicenses = await prisma.license.findMany({
-    where: { isVolumeLicense: false },
+    where: { licenseType: "KEY_BASED" },
     include: {
       seats: true,
       assignments: {

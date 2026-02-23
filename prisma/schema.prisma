@@ -4,8 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
 }
 
 model User {
@@ -32,23 +31,30 @@ model Session {
 }
 
 model License {
-  id               Int                  @id @default(autoincrement())
-  name             String
-  key              String?
-  isVolumeLicense  Boolean              @default(false)
-  totalQuantity    Int
-  price            Float?
-  purchaseDate     DateTime
-  expiryDate       DateTime?
-  contractDate     DateTime?
-  noticePeriodDays Int?
-  adminName        String?
-  description      String?
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
-  assignments      Assignment[]
-  groupMembers     LicenseGroupMember[]
-  seats            LicenseSeat[]
+  id                 Int                  @id @default(autoincrement())
+  name               String               @unique
+  key                String?
+  licenseType        LicenseType          @default(KEY_BASED)
+  totalQuantity      Int
+  price              Float?
+  purchaseDate       DateTime
+  expiryDate         DateTime?
+  noticePeriodDays   Int?
+  adminName          String?
+  description        String?
+  paymentCycle       PaymentCycle?
+  quantity           Int?
+  unitPrice          Float?
+  currency           Currency             @default(KRW)
+  exchangeRate       Float                @default(1.0)
+  isVatIncluded      Boolean              @default(false)
+  totalAmountForeign Float?
+  totalAmountKRW     Float?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  assignments        Assignment[]
+  groupMembers       LicenseGroupMember[]
+  seats              LicenseSeat[]
 }
 
 model Employee {
@@ -144,4 +150,24 @@ model AuditLog {
 enum Role {
   ADMIN
   USER
+}
+
+enum LicenseType {
+  NO_KEY
+  KEY_BASED
+  VOLUME
+}
+
+enum PaymentCycle {
+  MONTHLY
+  YEARLY
+}
+
+enum Currency {
+  KRW
+  USD
+  EUR
+  JPY
+  GBP
+  CNY
 }

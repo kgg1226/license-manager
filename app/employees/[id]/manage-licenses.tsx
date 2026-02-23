@@ -4,11 +4,13 @@ import { useState, useMemo } from "react";
 import { assignLicenses, unassignLicenses } from "@/lib/assignment-actions";
 import { useToast } from "@/app/toast";
 
+type LicenseType = "NO_KEY" | "KEY_BASED" | "VOLUME";
+
 type AssignedLicense = {
   assignmentId: number;
   licenseId: number;
   licenseName: string;
-  isVolumeLicense: boolean;
+  licenseType: LicenseType;
   seatKey: string | null;
   volumeKey: string | null;
   assignedDate: string;
@@ -199,33 +201,39 @@ export default function ManageLicenses({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {assigned.map((a) => (
-                <tr
-                  key={a.assignmentId}
-                  className={`transition-colors ${
-                    selectedUnassign.has(a.assignmentId) ? "bg-orange-50" : "hover:bg-gray-50"
-                  }`}
-                >
-                  <td className="px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={selectedUnassign.has(a.assignmentId)}
-                      onChange={() => toggleUnassign(a.assignmentId)}
-                      className="h-4 w-4 rounded border-gray-300 text-orange-600"
-                    />
-                  </td>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{a.licenseName}</td>
-                  <td className="px-4 py-3 text-sm">
-                    {(() => {
-                      const key = a.isVolumeLicense ? a.volumeKey : a.seatKey;
-                      if (!key) return <span className="text-gray-400">—</span>;
-                      return <span className="font-mono text-gray-600">{key}</span>;
-                    })()}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{a.assignedDate}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{a.reason ?? "—"}</td>
-                </tr>
-              ))}
+              {assigned.map((a) => {
+                const key = a.licenseType === "VOLUME"
+                  ? a.volumeKey
+                  : a.licenseType === "KEY_BASED"
+                    ? a.seatKey
+                    : null;
+                return (
+                  <tr
+                    key={a.assignmentId}
+                    className={`transition-colors ${
+                      selectedUnassign.has(a.assignmentId) ? "bg-orange-50" : "hover:bg-gray-50"
+                    }`}
+                  >
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedUnassign.has(a.assignmentId)}
+                        onChange={() => toggleUnassign(a.assignmentId)}
+                        className="h-4 w-4 rounded border-gray-300 text-orange-600"
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{a.licenseName}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {key
+                        ? <span className="font-mono text-gray-600">{key}</span>
+                        : <span className="text-gray-400">—</span>
+                      }
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{a.assignedDate}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{a.reason ?? "—"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

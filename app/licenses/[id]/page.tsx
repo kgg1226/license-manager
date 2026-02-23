@@ -11,8 +11,10 @@ import {
   UserCircle,
   FileText,
   Clock,
+  Calculator,
 } from "lucide-react";
 import LicenseAssignments from "./license-assignments";
+import { computeCost, CURRENCY_SYMBOLS, PAYMENT_CYCLE_LABELS } from "@/lib/cost-calculator";
 
 export const dynamic = "force-dynamic";
 
@@ -98,14 +100,15 @@ export default async function LicenseDetailPage({
 
   // Dashboard stats
   const activeAssignments = license.assignments;
-  const totalSeats = license.isVolumeLicense
-    ? license.totalQuantity
-    : license.seats.length || license.totalQuantity;
+  const isKeyBased = license.licenseType === "KEY_BASED";
+  const totalSeats = isKeyBased
+    ? license.seats.length || license.totalQuantity
+    : license.totalQuantity;
   const assignedCount = activeAssignments.length;
   const remainingCount = totalSeats - assignedCount;
-  const missingKeyCount = license.isVolumeLicense
-    ? 0
-    : license.seats.filter((s) => s.key === null).length;
+  const missingKeyCount = isKeyBased
+    ? license.seats.filter((s) => s.key === null).length
+    : 0;
 
   // Merge history entries
   type HistoryEntry = {
@@ -160,7 +163,6 @@ export default async function LicenseDetailPage({
     })),
   ];
 
-  // Deduplicate by removing audit entries that are too close in time to assignment entries
   history.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   const displayHistory = history.slice(0, 30);
 
@@ -194,9 +196,35 @@ export default async function LicenseDetailPage({
     department: a.employee.department,
     assignedDate: a.assignedDate.toLocaleDateString("ko-KR"),
     seatKey: a.seat?.key ?? null,
-    isVolumeLicense: license.isVolumeLicense,
-    volumeKey: license.isVolumeLicense ? license.key : null,
+    licenseType: license.licenseType as "NO_KEY" | "KEY_BASED" | "VOLUME",
+    volumeKey: license.licenseType === "VOLUME" ? license.key : null,
   }));
+
+  const typeLabel =
+    license.licenseType === "VOLUME"
+      ? "Volume"
+      : license.licenseType === "NO_KEY"
+        ? "No Key"
+        : null;
+
+  // Compute cost breakdown for display
+  const hasCostData =
+    license.quantity != null &&
+    license.unitPrice != null &&
+    license.paymentCycle != null;
+
+  const costBreakdown = hasCostData
+    ? computeCost({
+        paymentCycle: license.paymentCycle!,
+        quantity: license.quantity!,
+        unitPrice: license.unitPrice!,
+        currency: license.currency,
+        exchangeRate: license.exchangeRate,
+        isVatIncluded: license.isVatIncluded,
+      })
+    : null;
+
+  const currencySymbol = CURRENCY_SYMBOLS[license.currency];
 
   return (
     <div className="min-h-screen bg-gray-50 py-10">
@@ -205,9 +233,13 @@ export default async function LicenseDetailPage({
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-gray-900">{license.name}</h1>
-            {license.isVolumeLicense && (
-              <span className="rounded bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700">
-                Volume
+            {typeLabel && (
+              <span className={`rounded px-2 py-0.5 text-xs font-semibold ${
+                license.licenseType === "VOLUME"
+                  ? "bg-purple-100 text-purple-700"
+                  : "bg-gray-100 text-gray-600"
+              }`}>
+                {typeLabel}
               </span>
             )}
           </div>
@@ -244,7 +276,7 @@ export default async function LicenseDetailPage({
             label="잔여"
             value={remainingCount}
           />
-          {!license.isVolumeLicense && (
+          {isKeyBased && (
             <DashboardCard
               icon={<AlertTriangle className="h-5 w-5 text-amber-500" />}
               label="키 미등록"
@@ -269,11 +301,6 @@ export default async function LicenseDetailPage({
               value={formatDate(license.expiryDate)}
             />
             <InfoItem
-              icon={<Calendar className="h-4 w-4" />}
-              label="계약일"
-              value={formatDate(license.contractDate)}
-            />
-            <InfoItem
               icon={<CreditCard className="h-4 w-4" />}
               label="금액"
               value={formatPrice(license.price)}
@@ -292,7 +319,7 @@ export default async function LicenseDetailPage({
                   : "—"
               }
             />
-            {license.isVolumeLicense && license.key && (
+            {license.licenseType === "VOLUME" && license.key && (
               <div className="sm:col-span-3">
                 <InfoItem
                   icon={<KeyRound className="h-4 w-4" />}
@@ -314,8 +341,61 @@ export default async function LicenseDetailPage({
           </dl>
         </div>
 
-        {/* Seat Table (Individual only) */}
-        {!license.isVolumeLicense && license.seats.length > 0 && (
+        {/* Cost Breakdown */}
+        {costBreakdown && (
+          <div className="mb-6 rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-200">
+            <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+              <Calculator className="h-5 w-5 text-blue-500" />
+              비용 정보
+            </h2>
+            <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <InfoItem
+                icon={<CreditCard className="h-4 w-4" />}
+                label="납부 주기"
+                value={PAYMENT_CYCLE_LABELS[license.paymentCycle!]}
+              />
+              <InfoItem
+                icon={<CreditCard className="h-4 w-4" />}
+                label={`단가 (${currencySymbol})`}
+                value={`${currencySymbol}${license.unitPrice!.toLocaleString("ko-KR")}`}
+              />
+              <InfoItem
+                icon={<CreditCard className="h-4 w-4" />}
+                label="결제 수량"
+                value={`${license.quantity!.toLocaleString("ko-KR")}개`}
+              />
+              <InfoItem
+                icon={<CreditCard className="h-4 w-4" />}
+                label={`합계 (${currencySymbol})`}
+                value={`${currencySymbol}${costBreakdown.totalAmountForeign.toLocaleString("ko-KR")} (VAT 포함)`}
+              />
+              {license.currency !== "KRW" && (
+                <InfoItem
+                  icon={<CreditCard className="h-4 w-4" />}
+                  label="환율"
+                  value={`1 ${license.currency} = ₩${license.exchangeRate.toLocaleString("ko-KR")}`}
+                />
+              )}
+            </dl>
+            <div className="mt-4 grid grid-cols-2 gap-4 rounded-md bg-blue-50 p-4 sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-medium uppercase text-gray-500">월 환산 (₩)</p>
+                <p className="mt-1 text-xl font-bold text-blue-700">
+                  ₩{costBreakdown.monthlyKRW.toLocaleString("ko-KR")}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase text-gray-500">연 환산 (₩)</p>
+                <p className="mt-1 text-xl font-bold text-blue-700">
+                  ₩{costBreakdown.annualKRW.toLocaleString("ko-KR")}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Seat Table (KEY_BASED only) */}
+        {isKeyBased && license.seats.length > 0 && (
           <div className="mb-6">
             <h2 className="mb-3 text-lg font-semibold text-gray-900">
               시트 현황 ({license.seats.length}개)

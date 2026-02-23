@@ -69,9 +69,9 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
     assignmentId: a.id,
     licenseId: a.licenseId,
     licenseName: a.license.name,
-    isVolumeLicense: a.license.isVolumeLicense,
+    licenseType: a.license.licenseType as "NO_KEY" | "KEY_BASED" | "VOLUME",
     seatKey: a.seat?.key ?? null,
-    volumeKey: a.license.isVolumeLicense ? a.license.key : null,
+    volumeKey: a.license.licenseType === "VOLUME" ? a.license.key : null,
     assignedDate: a.assignedDate.toLocaleDateString("ko-KR"),
     reason: a.reason,
   }));

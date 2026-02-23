@@ -110,17 +110,17 @@ async function importLicenses(rows: Record<string, string>[]): Promise<ImportRes
     const totalQuantity = parseNumber(row.totalQuantity, rowNum, "totalQuantity", errors, true);
     const purchaseDate = parseDate(row.purchaseDate, rowNum, "purchaseDate", errors, true);
     const key = row.key?.trim() || null;
-    const isVolumeLicense = parseBoolean(row.isVolumeLicense, rowNum, "isVolumeLicense", errors);
+    const rawType = row.licenseType?.trim().toUpperCase();
+    const licenseType = (["NO_KEY", "KEY_BASED", "VOLUME"].includes(rawType) ? rawType : "KEY_BASED") as "NO_KEY" | "KEY_BASED" | "VOLUME";
     const price = parseNumber(row.price, rowNum, "price", errors);
     const expiryDate = parseDate(row.expiryDate, rowNum, "expiryDate", errors);
-    const contractDate = parseDate(row.contractDate, rowNum, "contractDate", errors);
     const noticePeriodDays = parseNumber(row.noticePeriodDays, rowNum, "noticePeriodDays", errors);
     const adminName = row.adminName?.trim() || null;
     const description = row.description?.trim() || null;
 
     return {
-      rowNum, name, totalQuantity, purchaseDate, key, isVolumeLicense,
-      price, expiryDate, contractDate, noticePeriodDays, adminName, description,
+      rowNum, name, totalQuantity, purchaseDate, key, licenseType,
+      price, expiryDate, noticePeriodDays, adminName, description,
     };
   });
 
@@ -190,10 +190,10 @@ async function importLicenses(rows: Record<string, string>[]): Promise<ImportRes
       const existing = licenseMap.get(row.name);
       if (!existing) continue;
 
-      const isVolume = row.isVolumeLicense ?? existing.isVolumeLicense;
+      const effectiveType = row.licenseType ?? existing.licenseType;
       const activeAssignments = existing._count.assignments;
 
-      if (isVolume) {
+      if (effectiveType !== "KEY_BASED") {
         // 볼륨: 활성 배정 수 이상이어야
         if (row.totalQuantity < activeAssignments) {
           errors.push({
@@ -226,16 +226,15 @@ async function importLicenses(rows: Record<string, string>[]): Promise<ImportRes
 
   await prisma.$transaction(async (tx) => {
     for (const row of validated) {
-      const isVolume = row.isVolumeLicense ?? false;
+      const licenseType = row.licenseType;
       const data = {
         name: row.name!,
         totalQuantity: row.totalQuantity!,
         purchaseDate: row.purchaseDate!,
-        key: isVolume ? row.key : null, // 개별 라이선스는 키를 시트에 저장
-        isVolumeLicense: isVolume,
+        key: licenseType === "VOLUME" ? row.key : null,
+        licenseType,
         price: row.price,
         expiryDate: row.expiryDate,
-        contractDate: row.contractDate,
         noticePeriodDays: row.noticePeriodDays ? Math.round(row.noticePeriodDays) : null,
         adminName: row.adminName,
         description: row.description,
@@ -244,13 +243,13 @@ async function importLicenses(rows: Record<string, string>[]): Promise<ImportRes
       const existing = await tx.license.findFirst({ where: { name: row.name! } });
       if (existing) {
         await tx.license.update({ where: { id: existing.id }, data });
-        if (!isVolume) {
+        if (licenseType === "KEY_BASED") {
           await syncSeats(tx, existing.id, data.totalQuantity);
         }
         updated++;
       } else {
         const license = await tx.license.create({ data });
-        if (!isVolume) {
+        if (licenseType === "KEY_BASED") {
           await syncSeats(tx, license.id, data.totalQuantity);
         }
         created++;
@@ -356,7 +355,7 @@ async function importEmployees(rows: Record<string, string>[]): Promise<ImportRe
 
           let seatId: number | null = null;
 
-          if (!license.isVolumeLicense) {
+          if (license.licenseType === "KEY_BASED") {
             // 개별 라이선스: 빈 시트 찾기 (키 있는 시트 우선)
             const availableSeats = await tx.licenseSeat.findMany({
               where: {
@@ -372,11 +371,11 @@ async function importEmployees(rows: Record<string, string>[]): Promise<ImportRe
             if (sorted.length === 0) continue; // 빈 시트 없으면 건너뜀
             seatId = sorted[0].id;
           } else {
-            // 볼륨 라이선스: 수량 체크
+            // VOLUME/NO_KEY: 수량 체크
             if (activeAssignments.length >= license.totalQuantity) continue;
           }
 
-          const keyType = license.isVolumeLicense ? "Volume Key" : "Individual Key";
+          const keyType = license.licenseType === "VOLUME" ? "Volume Key" : license.licenseType === "KEY_BASED" ? "Individual Key" : "No Key";
           const reason = `CSV Import - Auto-assigned via Group: ${group.name} (${keyType})`;
           const assignment = await tx.assignment.create({
             data: { licenseId: license.id, employeeId: employee.id, seatId, reason },
@@ -528,7 +527,7 @@ async function importAssignments(rows: Record<string, string>[]): Promise<Import
       let seatId: number | null = null;
       const reason = row.reason || "CSV Import";
 
-      if (!license.isVolumeLicense) {
+      if (license.licenseType === "KEY_BASED") {
         // 개별 라이선스: 빈 시트 찾기 (키 있는 시트 우선)
         const availableSeats = await tx.licenseSeat.findMany({
           where: {
@@ -549,13 +548,13 @@ async function importAssignments(rows: Record<string, string>[]): Promise<Import
         }
         seatId = sorted[0].id;
       } else {
-        // 볼륨 라이선스: 수량 체크
+        // VOLUME/NO_KEY: 수량 체크
         const activeCount = await tx.assignment.count({
           where: { licenseId: license.id, returnedDate: null },
         });
         if (activeCount >= license.totalQuantity) {
           throw new Error(
-            `행 ${rowNum}: 볼륨 라이선스 "${row.licenseName}"의 잔여 수량이 없습니다. (${activeCount}/${license.totalQuantity} 배정 중)`
+            `행 ${rowNum}: 라이선스 "${row.licenseName}"의 잔여 수량이 없습니다. (${activeCount}/${license.totalQuantity} 배정 중)`
           );
         }
       }
@@ -679,7 +678,7 @@ async function importSeats(rows: Record<string, string>[]): Promise<ImportResult
   for (const [licenseName, keys] of byLicense) {
     const license = await prisma.license.findFirst({
       where: { name: licenseName },
-      select: { id: true, isVolumeLicense: true, totalQuantity: true },
+      select: { id: true, licenseType: true, totalQuantity: true },
     });
 
     if (!license) {
@@ -693,12 +692,12 @@ async function importSeats(rows: Record<string, string>[]): Promise<ImportResult
       continue;
     }
 
-    if (license.isVolumeLicense) {
+    if (license.licenseType !== "KEY_BASED") {
       for (const k of keys) {
         errors.push({
           row: k.rowNum,
           column: "licenseName",
-          message: `"${licenseName}"은(는) 볼륨 라이선스입니다. 시트(키) 가져오기는 개별 라이선스만 지원합니다.`,
+          message: `"${licenseName}"은(는) 개별 키 라이선스가 아닙니다. 시트(키) 가져오기는 KEY_BASED 라이선스만 지원합니다.`,
         });
       }
       continue;

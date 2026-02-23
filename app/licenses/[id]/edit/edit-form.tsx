@@ -3,6 +3,8 @@
 import { useActionState, useState, useCallback } from "react";
 import { updateLicense, deleteLicense, type FormState } from "./actions";
 import Link from "next/link";
+import CostCalculatorSection from "@/app/licenses/_components/cost-calculator-section";
+import type { PaymentCycle, Currency } from "@/lib/cost-calculator";
 
 const NOTICE_OPTIONS = [
   { value: "", label: "설정 안 함" },
@@ -11,19 +13,32 @@ const NOTICE_OPTIONS = [
   { value: "custom", label: "직접 입력" },
 ] as const;
 
+type LicenseType = "NO_KEY" | "KEY_BASED" | "VOLUME";
+
+const LICENSE_TYPE_OPTIONS: { value: LicenseType; label: string; description: string }[] = [
+  { value: "KEY_BASED", label: "개별 키", description: "인원별 고유 키 관리 (시트 기반)" },
+  { value: "VOLUME", label: "볼륨 키", description: "하나의 키를 여러 명에게 공유" },
+  { value: "NO_KEY", label: "키 없음", description: "계정 기반 · 서비스 구독 등 키 불필요" },
+];
+
 type License = {
   id: number;
   name: string;
   key: string | null;
-  isVolumeLicense: boolean;
+  licenseType: LicenseType;
   totalQuantity: number;
   price: number | null;
   purchaseDate: Date;
   expiryDate: Date | null;
-  contractDate: Date | null;
   noticePeriodDays: number | null;
   adminName: string | null;
   description: string | null;
+  paymentCycle: PaymentCycle | null;
+  quantity: number | null;
+  unitPrice: number | null;
+  currency: Currency;
+  exchangeRate: number;
+  isVatIncluded: boolean;
 };
 
 type Seat = {
@@ -57,7 +72,7 @@ export default function EditLicenseForm({
 
   const initialNoticeType = resolveNoticePeriodType(license.noticePeriodDays);
   const [noticePeriodType, setNoticePeriodType] = useState(initialNoticeType);
-  const [isVolume, setIsVolume] = useState(license.isVolumeLicense);
+  const [licenseType, setLicenseType] = useState<LicenseType>(license.licenseType);
   const [isDeleting, setIsDeleting] = useState(false);
   const [seats, setSeats] = useState(initialSeats);
 
@@ -105,20 +120,44 @@ export default function EditLicenseForm({
               />
             </Field>
 
-            <Field label="라이선스 키">
-              <input
-                type="text"
-                name="key"
-                defaultValue={license.key ?? ""}
-                className="input"
-              />
+            <Field label="라이선스 유형" required error={state.errors?.licenseType}>
+              <div className="flex flex-wrap gap-2">
+                {LICENSE_TYPE_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={`cursor-pointer rounded-md px-4 py-2 text-sm font-medium ring-1 transition-colors ${
+                      licenseType === opt.value
+                        ? "bg-blue-600 text-white ring-blue-600"
+                        : "bg-white text-gray-700 ring-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="licenseType"
+                      value={opt.value}
+                      checked={licenseType === opt.value}
+                      onChange={() => setLicenseType(opt.value)}
+                      className="sr-only"
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                {LICENSE_TYPE_OPTIONS.find((o) => o.value === licenseType)?.description}
+              </p>
             </Field>
 
-            <label className="flex items-center gap-2">
-              <input type="checkbox" name="isVolumeLicense" checked={isVolume} onChange={(e) => setIsVolume(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-              <span className="text-sm font-medium text-gray-700">볼륨 라이선스</span>
-              <span className="text-xs text-gray-500">(하나의 키를 여러 명에게 배정 가능)</span>
-            </label>
+            {licenseType === "VOLUME" && (
+              <Field label="볼륨 라이선스 키">
+                <input
+                  type="text"
+                  name="key"
+                  defaultValue={license.key ?? ""}
+                  className="input"
+                />
+              </Field>
+            )}
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <Field label="수량" required error={state.errors?.totalQuantity}>
@@ -154,8 +193,8 @@ export default function EditLicenseForm({
             </div>
           </fieldset>
 
-          {/* 시트 목록 (개별 라이선스) */}
-          {!isVolume && seats.length > 0 && (
+          {/* 시트 목록 (개별 라이선스만) */}
+          {licenseType === "KEY_BASED" && seats.length > 0 && (
             <fieldset className="space-y-4">
               <legend className="text-base font-semibold text-gray-900 border-b border-gray-200 pb-2 w-full">
                 시트 ({seats.length}개)
@@ -186,15 +225,6 @@ export default function EditLicenseForm({
                   type="date"
                   name="expiryDate"
                   defaultValue={toDateString(license.expiryDate)}
-                  className="input"
-                />
-              </Field>
-
-              <Field label="계약일">
-                <input
-                  type="date"
-                  name="contractDate"
-                  defaultValue={toDateString(license.contractDate)}
                   className="input"
                 />
               </Field>
@@ -271,6 +301,19 @@ export default function EditLicenseForm({
             </Field>
           </fieldset>
 
+          {/* 비용 계산 */}
+          <CostCalculatorSection
+            initialValues={{
+              paymentCycle: license.paymentCycle,
+              quantity: license.quantity,
+              unitPrice: license.unitPrice,
+              currency: license.currency,
+              exchangeRate: license.exchangeRate,
+              isVatIncluded: license.isVatIncluded,
+            }}
+            errors={state.errors}
+          />
+
           {/* 제출 / 삭제 */}
           <div className="flex items-center justify-between border-t border-gray-200 pt-4">
             <button
@@ -341,7 +384,6 @@ function SeatTable({
         return;
       }
 
-      // Update local state
       onSeatsChange(
         seats.map((s) => (s.id === seatId ? { ...s, key: trimmed || null } : s))
       );

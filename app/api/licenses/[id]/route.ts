@@ -2,8 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { syncSeats, deleteAllSeats } from "@/lib/license-seats";
+import {
+  computeCost,
+  VALID_PAYMENT_CYCLES,
+  VALID_CURRENCIES,
+  type PaymentCycle,
+  type Currency,
+} from "@/lib/cost-calculator";
 
 type Params = { params: Promise<{ id: string }> };
+
+const VALID_LICENSE_TYPES = ["NO_KEY", "KEY_BASED", "VOLUME"] as const;
 
 // GET /api/licenses/:id — 라이선스 상세 조회
 export async function GET(request: NextRequest, { params }: Params) {
@@ -64,20 +73,51 @@ export async function PUT(request: NextRequest, { params }: Params) {
     const body = await request.json();
     const {
       name, key, totalQuantity, price, purchaseDate, expiryDate,
-      contractDate, noticePeriodDays, adminName, description,
+      noticePeriodDays, adminName, description,
+      paymentCycle: paymentCycleRaw, quantity: billingQty, unitPrice,
+      currency: currencyRaw, exchangeRate: exchangeRateRaw, isVatIncluded,
     } = body;
 
     const licenseId = Number(id);
-    const isVolumeLicense = body.isVolumeLicense;
+    const licenseType = VALID_LICENSE_TYPES.includes(body.licenseType)
+      ? body.licenseType
+      : undefined;
+
+    // Cost fields
+    const paymentCycle = VALID_PAYMENT_CYCLES.includes(paymentCycleRaw)
+      ? (paymentCycleRaw as PaymentCycle)
+      : undefined;
+    const currency = VALID_CURRENCIES.includes(currencyRaw)
+      ? (currencyRaw as Currency)
+      : undefined;
+    const exchangeRate = exchangeRateRaw != null ? Number(exchangeRateRaw) : undefined;
+
+    let totalAmountForeign: number | null | undefined = undefined;
+    let totalAmountKRW: number | null | undefined = undefined;
+    if (paymentCycle && billingQty != null && unitPrice != null) {
+      const result = computeCost({
+        paymentCycle,
+        quantity: Number(billingQty),
+        unitPrice: Number(unitPrice),
+        currency: currency ?? "KRW",
+        exchangeRate: exchangeRate != null && exchangeRate > 0 ? exchangeRate : 1,
+        isVatIncluded: Boolean(isVatIncluded),
+      });
+      totalAmountForeign = result.totalAmountForeign;
+      totalAmountKRW = result.totalAmountKRW;
+    } else if (billingQty === null || unitPrice === null) {
+      totalAmountForeign = null;
+      totalAmountKRW = null;
+    }
 
     const license = await prisma.$transaction(async (tx) => {
       const existing = await tx.license.findUnique({
         where: { id: licenseId },
-        select: { isVolumeLicense: true },
+        select: { licenseType: true },
       });
 
-      // Risk 3: Block type conversion if active assignments exist
-      if (existing && isVolumeLicense !== undefined && existing.isVolumeLicense !== isVolumeLicense) {
+      // Block type conversion if active assignments exist
+      if (existing && licenseType !== undefined && existing.licenseType !== licenseType) {
         const activeAssignments = await tx.assignment.count({
           where: { licenseId, returnedDate: null },
         });
@@ -88,32 +128,44 @@ export async function PUT(request: NextRequest, { params }: Params) {
         }
       }
 
+      const newLicenseType = licenseType ?? existing?.licenseType;
+
       const updated = await tx.license.update({
         where: { id: licenseId },
         data: {
           ...(name !== undefined && { name }),
-          ...(key !== undefined && { key: isVolumeLicense ? (key || null) : null }),
-          ...(isVolumeLicense !== undefined && { isVolumeLicense }),
+          ...(licenseType !== undefined && { licenseType }),
+          ...(key !== undefined && { key: newLicenseType === "VOLUME" ? (key || null) : null }),
           ...(totalQuantity !== undefined && { totalQuantity: Number(totalQuantity) }),
           ...(price !== undefined && { price: price != null ? Number(price) : null }),
           ...(purchaseDate !== undefined && { purchaseDate: new Date(purchaseDate) }),
           ...(expiryDate !== undefined && { expiryDate: expiryDate ? new Date(expiryDate) : null }),
-          ...(contractDate !== undefined && { contractDate: contractDate ? new Date(contractDate) : null }),
           ...(noticePeriodDays !== undefined && { noticePeriodDays: noticePeriodDays != null ? Number(noticePeriodDays) : null }),
           ...(adminName !== undefined && { adminName: adminName || null }),
           ...(description !== undefined && { description: description || null }),
+          ...(paymentCycle !== undefined && { paymentCycle }),
+          ...(billingQty !== undefined && { quantity: billingQty != null ? Number(billingQty) : null }),
+          ...(unitPrice !== undefined && { unitPrice: unitPrice != null ? Number(unitPrice) : null }),
+          ...(currency !== undefined && { currency }),
+          ...(exchangeRate !== undefined && { exchangeRate }),
+          ...(isVatIncluded !== undefined && { isVatIncluded: Boolean(isVatIncluded) }),
+          ...(totalAmountForeign !== undefined && { totalAmountForeign }),
+          ...(totalAmountKRW !== undefined && { totalAmountKRW }),
         },
       });
 
-      if (existing && isVolumeLicense !== undefined) {
-        if (!existing.isVolumeLicense && isVolumeLicense) {
+      if (existing && licenseType !== undefined) {
+        const wasKeyBased = existing.licenseType === "KEY_BASED";
+        const isKeyBased = licenseType === "KEY_BASED";
+
+        if (wasKeyBased && !isKeyBased) {
           await deleteAllSeats(tx, licenseId);
-        } else if (existing.isVolumeLicense && !isVolumeLicense) {
+        } else if (!wasKeyBased && isKeyBased) {
           await syncSeats(tx, licenseId, totalQuantity !== undefined ? Number(totalQuantity) : updated.totalQuantity);
         }
       }
 
-      if (!updated.isVolumeLicense && totalQuantity !== undefined) {
+      if (updated.licenseType === "KEY_BASED" && totalQuantity !== undefined) {
         await syncSeats(tx, licenseId, Number(totalQuantity));
       }
 

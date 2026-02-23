@@ -62,7 +62,7 @@ export default async function LicensesPage({
     select: {
       id: true,
       name: true,
-      isVolumeLicense: true,
+      licenseType: true,
       totalQuantity: true,
       price: true,
       purchaseDate: true,
@@ -88,8 +88,12 @@ export default async function LicensesPage({
 
   const enriched = licenses.map((license) => {
     const assignedCount = license.assignments.length;
-    const maxCapacity = license.isVolumeLicense ? license.totalQuantity : license.seats.length || license.totalQuantity;
-    const missingKeyCount = license.isVolumeLicense ? 0 : license.seats.filter((s) => s.key === null).length;
+    const maxCapacity = license.licenseType === "KEY_BASED"
+      ? license.seats.length || license.totalQuantity
+      : license.totalQuantity;
+    const missingKeyCount = license.licenseType === "KEY_BASED"
+      ? license.seats.filter((s) => s.key === null).length
+      : 0;
     return {
       ...license,
       assignedCount,
@@ -202,12 +206,17 @@ export default async function LicensesPage({
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">
                         <span className="inline-flex items-center gap-1.5">
                           {license.name}
-                          {license.isVolumeLicense && (
+                          {license.licenseType === "VOLUME" && (
                             <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700">
                               Volume
                             </span>
                           )}
-                          {!license.isVolumeLicense && license.missingKeyCount > 0 && (
+                          {license.licenseType === "NO_KEY" && (
+                            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600">
+                              No Key
+                            </span>
+                          )}
+                          {license.licenseType === "KEY_BASED" && license.missingKeyCount > 0 && (
                             <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
                               키 미등록 {license.missingKeyCount}
                             </span>
@@ -256,7 +265,7 @@ export default async function LicensesPage({
                             remaining={license.remainingCount}
                             employees={employees}
                             assignedEmployeeIds={license.assignedEmployeeIds}
-                            isVolumeLicense={license.isVolumeLicense}
+                            licenseType={license.licenseType}
                           />
                           <UnassignButton
                             licenseName={license.name}

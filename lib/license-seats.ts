@@ -13,14 +13,14 @@ export type SyncSeatsResult = {
 };
 
 /**
- * 개별 라이선스의 LicenseSeat 수를 totalQuantity에 맞춰 동기화한다.
+ * KEY_BASED 라이선스의 LicenseSeat 수를 totalQuantity에 맞춰 동기화한다.
  *
  * 삭제 우선순위:
  *   1. 키 없음 + 미배정  (데이터 유실 없음)
  *   2. 키 있음 + 미배정  (키 데이터 유실 — result.deletedWithKey 로 알림)
  *   ─ 배정 중인 시트는 절대 삭제하지 않음 ─
  *
- * 볼륨 라이선스는 noop.
+ * VOLUME / NO_KEY 라이선스는 noop.
  */
 export async function syncSeats(
   tx: Tx,
@@ -29,10 +29,10 @@ export async function syncSeats(
 ): Promise<SyncSeatsResult> {
   const license = await tx.license.findUnique({
     where: { id: licenseId },
-    select: { isVolumeLicense: true, name: true },
+    select: { licenseType: true, name: true },
   });
 
-  if (!license || license.isVolumeLicense) {
+  if (!license || license.licenseType !== "KEY_BASED") {
     return { created: 0, deleted: 0, deletedWithKey: 0 };
   }
 
@@ -62,13 +62,11 @@ export async function syncSeats(
   if (currentCount > totalQuantity) {
     const toDelete = currentCount - totalQuantity;
 
-    // 현재 상태 분류
     const assigned = currentSeats.filter((s) => s.assignments.length > 0);
     const unassigned = currentSeats.filter((s) => s.assignments.length === 0);
     const unassignedNoKey = unassigned.filter((s) => s.key === null);
     const unassignedWithKey = unassigned.filter((s) => s.key !== null);
 
-    // 삭제 가능한 시트 = 미배정만 (우선순위: 키없음 → 키있음)
     const deletable = [...unassignedNoKey, ...unassignedWithKey];
 
     if (deletable.length < toDelete) {
@@ -91,12 +89,11 @@ export async function syncSeats(
     return { created: 0, deleted: toDelete, deletedWithKey };
   }
 
-  // 변경 없음
   return { created: 0, deleted: 0, deletedWithKey: 0 };
 }
 
 /**
- * 개별 → 볼륨 전환 시 모든 시트를 삭제한다.
+ * KEY_BASED → VOLUME/NO_KEY 전환 시 모든 시트를 삭제한다.
  * 활성 배정이 1건이라도 있으면 전환 불가 에러.
  */
 export async function deleteAllSeats(
@@ -120,7 +117,7 @@ export async function deleteAllSeats(
 
   if (activeCount > 0) {
     throw new Error(
-      `배정 중인 시트가 ${activeCount}개 있어 볼륨 라이선스로 전환할 수 없습니다. ` +
+      `배정 중인 시트가 ${activeCount}개 있어 라이선스 유형을 변경할 수 없습니다. ` +
         `먼저 모든 배정을 해제하세요.`
     );
   }
@@ -128,7 +125,6 @@ export async function deleteAllSeats(
   if (stats.length > 0) {
     await tx.licenseSeat.deleteMany({ where: { licenseId } });
     if (keyedCount > 0) {
-      // 호출자가 이 정보를 쓰진 않지만, 로그 용도로 남긴다
       console.log(
         `[deleteAllSeats] licenseId=${licenseId}: ${stats.length}개 시트 삭제 (키 등록 ${keyedCount}개 포함)`
       );

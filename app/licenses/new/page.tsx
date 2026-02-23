@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { createLicense, type FormState } from "./actions";
 import Link from "next/link";
+import CostCalculatorSection from "@/app/licenses/_components/cost-calculator-section";
 
 const initialState: FormState = {};
 
@@ -13,9 +14,17 @@ const NOTICE_OPTIONS = [
   { value: "custom", label: "직접 입력" },
 ] as const;
 
+type LicenseType = "NO_KEY" | "KEY_BASED" | "VOLUME";
+
+const LICENSE_TYPE_OPTIONS: { value: LicenseType; label: string; description: string }[] = [
+  { value: "KEY_BASED", label: "개별 키", description: "인원별 고유 키 관리 (시트 기반)" },
+  { value: "VOLUME", label: "볼륨 키", description: "하나의 키를 여러 명에게 공유" },
+  { value: "NO_KEY", label: "키 없음", description: "계정 기반 · 서비스 구독 등 키 불필요" },
+];
+
 export default function NewLicensePage() {
   const [state, formAction, isPending] = useActionState(createLicense, initialState);
-  const [isVolume, setIsVolume] = useState(false);
+  const [licenseType, setLicenseType] = useState<LicenseType>("KEY_BASED");
   const [noticePeriodType, setNoticePeriodType] = useState("");
 
   return (
@@ -54,8 +63,36 @@ export default function NewLicensePage() {
               />
             </Field>
 
-            {isVolume ? (
-              <Field label="라이선스 키">
+            <Field label="라이선스 유형" required error={state.errors?.licenseType}>
+              <div className="flex flex-wrap gap-2">
+                {LICENSE_TYPE_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={`cursor-pointer rounded-md px-4 py-2 text-sm font-medium ring-1 transition-colors ${
+                      licenseType === opt.value
+                        ? "bg-blue-600 text-white ring-blue-600"
+                        : "bg-white text-gray-700 ring-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="licenseType"
+                      value={opt.value}
+                      checked={licenseType === opt.value}
+                      onChange={() => setLicenseType(opt.value)}
+                      className="sr-only"
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                {LICENSE_TYPE_OPTIONS.find((o) => o.value === licenseType)?.description}
+              </p>
+            </Field>
+
+            {licenseType === "VOLUME" && (
+              <Field label="볼륨 라이선스 키">
                 <input
                   type="text"
                   name="key"
@@ -63,17 +100,13 @@ export default function NewLicensePage() {
                   className="input"
                 />
               </Field>
-            ) : (
+            )}
+
+            {licenseType === "KEY_BASED" && (
               <p className="text-xs text-gray-500">
                 개별 라이선스의 키는 등록 후 수정 화면의 시트 목록에서 관리합니다.
               </p>
             )}
-
-            <label className="flex items-center gap-2">
-              <input type="checkbox" name="isVolumeLicense" checked={isVolume} onChange={(e) => setIsVolume(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-              <span className="text-sm font-medium text-gray-700">볼륨 라이선스</span>
-              <span className="text-xs text-gray-500">(하나의 키를 여러 명에게 배정 가능)</span>
-            </label>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <Field label="수량" required error={state.errors?.totalQuantity}>
@@ -129,14 +162,6 @@ export default function NewLicensePage() {
                 <input
                   type="date"
                   name="expiryDate"
-                  className="input"
-                />
-              </Field>
-
-              <Field label="계약일">
-                <input
-                  type="date"
-                  name="contractDate"
                   className="input"
                 />
               </Field>
@@ -207,6 +232,9 @@ export default function NewLicensePage() {
               />
             </Field>
           </fieldset>
+
+          {/* 비용 계산 */}
+          <CostCalculatorSection errors={state.errors} />
 
           {/* 제출 */}
           <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
