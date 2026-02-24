@@ -1,0 +1,19 @@
+services:
+  app:
+    # 빌드된 이미지를 사용하거나, 없을 경우 현재 폴더의 dockerfile로 빌드
+    build:
+      context: .
+      dockerfile: dockerfile
+    image: license-manager:latest
+    container_name: license-app
+    ports:
+      - "80:3000"
+    volumes:
+      # [데이터 핵심] 호스트의 data 폴더와 컨테이너 내부 DB 파일을 연결
+      - /home/ssm-user/app/data/dev.db:/app/dev.db
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

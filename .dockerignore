@@ -1,0 +1,40 @@
+# 빌드 컨텍스트에서 제외 — 이미지 크기·빌드 속도 최적화
+
+# Dependencies (builder stage에서 npm ci로 새로 설치)
+node_modules/
+
+# Next.js build output (builder stage에서 새로 생성)
+.next/
+/out/
+/dist/
+
+# Prisma generated client (builder stage에서 새로 생성)
+generated/
+
+# Git metadata
+.git/
+.gitignore
+
+# IDE / local dev tools
+.vscode/
+.idea/
+.cursor/
+.claude/
+
+# Database files (런타임에 볼륨으로 마운트)
+*.db
+*.db-shm
+*.db-wal
+dev.db*
+
+# Environment (런타임에 주입)
+.env
+.env.*
+
+# Logs & OS
+*.log
+.DS_Store
+Thumbs.db
+
+# CI / docs
+README.md
