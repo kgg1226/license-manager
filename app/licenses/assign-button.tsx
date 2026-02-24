@@ -71,7 +71,7 @@ export default function AssignButton({
     setIsPending(false);
 
     if (totalAssigned > 0) {
-      toast(`${totalAssigned}명 배정 완료`, "success");
+      toast(`${totalAssigned}명 할당 완료`, "success");
       close();
     }
     if (errors.length > 0) {
@@ -98,9 +98,9 @@ export default function AssignButton({
         onClick={() => setOpen(true)}
         disabled={remaining <= 0}
         className="rounded px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-50 disabled:cursor-not-allowed disabled:text-gray-400 disabled:hover:bg-transparent"
-        title={remaining <= 0 ? "잔여 수량 없음" : `배정 (잔여 ${remaining})`}
+        title={remaining <= 0 ? "잔여 수량 없음" : `할당 (잔여 ${remaining})`}
       >
-        배정
+        할당
       </button>
 
       {open && (
@@ -110,13 +110,12 @@ export default function AssignButton({
         >
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="mb-1 text-lg font-semibold text-gray-900">
-              라이선스 배정
+              라이선스 할당
               {typeLabel && (
-                <span className={`ml-2 rounded px-2 py-0.5 text-xs font-semibold ${
-                  licenseType === "VOLUME"
-                    ? "bg-purple-100 text-purple-700"
-                    : "bg-gray-100 text-gray-600"
-                }`}>
+                <span className={`ml-2 rounded px-2 py-0.5 text-xs font-semibold ${licenseType === "VOLUME"
+                  ? "bg-purple-100 text-purple-700"
+                  : "bg-gray-100 text-gray-600"
+                  }`}>
                   {typeLabel}
                 </span>
               )}
@@ -134,7 +133,7 @@ export default function AssignButton({
             )}
             {licenseType === "VOLUME" && (
               <p className="mb-3 text-xs text-purple-600">
-                이 키는 배정 대상자와 공유됩니다.
+                이 키는 전사 공통키 입니다.
               </p>
             )}
             {licenseType !== "VOLUME" && <div className="mb-2" />}
@@ -151,7 +150,7 @@ export default function AssignButton({
             <div className="max-h-60 overflow-y-auto rounded-md border border-gray-200">
               {available.length === 0 ? (
                 <p className="p-4 text-center text-sm text-gray-500">
-                  {employees.length === assignedSet.size ? "모든 조직원에게 이미 배정되었습니다." : "검색 결과가 없습니다."}
+                  {employees.length === assignedSet.size ? "모든 조직원에게 이미 할당되었습니다." : "검색 결과가 없습니다."}
                 </p>
               ) : (
                 available.map((emp) => {
@@ -160,13 +159,12 @@ export default function AssignButton({
                   return (
                     <label
                       key={emp.id}
-                      className={`flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
-                        isChecked
-                          ? "bg-blue-50"
-                          : isDisabled
-                            ? "cursor-not-allowed opacity-50"
-                            : "hover:bg-gray-50"
-                      }`}
+                      className={`flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm transition-colors ${isChecked
+                        ? "bg-blue-50"
+                        : isDisabled
+                          ? "cursor-not-allowed opacity-50"
+                          : "hover:bg-gray-50"
+                        }`}
                     >
                       <input
                         type="checkbox"
@@ -196,7 +194,7 @@ export default function AssignButton({
                   disabled={isPending}
                   className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {isPending ? "배정 중..." : `${selected.size}명 배정`}
+                  {isPending ? "할당 중..." : `${selected.size}명 할당`}
                 </button>
               )}
             </div>
