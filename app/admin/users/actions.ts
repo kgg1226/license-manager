@@ -15,8 +15,6 @@ export async function createUser(
 
   const username = (formData.get("username") as string)?.trim();
   const password = formData.get("password") as string;
-  const name     = (formData.get("name")     as string)?.trim() || undefined;
-  const email    = (formData.get("email")    as string)?.trim() || undefined;
   const role     = formData.get("role") as "ADMIN" | "USER";
 
   if (!username || !password)
@@ -31,19 +29,17 @@ export async function createUser(
         username,
         password: hash,
         role: role === "ADMIN" ? "ADMIN" : "USER",
-        ...(name  ? { name  } : {}),
-        ...(email ? { email } : {}),
       },
     });
   } catch {
-    return { error: "이미 사용 중인 사용자명 또는 이메일입니다." };
+    return { error: "이미 사용 중인 사용자명입니다." };
   }
 
   revalidatePath("/admin/users");
   return { success: "사용자가 생성되었습니다." };
 }
 
-// ── 사용자 수정 (이름/이메일/역할) ──────────────────────────────────────────
+// ── 사용자 수정 (역할) ───────────────────────────────────────────────────────
 export async function updateUser(
   userId: number,
   _prev: FormState,
@@ -51,26 +47,16 @@ export async function updateUser(
 ): Promise<FormState> {
   const me = await requireAdmin();
 
-  const name  = (formData.get("name")  as string)?.trim() || null;
-  const email = (formData.get("email") as string)?.trim() || null;
-  const role  = formData.get("role") as "ADMIN" | "USER";
+  const role = formData.get("role") as "ADMIN" | "USER";
 
   // 자신의 관리자 권한은 박탈 불가
   if (me.id === userId && role !== "ADMIN")
     return { error: "자신의 관리자 권한은 제거할 수 없습니다." };
 
-  try {
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        name:  name  ?? null,
-        email: email ?? null,
-        role:  role === "ADMIN" ? "ADMIN" : "USER",
-      },
-    });
-  } catch {
-    return { error: "이미 사용 중인 이메일입니다." };
-  }
+  await prisma.user.update({
+    where: { id: userId },
+    data: { role: role === "ADMIN" ? "ADMIN" : "USER" },
+  });
 
   revalidatePath("/admin/users");
   return { success: "수정되었습니다." };

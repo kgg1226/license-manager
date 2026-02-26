@@ -12,8 +12,6 @@ import {
 type User = {
   id:        number;
   username:  string;
-  email:     string | null;
-  name:      string | null;
   role:      "ADMIN" | "USER";
   isActive:  boolean;
   createdAt: Date;
@@ -53,8 +51,6 @@ export default function UserTable({
           <thead className="bg-gray-50">
             <tr>
               <Th>사용자명</Th>
-              <Th>이름</Th>
-              <Th>이메일</Th>
               <Th>역할</Th>
               <Th>상태</Th>
               <Th>가입일</Th>
@@ -65,7 +61,7 @@ export default function UserTable({
             {users.length === 0 ? (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={5}
                   className="px-6 py-10 text-center text-sm text-gray-400"
                 >
                   검색 결과가 없습니다.
@@ -138,16 +134,6 @@ function UserRow({
         )}
       </td>
 
-      {/* 이름 */}
-      <td className="px-4 py-3 text-sm text-gray-700">
-        {user.name ?? <span className="text-gray-300">—</span>}
-      </td>
-
-      {/* 이메일 */}
-      <td className="px-4 py-3 text-sm text-gray-500">
-        {user.email ?? <span className="text-gray-300">—</span>}
-      </td>
-
       {/* 역할 */}
       <td className="px-4 py-3">
         <span
@@ -213,14 +199,6 @@ function AddUserModal({ onClose }: { onClose: () => void }) {
         <Field label="비밀번호 * (4자 이상)">
           <input type="password" name="password" required minLength={4} className="input" />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="이름">
-            <input type="text" name="name" className="input" />
-          </Field>
-          <Field label="이메일">
-            <input type="email" name="email" className="input" />
-          </Field>
-        </div>
         <Field label="역할">
           <select name="role" className="input">
             <option value="USER">일반</option>
@@ -251,24 +229,6 @@ function EditUserModal({
     <Modal title={`수정 — ${user.username}`} onClose={onClose}>
       <form action={action} className="space-y-4">
         <Alert state={state} onSuccess={onClose} />
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="이름">
-            <input
-              type="text"
-              name="name"
-              defaultValue={user.name ?? ""}
-              className="input"
-            />
-          </Field>
-          <Field label="이메일">
-            <input
-              type="email"
-              name="email"
-              defaultValue={user.email ?? ""}
-              className="input"
-            />
-          </Field>
-        </div>
         <Field label="역할">
           <select
             name="role"
@@ -284,7 +244,6 @@ function EditUserModal({
               자신의 역할은 변경할 수 없습니다.
             </p>
           )}
-          {/* hidden fallback for disabled select */}
           {isSelf && <input type="hidden" name="role" value={user.role} />}
         </Field>
         <ModalFooter onClose={onClose} isPending={isPending} submitLabel="저장" />
@@ -379,7 +338,6 @@ function Alert({
     );
   }
   if (state.success) {
-    // 성공 메시지를 잠시 보여준 뒤 모달을 닫는다
     if (onSuccess) setTimeout(onSuccess, 600);
     return (
       <p className="rounded-md bg-green-50 p-3 text-sm text-green-700">
