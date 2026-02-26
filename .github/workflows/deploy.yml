@@ -91,7 +91,6 @@ jobs:
               echo "✅ 배포 성공"
               exit 0
             elif [ "$STATUS" = "Failed" ] || [ "$STATUS" = "TimedOut" ] || [ "$STATUS" = "Cancelled" ]; then
-              # 실패 로그 출력
               aws ssm get-command-invocation \
                 --command-id "$COMMAND_ID" \
                 --instance-id "i-0aeda7845a9634718" \
@@ -104,92 +103,58 @@ jobs:
           echo "❌ 배포 타임아웃 (6분 초과)"
           exit 1
 
-      # ─── 4. QA 자동화 ────────────────────────────────────────────────
-      - name: Run QA checks
+      # ─── 4. QA 자동화 (EC2 내부 localhost로 실행, 폐쇄망 대응) ────────
+      - name: Run QA checks via SSM
         id: qa
         run: |
-          EC2_IP="${{ secrets.EC2_PUBLIC_IP }}"
-          BASE_URL="http://${EC2_IP}:8080"
-          FAIL=0
+          QA_COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "i-0aeda7845a9634718" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=[
+              "BASE_URL=http://localhost:8080",
+              "FAIL=0",
+              "echo \"=== QA 시작 ===\"",
+              "for i in 1 2 3 4 5 6; do STATUS=$(curl -s -o /dev/null -w \"%{http_code}\" $BASE_URL/login || echo 000); if [ \"$STATUS\" = \"200\" ]; then echo \"앱 준비됨\"; break; fi; echo \"[$i/6] 대기... ($STATUS)\"; sleep 5; done",
+              "STATUS=$(curl -s -o /dev/null -w \"%{http_code}\" $BASE_URL/login); if [ \"$STATUS\" = \"200\" ]; then echo \"PASS /login\"; else echo \"FAIL /login $STATUS\"; FAIL=1; fi",
+              "STATUS=$(curl -s -o /dev/null -w \"%{http_code}\" -X POST $BASE_URL/api/auth/login -H \"Content-Type: application/json\" -d \"{\\\"username\\\":\\\"admin\\\",\\\"password\\\":\\\"admin123\\\"}\"); if [ \"$STATUS\" = \"200\" ]; then echo \"PASS POST /api/auth/login\"; else echo \"FAIL POST /api/auth/login $STATUS\"; FAIL=1; fi",
+              "COOKIE=$(curl -s -i -X POST $BASE_URL/api/auth/login -H \"Content-Type: application/json\" -d \"{\\\"username\\\":\\\"admin\\\",\\\"password\\\":\\\"admin123\\\"}\" | grep -i set-cookie | grep session_token | sed \"s/.*session_token=//;s/;.*//\")",
+              "for PAGE in / /licenses /employees /settings/import; do STATUS=$(curl -s -o /dev/null -w \"%{http_code}\" -H \"Cookie: session_token=$COOKIE\" $BASE_URL$PAGE); if [ \"$STATUS\" = \"200\" ]; then echo \"PASS $PAGE\"; else echo \"FAIL $PAGE $STATUS\"; FAIL=1; fi; done",
+              "for API in /api/licenses /api/employees; do STATUS=$(curl -s -o /dev/null -w \"%{http_code}\" -H \"Cookie: session_token=$COOKIE\" $BASE_URL$API); if [ \"$STATUS\" = \"200\" ]; then echo \"PASS $API\"; else echo \"FAIL $API $STATUS\"; FAIL=1; fi; done",
+              "echo \"=== QA 완료 ===\"",
+              "if [ \"$FAIL\" = \"1\" ]; then echo \"QA_RESULT=FAIL\"; exit 1; else echo \"QA_RESULT=PASS\"; fi"
+            ]' \
+            --timeout-seconds 120 \
+            --query 'Command.CommandId' \
+            --output text)
 
-          echo "=== QA 시작: $BASE_URL ==="
+          for i in $(seq 1 12); do
+            sleep 10
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$QA_COMMAND_ID" \
+              --instance-id "i-0aeda7845a9634718" \
+              --query 'Status' --output text 2>/dev/null || echo "Pending")
 
-          # 앱이 완전히 뜰 때까지 대기 (최대 30초)
-          for i in $(seq 1 6); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/login" || echo "000")
-            if [ "$STATUS" = "200" ]; then
-              echo "✅ 앱 준비됨"
-              break
-            fi
-            echo "[$i/6] 앱 준비 대기... (현재 상태: $STATUS)"
-            sleep 5
-          done
+            echo "[$i/12] QA 상태: $STATUS"
 
-          # QA 1: 로그인 페이지 접속
-          echo "--- QA 1: 로그인 페이지 ---"
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/login")
-          if [ "$STATUS" = "200" ]; then
-            echo "✅ /login → $STATUS"
-          else
-            echo "❌ /login → $STATUS (예상: 200)"
-            FAIL=1
-          fi
-
-          # QA 2: 로그인 API
-          echo "--- QA 2: 로그인 API ---"
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X POST "$BASE_URL/api/auth/login" \
-            -H "Content-Type: application/json" \
-            -d '{"username":"admin","password":"admin123"}')
-          if [ "$RESPONSE" = "200" ]; then
-            echo "✅ POST /api/auth/login → $RESPONSE"
-          else
-            echo "❌ POST /api/auth/login → $RESPONSE (예상: 200)"
-            FAIL=1
-          fi
-
-          # QA 3: 세션 쿠키로 주요 페이지 접속
-          echo "--- QA 3: 주요 페이지 접속 ---"
-          COOKIE=$(curl -s -c - \
-            -X POST "$BASE_URL/api/auth/login" \
-            -H "Content-Type: application/json" \
-            -d '{"username":"admin","password":"admin123"}' \
-            | grep session_token | awk '{print $NF}')
-
-          for PAGE in "/" "/licenses" "/employees" "/settings/import"; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-              -H "Cookie: session_token=$COOKIE" \
-              "$BASE_URL$PAGE")
-            if [ "$STATUS" = "200" ]; then
-              echo "✅ $PAGE → $STATUS"
-            else
-              echo "❌ $PAGE → $STATUS (예상: 200)"
-              FAIL=1
+            if [ "$STATUS" = "Success" ]; then
+              aws ssm get-command-invocation \
+                --command-id "$QA_COMMAND_ID" \
+                --instance-id "i-0aeda7845a9634718" \
+                --query 'StandardOutputContent' --output text
+              echo "✅ QA 전체 통과"
+              exit 0
+            elif [ "$STATUS" = "Failed" ]; then
+              aws ssm get-command-invocation \
+                --command-id "$QA_COMMAND_ID" \
+                --instance-id "i-0aeda7845a9634718" \
+                --query 'StandardOutputContent' --output text
+              echo "❌ QA 실패"
+              exit 1
             fi
           done
 
-          # QA 4: API 엔드포인트
-          echo "--- QA 4: API 엔드포인트 ---"
-          for API in "/api/licenses" "/api/employees"; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-              -H "Cookie: session_token=$COOKIE" \
-              "$BASE_URL$API")
-            if [ "$STATUS" = "200" ]; then
-              echo "✅ GET $API → $STATUS"
-            else
-              echo "❌ GET $API → $STATUS (예상: 200)"
-              FAIL=1
-            fi
-          done
-
-          echo "=== QA 완료 ==="
-
-          if [ "$FAIL" = "1" ]; then
-            echo "QA_RESULT=fail" >> $GITHUB_OUTPUT
-            exit 1
-          else
-            echo "QA_RESULT=pass" >> $GITHUB_OUTPUT
-          fi
+          echo "❌ QA 타임아웃"
+          exit 1
 
       # ─── 5. 롤백 (QA 또는 배포 실패 시) ────────────────────────────
       - name: Rollback on failure
@@ -201,13 +166,7 @@ jobs:
             --instance-ids "i-0aeda7845a9634718" \
             --document-name "AWS-RunShellScript" \
             --parameters 'commands=[
-              "if sudo docker images | grep -q license-manager.*backup; then",
-              "  sudo docker rm -f license-app || true",
-              "  sudo docker run -d --name license-app -p 8080:3000 -e DATABASE_URL=file:/app/dev.db -e NODE_ENV=production -e SECURE_COOKIE=false -v /home/ssm-user/license-manager/data/dev.db:/app/dev.db license-manager:backup",
-              "  echo \"롤백 완료\"",
-              "else",
-              "  echo \"백업 이미지 없음 — 롤백 불가\"",
-              "fi"
+              "if sudo docker images | grep -q license-manager.*backup; then sudo docker rm -f license-app || true && sudo docker run -d --name license-app -p 8080:3000 -e DATABASE_URL=file:/app/dev.db -e NODE_ENV=production -e SECURE_COOKIE=false -v /home/ssm-user/license-manager/data/dev.db:/app/dev.db license-manager:backup && echo \"롤백 완료\"; else echo \"백업 이미지 없음 — 롤백 불가\"; fi"
             ]' \
             --timeout-seconds 60 || true
 
