@@ -1,3 +1,5 @@
+// 변경: DB 에러 시 전체 앱 장애 방지(catch), 조직도 메뉴 추가
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
@@ -30,7 +32,7 @@ export default async function RootLayout({
 }>) {
   const h = await headers();
   const pathname = h.get("x-pathname") ?? "";
-  const user = await getCurrentUser();
+  const user = await getCurrentUser().catch(() => null);
 
   // 세션 쿠키는 있지만 DB 세션이 만료/삭제된 경우 로그인으로 리다이렉트
   if (!user && pathname !== "/login") {
@@ -57,6 +59,9 @@ export default async function RootLayout({
                 </Link>
                 <Link href="/employees" className="text-sm text-gray-600 hover:text-gray-900">
                   조직원
+                </Link>
+                <Link href="/org" className="text-sm text-gray-600 hover:text-gray-900">
+                  조직도
                 </Link>
                 <Link href="/settings/groups" className="text-sm text-gray-600 hover:text-gray-900">
                   그룹 설정

@@ -38,3 +38,6 @@ Thumbs.db
 
 # CI / docs
 README.md
+
+# 개발용 일회성 테스트 스크립트 — 프로덕션 이미지 불필요
+verify_api.mjs

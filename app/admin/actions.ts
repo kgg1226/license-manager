@@ -1,16 +1,12 @@
+// 변경: 로컬 requireAdmin() 삭제 후 lib/auth.ts에서 import — 중복 제거
+
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, hashPassword } from "@/lib/auth";
+import { hashPassword, requireAdmin } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 type FormState = { error?: string };
-
-async function requireAdmin() {
-  const user = await getCurrentUser();
-  if (!user || user.role !== "ADMIN") throw new Error("권한이 없습니다.");
-  return user;
-}
 
 export async function createUser(_prev: FormState, formData: FormData): Promise<FormState> {
   await requireAdmin();

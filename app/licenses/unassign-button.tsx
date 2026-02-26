@@ -69,11 +69,11 @@ export default function UnassignButton({
 
     setIsPending(false);
     if (totalReturned > 0) {
-      toast(`${totalReturned}건 배정 해제 완료`, "success");
+      toast(`${totalReturned}건 할당 해제 완료`, "success");
       setOpen(false);
       setSelected(new Set());
     } else if (!hasError) {
-      toast("해제할 수 있는 배정이 없습니다.", "error");
+      toast("해제할 수 있는 할당이 없습니다.", "error");
     }
   }
 
@@ -94,9 +94,9 @@ export default function UnassignButton({
           onClick={(e) => { if (e.target === e.currentTarget) { setOpen(false); setSelected(new Set()); } }}
         >
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="mb-1 text-lg font-semibold text-gray-900">배정 해제</h3>
+            <h3 className="mb-1 text-lg font-semibold text-gray-900">할당 해제</h3>
             <p className="mb-4 text-sm text-gray-500">
-              {licenseName} — {assignedEmployees.length}명 배정 중
+              {licenseName} — {assignedEmployees.length}명 할당 중
             </p>
 
             <div className="mb-2 flex items-center gap-2 px-1">
@@ -157,9 +157,9 @@ export default function UnassignButton({
       {confirmOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
           <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
-            <h3 className="mb-2 text-lg font-semibold text-gray-900">배정 해제 확인</h3>
+            <h3 className="mb-2 text-lg font-semibold text-gray-900">할당 해제 확인</h3>
             <p className="mb-4 text-sm text-gray-600">
-              선택한 {selected.size}건의 배정을 해제하시겠습니까?
+              선택한 {selected.size}건의 할당을 해제하시겠습니까?
               <br />
               <span className="text-xs text-gray-500">이 작업은 이력에 기록됩니다.</span>
             </p>

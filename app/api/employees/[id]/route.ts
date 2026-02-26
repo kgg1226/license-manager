@@ -65,6 +65,37 @@ export async function PUT(request: NextRequest, { params }: Params) {
   }
 }
 
+// PATCH /api/employees/:id — 조직 정보 수정 { companyId?, orgId?, subOrgId?, title? }
+export async function PATCH(request: NextRequest, { params }: Params) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    const { companyId, orgId, subOrgId, title } = body;
+
+    const employee = await prisma.employee.update({
+      where: { id: Number(id) },
+      data: {
+        ...(title !== undefined && { title: title || null }),
+        ...(companyId !== undefined && { companyId: companyId ? Number(companyId) : null }),
+        ...(orgId !== undefined && { orgId: orgId ? Number(orgId) : null }),
+        ...(subOrgId !== undefined && { subOrgId: subOrgId ? Number(subOrgId) : null }),
+      },
+      include: {
+        company: { select: { id: true, name: true } },
+        org: { select: { id: true, name: true } },
+        subOrg: { select: { id: true, name: true } },
+      },
+    });
+
+    return NextResponse.json(employee);
+  } catch (error) {
+    console.error("Failed to patch employee:", error);
+    return NextResponse.json({ error: "조직 정보 수정에 실패했습니다." }, { status: 500 });
+  }
+}
+
 // DELETE /api/employees/:id — 조직원 삭제 (활성 배정 이력 기록 후 삭제)
 export async function DELETE(request: NextRequest, { params }: Params) {
   const user = await getCurrentUser();

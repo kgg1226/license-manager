@@ -125,7 +125,7 @@ export default function ManageLicenses({
             onClick={() => setShowAssign(!showAssign)}
             className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
           >
-            {showAssign ? "닫기" : "+ 라이선스 배정"}
+            {showAssign ? "닫기" : "+ 라이선스 할당"}
           </button>
         </div>
       </div>
@@ -133,7 +133,7 @@ export default function ManageLicenses({
       {/* Assign panel */}
       {showAssign && (
         <div className="mb-4 rounded-lg bg-blue-50 p-4 ring-1 ring-blue-200">
-          <h3 className="mb-2 text-sm font-semibold text-blue-900">라이선스 배정</h3>
+          <h3 className="mb-2 text-sm font-semibold text-blue-900">라이선스 할당</h3>
           <input
             type="text"
             value={search}
@@ -143,7 +143,7 @@ export default function ManageLicenses({
           />
           <div className="max-h-48 overflow-y-auto rounded-md border border-blue-200 bg-white">
             {filteredAvailable.length === 0 ? (
-              <p className="p-3 text-center text-sm text-gray-500">배정 가능한 라이선스가 없습니다.</p>
+              <p className="p-3 text-center text-sm text-gray-500">할당 가능한 라이선스가 없습니다.</p>
             ) : (
               filteredAvailable.map((l) => (
                 <label
@@ -170,7 +170,7 @@ export default function ManageLicenses({
               disabled={isPendingAssign}
               className="mt-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              {isPendingAssign ? "배정 중..." : `${selectedAssign.size}건 배정`}
+              {isPendingAssign ? "할당 중..." : `${selectedAssign.size}건 할당`}
             </button>
           )}
         </div>
@@ -179,7 +179,7 @@ export default function ManageLicenses({
       {/* Assigned licenses table with checkboxes */}
       {assigned.length === 0 ? (
         <div className="rounded-lg bg-white p-6 text-center shadow-sm ring-1 ring-gray-200">
-          <p className="text-sm text-gray-500">배정된 라이선스가 없습니다.</p>
+          <p className="text-sm text-gray-500">할당된 라이선스가 없습니다.</p>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
@@ -196,7 +196,7 @@ export default function ManageLicenses({
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">라이선스</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">키</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">배정일</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">할당일</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">사유</th>
               </tr>
             </thead>
@@ -243,9 +243,9 @@ export default function ManageLicenses({
       {confirmUnassign && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
-            <h3 className="mb-2 text-lg font-semibold text-gray-900">배정 해제 확인</h3>
+            <h3 className="mb-2 text-lg font-semibold text-gray-900">할당 해제 확인</h3>
             <p className="mb-1 text-sm text-gray-600">
-              선택한 {selectedUnassign.size}건의 라이선스 배정을 해제하시겠습니까?
+              선택한 {selectedUnassign.size}건의 라이선스 할당을 해제하시겠습니까?
             </p>
             <p className="mb-4 text-xs text-gray-500">이 작업은 이력에 기록됩니다.</p>
             <div className="flex justify-end gap-2">

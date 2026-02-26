@@ -10,7 +10,7 @@ const importTypes: { value: ImportType; label: string }[] = [
   { value: "licenses", label: "라이선스" },
   { value: "employees", label: "조직원" },
   { value: "groups", label: "그룹" },
-  { value: "assignments", label: "배정" },
+  { value: "assignments", label: "할당" },
   { value: "seats", label: "시트(키)" },
 ];
 
@@ -29,7 +29,9 @@ export default function ImportForm() {
     const a = document.createElement("a");
     a.href = url;
     a.download = `${type}_template.csv`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
 

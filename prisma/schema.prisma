@@ -1,3 +1,5 @@
+// 변경: datasource url 추가, User 미사용 필드(googleId/email/name) 제거, OrgCompany/OrgUnit 모델 추가, Employee 조직 계층 필드 추가
+
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -5,16 +7,14 @@ generator client {
 
 datasource db {
   provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 model User {
   id        Int       @id @default(autoincrement())
   username  String    @unique
   password  String
-  email     String?   @unique
-  name      String?
   role      Role      @default(USER)
-  googleId  String?   @unique
   isActive  Boolean   @default(true)
   createdAt DateTime  @default(now())
   sessions  Session[]
@@ -62,9 +62,41 @@ model Employee {
   name        String
   department  String
   email       String?      @unique
+  title       String?
+  companyId   Int?
+  orgId       Int?
+  subOrgId    Int?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   assignments Assignment[]
+  company     OrgCompany?  @relation(fields: [companyId], references: [id])
+  org         OrgUnit?     @relation("OrgMembers", fields: [orgId], references: [id])
+  subOrg      OrgUnit?     @relation("SubOrgMembers", fields: [subOrgId], references: [id])
+}
+
+// 회사 단위
+model OrgCompany {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  createdAt DateTime   @default(now())
+  orgs      OrgUnit[]
+  employees Employee[]
+}
+
+// 조직/하위조직 단위 (self-relation으로 계층 표현)
+model OrgUnit {
+  id         Int        @id @default(autoincrement())
+  name       String
+  companyId  Int
+  parentId   Int?       // null이면 최상위 조직, 값이 있으면 하위조직
+  createdAt  DateTime   @default(now())
+  company    OrgCompany @relation(fields: [companyId], references: [id])
+  parent     OrgUnit?   @relation("OrgHierarchy", fields: [parentId], references: [id])
+  children   OrgUnit[]  @relation("OrgHierarchy")
+  members    Employee[] @relation("OrgMembers")
+  subMembers Employee[] @relation("SubOrgMembers")
+
+  @@unique([name, companyId, parentId])
 }
 
 model LicenseSeat {

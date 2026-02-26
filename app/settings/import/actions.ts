@@ -199,7 +199,7 @@ async function importLicenses(rows: Record<string, string>[]): Promise<ImportRes
           errors.push({
             row: row.rowNum,
             column: "totalQuantity",
-            message: `현재 활성 배정 ${activeAssignments}건이 있어 수량을 ${activeAssignments} 미만으로 설정할 수 없습니다. (입력값: ${row.totalQuantity})`,
+            message: `현재 활성 할당 ${activeAssignments}건이 있어 수량을 ${activeAssignments} 미만으로 설정할 수 없습니다. (입력값: ${row.totalQuantity})`,
           });
         }
       } else {
@@ -211,7 +211,7 @@ async function importLicenses(rows: Record<string, string>[]): Promise<ImportRes
           errors.push({
             row: row.rowNum,
             column: "totalQuantity",
-            message: `현재 ${assignedSeatCount}개 시트가 배정 중이어서 수량을 ${assignedSeatCount} 미만으로 줄일 수 없습니다. (입력값: ${row.totalQuantity})`,
+            message: `현재 ${assignedSeatCount}개 시트가 할당 중이어서 수량을 ${assignedSeatCount} 미만으로 줄일 수 없습니다. (입력값: ${row.totalQuantity})`,
           });
         }
       }
@@ -284,11 +284,46 @@ async function importEmployees(rows: Record<string, string>[]): Promise<ImportRe
     const name = requireField(row.name, rowNum, "name", errors);
     const department = requireField(row.department, rowNum, "department", errors);
     const email = row.email?.trim() || null;
+    const title = row.title?.trim() || null;
+    const companyName = row.companyName?.trim() || null;
+    const orgName = row.orgName?.trim() || null;
+    const subOrgName = row.subOrgName?.trim() || null;
     const groupName = row.groupName?.trim() || null;
-    return { name, department, email, groupName, rowNum };
+    return { name, department, email, title, companyName, orgName, subOrgName, groupName, rowNum };
   });
 
   if (errors.length > 0) return { success: false, created: 0, updated: 0, errors };
+
+  // Phase 1.5: Validate company/org names exist in DB (존재하지 않는 경우 에러 — 자동 생성 안 함)
+  const uniqueCompanyNames = [...new Set(validated.map((r) => r.companyName).filter(Boolean))] as string[];
+  if (uniqueCompanyNames.length > 0) {
+    const existingCompanies = await prisma.orgCompany.findMany({
+      where: { name: { in: uniqueCompanyNames } },
+      select: { name: true },
+    });
+    const existingCompanySet = new Set(existingCompanies.map((c) => c.name));
+    for (const row of validated) {
+      if (row.companyName && !existingCompanySet.has(row.companyName)) {
+        errors.push({ row: row.rowNum, column: "companyName", message: `존재하지 않는 회사입니다: "${row.companyName}"` });
+      }
+    }
+    if (errors.length > 0) return { success: false, created: 0, updated: 0, errors };
+  }
+
+  const uniqueOrgNames = [...new Set(validated.map((r) => r.orgName).filter(Boolean))] as string[];
+  if (uniqueOrgNames.length > 0) {
+    const existingOrgs = await prisma.orgUnit.findMany({
+      where: { name: { in: uniqueOrgNames }, parentId: null },
+      select: { name: true },
+    });
+    const existingOrgSet = new Set(existingOrgs.map((o) => o.name));
+    for (const row of validated) {
+      if (row.orgName && !existingOrgSet.has(row.orgName)) {
+        errors.push({ row: row.rowNum, column: "orgName", message: `존재하지 않는 조직입니다: "${row.orgName}"` });
+      }
+    }
+    if (errors.length > 0) return { success: false, created: 0, updated: 0, errors };
+  }
 
   // Phase 1.5: Validate group names exist in DB before writing
   const uniqueGroupNames = [...new Set(validated.map((r) => r.groupName).filter(Boolean))] as string[];
@@ -311,10 +346,32 @@ async function importEmployees(rows: Record<string, string>[]): Promise<ImportRe
 
   await prisma.$transaction(async (tx) => {
     for (const row of validated) {
+      // 조직 ID 조회 (이름 기준)
+      let companyId: number | null = null;
+      let orgId: number | null = null;
+      let subOrgId: number | null = null;
+
+      if (row.companyName) {
+        const company = await tx.orgCompany.findUnique({ where: { name: row.companyName } });
+        companyId = company?.id ?? null;
+      }
+      if (row.orgName && companyId) {
+        const org = await tx.orgUnit.findFirst({ where: { name: row.orgName, companyId, parentId: null } });
+        orgId = org?.id ?? null;
+      }
+      if (row.subOrgName && orgId) {
+        const subOrg = await tx.orgUnit.findFirst({ where: { name: row.subOrgName, parentId: orgId } });
+        subOrgId = subOrg?.id ?? null;
+      }
+
       const employeeData = {
         name: row.name!,
         department: row.department!,
         email: row.email || null,
+        title: row.title || null,
+        companyId,
+        orgId,
+        subOrgId,
       };
 
       let employee;
@@ -519,7 +576,7 @@ async function importAssignments(rows: Record<string, string>[]): Promise<Import
       });
       if (existing) {
         throw new Error(
-          `행 ${rowNum}: "${row.licenseName}"이(가) 이미 "${employee.name}"에게 배정되어 있습니다.`
+          `행 ${rowNum}: "${row.licenseName}"이(가) 이미 "${employee.name}"에게 할당되어 있습니다.`
         );
       }
 
@@ -543,7 +600,7 @@ async function importAssignments(rows: Record<string, string>[]): Promise<Import
         if (sorted.length === 0) {
           const totalSeats = await tx.licenseSeat.count({ where: { licenseId: license.id } });
           throw new Error(
-            `행 ${rowNum}: 개별 라이선스 "${row.licenseName}"의 잔여 시트가 없습니다. (전체 ${totalSeats}개 모두 배정 중)`
+            `행 ${rowNum}: 개별 라이선스 "${row.licenseName}"의 잔여 시트가 없습니다. (전체 ${totalSeats}개 모두 할당 중)`
           );
         }
         seatId = sorted[0].id;
@@ -554,7 +611,7 @@ async function importAssignments(rows: Record<string, string>[]): Promise<Import
         });
         if (activeCount >= license.totalQuantity) {
           throw new Error(
-            `행 ${rowNum}: 라이선스 "${row.licenseName}"의 잔여 수량이 없습니다. (${activeCount}/${license.totalQuantity} 배정 중)`
+            `행 ${rowNum}: 라이선스 "${row.licenseName}"의 잔여 수량이 없습니다. (${activeCount}/${license.totalQuantity} 할당 중)`
           );
         }
       }
