@@ -1,0 +1,255 @@
+name: Deploy to AWS EC2
+
+on:
+  workflow_dispatch:  # 수동 트리거 (GitHub Actions 탭에서 버튼 클릭)
+    inputs:
+      confirm:
+        description: '배포를 진행하시겠습니까? (yes 입력)'
+        required: true
+        default: 'no'
+
+jobs:
+  deploy:
+    name: 🚀 Build & Deploy
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'yes'
+
+    steps:
+      # ─── 1. 소스코드 체크아웃 ────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ─── 2. zip 압축 및 S3 업로드 ────────────────────────────────────
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: Zip source & upload to S3
+        run: |
+          zip -r license-manager.zip . \
+            --exclude "*.git*" \
+            --exclude "node_modules/*" \
+            --exclude ".next/*" \
+            --exclude "*.env*"
+
+          aws s3 cp license-manager.zip \
+            s3://triplecomma-releases/triplecomma-backoffice/license-manager.zip
+
+          echo "✅ S3 업로드 완료"
+
+      # ─── 3. EC2에서 배포 실행 ────────────────────────────────────────
+      - name: Deploy on EC2 via SSM
+        id: deploy
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "i-0aeda7845a9634718" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=[
+              "set -e",
+              "echo \"=== [1/4] S3에서 소스코드 다운로드 ===\"",
+              "cd /home/ssm-user/app",
+              "aws s3 cp s3://triplecomma-releases/triplecomma-backoffice/license-manager.zip .",
+              "unzip -o license-manager.zip -d license-manager",
+              "cd license-manager",
+              "echo \"=== [2/4] 스왑 확인 ===\"",
+              "free -h",
+              "if [ ! -f /swapfile ]; then sudo dd if=/dev/zero of=/swapfile bs=128M count=16 && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile && echo \"스왑 설정 완료\"; fi",
+              "echo \"=== [3/4] Docker 이미지 빌드 ===\"",
+              "sudo docker build -t license-manager:new .",
+              "echo \"=== [4/4] 컨테이너 교체 ===\"",
+              "sudo docker tag license-manager:latest license-manager:backup 2>/dev/null || true",
+              "sudo docker rm -f license-app || true",
+              "sudo docker run -d --name license-app -p 8080:3000 -e DATABASE_URL=file:/app/dev.db -e NODE_ENV=production -e SECURE_COOKIE=false -v /home/ssm-user/license-manager/data/dev.db:/app/dev.db license-manager:new",
+              "sudo docker tag license-manager:new license-manager:latest",
+              "echo \"배포 완료\""
+            ]' \
+            --timeout-seconds 600 \
+            --query 'Command.CommandId' \
+            --output text)
+
+          echo "COMMAND_ID=$COMMAND_ID" >> $GITHUB_OUTPUT
+          echo "SSM 명령 ID: $COMMAND_ID"
+
+      - name: Wait for deployment to complete
+        run: |
+          COMMAND_ID="${{ steps.deploy.outputs.COMMAND_ID }}"
+          echo "배포 완료 대기 중..."
+
+          for i in $(seq 1 24); do
+            sleep 15
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "i-0aeda7845a9634718" \
+              --query 'Status' --output text 2>/dev/null || echo "Pending")
+
+            echo "[$i/24] 상태: $STATUS"
+
+            if [ "$STATUS" = "Success" ]; then
+              echo "✅ 배포 성공"
+              exit 0
+            elif [ "$STATUS" = "Failed" ] || [ "$STATUS" = "TimedOut" ] || [ "$STATUS" = "Cancelled" ]; then
+              # 실패 로그 출력
+              aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id "i-0aeda7845a9634718" \
+                --query 'StandardErrorContent' --output text
+              echo "❌ 배포 실패: $STATUS"
+              exit 1
+            fi
+          done
+
+          echo "❌ 배포 타임아웃 (6분 초과)"
+          exit 1
+
+      # ─── 4. QA 자동화 ────────────────────────────────────────────────
+      - name: Run QA checks
+        id: qa
+        run: |
+          EC2_IP="${{ secrets.EC2_PUBLIC_IP }}"
+          BASE_URL="http://${EC2_IP}:8080"
+          FAIL=0
+
+          echo "=== QA 시작: $BASE_URL ==="
+
+          # 앱이 완전히 뜰 때까지 대기 (최대 30초)
+          for i in $(seq 1 6); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/login" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ 앱 준비됨"
+              break
+            fi
+            echo "[$i/6] 앱 준비 대기... (현재 상태: $STATUS)"
+            sleep 5
+          done
+
+          # QA 1: 로그인 페이지 접속
+          echo "--- QA 1: 로그인 페이지 ---"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/login")
+          if [ "$STATUS" = "200" ]; then
+            echo "✅ /login → $STATUS"
+          else
+            echo "❌ /login → $STATUS (예상: 200)"
+            FAIL=1
+          fi
+
+          # QA 2: 로그인 API
+          echo "--- QA 2: 로그인 API ---"
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "$BASE_URL/api/auth/login" \
+            -H "Content-Type: application/json" \
+            -d '{"username":"admin","password":"admin123"}')
+          if [ "$RESPONSE" = "200" ]; then
+            echo "✅ POST /api/auth/login → $RESPONSE"
+          else
+            echo "❌ POST /api/auth/login → $RESPONSE (예상: 200)"
+            FAIL=1
+          fi
+
+          # QA 3: 세션 쿠키로 주요 페이지 접속
+          echo "--- QA 3: 주요 페이지 접속 ---"
+          COOKIE=$(curl -s -c - \
+            -X POST "$BASE_URL/api/auth/login" \
+            -H "Content-Type: application/json" \
+            -d '{"username":"admin","password":"admin123"}' \
+            | grep session_token | awk '{print $NF}')
+
+          for PAGE in "/" "/licenses" "/employees" "/settings/import"; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Cookie: session_token=$COOKIE" \
+              "$BASE_URL$PAGE")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ $PAGE → $STATUS"
+            else
+              echo "❌ $PAGE → $STATUS (예상: 200)"
+              FAIL=1
+            fi
+          done
+
+          # QA 4: API 엔드포인트
+          echo "--- QA 4: API 엔드포인트 ---"
+          for API in "/api/licenses" "/api/employees"; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Cookie: session_token=$COOKIE" \
+              "$BASE_URL$API")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ GET $API → $STATUS"
+            else
+              echo "❌ GET $API → $STATUS (예상: 200)"
+              FAIL=1
+            fi
+          done
+
+          echo "=== QA 완료 ==="
+
+          if [ "$FAIL" = "1" ]; then
+            echo "QA_RESULT=fail" >> $GITHUB_OUTPUT
+            exit 1
+          else
+            echo "QA_RESULT=pass" >> $GITHUB_OUTPUT
+          fi
+
+      # ─── 5. 롤백 (QA 또는 배포 실패 시) ────────────────────────────
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "⚠️ 실패 감지 — 롤백 시도 중..."
+
+          aws ssm send-command \
+            --instance-ids "i-0aeda7845a9634718" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=[
+              "if sudo docker images | grep -q license-manager.*backup; then",
+              "  sudo docker rm -f license-app || true",
+              "  sudo docker run -d --name license-app -p 8080:3000 -e DATABASE_URL=file:/app/dev.db -e NODE_ENV=production -e SECURE_COOKIE=false -v /home/ssm-user/license-manager/data/dev.db:/app/dev.db license-manager:backup",
+              "  echo \"롤백 완료\"",
+              "else",
+              "  echo \"백업 이미지 없음 — 롤백 불가\"",
+              "fi"
+            ]' \
+            --timeout-seconds 60 || true
+
+      # ─── 6. Slack 알림 ───────────────────────────────────────────────
+      - name: Slack 성공 알림
+        if: success()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": "✅ *license-manager 배포 성공*",
+              "attachments": [{
+                "color": "good",
+                "fields": [
+                  { "title": "브랜치", "value": "${{ github.ref_name }}", "short": true },
+                  { "title": "배포자", "value": "${{ github.actor }}", "short": true },
+                  { "title": "커밋", "value": "${{ github.sha }}", "short": false },
+                  { "title": "QA", "value": "전체 통과 ✅", "short": true }
+                ]
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+      - name: Slack 실패 알림
+        if: failure()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": "❌ *license-manager 배포 실패 — 롤백됨*",
+              "attachments": [{
+                "color": "danger",
+                "fields": [
+                  { "title": "브랜치", "value": "${{ github.ref_name }}", "short": true },
+                  { "title": "배포자", "value": "${{ github.actor }}", "short": true },
+                  { "title": "커밋", "value": "${{ github.sha }}", "short": false },
+                  { "title": "Actions 로그", "value": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}", "short": false }
+                ]
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
