@@ -1,3 +1,5 @@
+// 변경: 자동 할당 전체를 prisma.$transaction 안에서 실행 — 중간 실패 시 불일치 상태 방지
+
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
@@ -48,60 +50,65 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const employee = await prisma.employee.create({
-      data: {
-        name,
-        department,
-        email: email || null,
-      },
-    });
-
-    // Auto-assign licenses from default groups
+    // employee 생성과 자동 할당 전체를 트랜잭션으로 묶어 불일치 방지
     const autoAssigned: { licenseId: number; licenseName: string; groupName: string }[] = [];
-    const defaultGroups = await prisma.licenseGroup.findMany({
-      where: { isDefault: true },
-      include: { members: { include: { license: true } } },
-    });
 
-    for (const group of defaultGroups) {
-      for (const member of group.members) {
-        const license = member.license;
-        // Check capacity based on license type
-        const activeCount = await prisma.assignment.count({
-          where: { licenseId: license.id, returnedDate: null },
-        });
+    const employee = await prisma.$transaction(async (tx) => {
+      const emp = await tx.employee.create({
+        data: {
+          name,
+          department,
+          email: email || null,
+        },
+      });
 
-        // KEY_BASED: max 1 auto-assignment; VOLUME/NO_KEY: check total quantity
-        if (license.licenseType === "KEY_BASED" && activeCount >= 1) continue;
-        if (license.licenseType !== "KEY_BASED" && activeCount >= license.totalQuantity) continue;
+      // Auto-assign licenses from default groups
+      const defaultGroups = await tx.licenseGroup.findMany({
+        where: { isDefault: true },
+        include: { members: { include: { license: true } } },
+      });
 
-        const keyType = license.licenseType === "VOLUME" ? "Volume Key" : license.licenseType === "KEY_BASED" ? "Individual Key" : "No Key";
-        const reason = `Auto-assigned via Group: ${group.name} (${keyType})`;
-        const assignment = await prisma.assignment.create({
-          data: {
+      for (const group of defaultGroups) {
+        for (const member of group.members) {
+          const license = member.license;
+          const activeCount = await tx.assignment.count({
+            where: { licenseId: license.id, returnedDate: null },
+          });
+
+          // KEY_BASED: max 1 auto-assignment; VOLUME/NO_KEY: check total quantity
+          if (license.licenseType === "KEY_BASED" && activeCount >= 1) continue;
+          if (license.licenseType !== "KEY_BASED" && activeCount >= license.totalQuantity) continue;
+
+          const keyType = license.licenseType === "VOLUME" ? "Volume Key" : license.licenseType === "KEY_BASED" ? "Individual Key" : "No Key";
+          const reason = `Auto-assigned via Group: ${group.name} (${keyType})`;
+          const assignment = await tx.assignment.create({
+            data: {
+              licenseId: license.id,
+              employeeId: emp.id,
+              reason,
+            },
+          });
+
+          await tx.assignmentHistory.create({
+            data: {
+              assignmentId: assignment.id,
+              licenseId: license.id,
+              employeeId: emp.id,
+              action: "ASSIGNED",
+              reason,
+            },
+          });
+
+          autoAssigned.push({
             licenseId: license.id,
-            employeeId: employee.id,
-            reason,
-          },
-        });
-
-        await prisma.assignmentHistory.create({
-          data: {
-            assignmentId: assignment.id,
-            licenseId: license.id,
-            employeeId: employee.id,
-            action: "ASSIGNED",
-            reason,
-          },
-        });
-
-        autoAssigned.push({
-          licenseId: license.id,
-          licenseName: license.name,
-          groupName: group.name,
-        });
+            licenseName: license.name,
+            groupName: group.name,
+          });
+        }
       }
-    }
+
+      return emp;
+    });
 
     return NextResponse.json({ ...employee, autoAssigned }, { status: 201 });
   } catch (error: unknown) {

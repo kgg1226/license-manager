@@ -73,7 +73,7 @@ export default function LicenseAssignments({
 
     setIsPending(false);
     if (total > 0) {
-      toast(`${total}건 배정 해제 완료`, "success");
+      toast(`${total}건 할당 해제 완료`, "success");
       setSelected(new Set());
     }
     if (errors.length > 0) {
@@ -85,7 +85,7 @@ export default function LicenseAssignments({
     <div className="mb-6">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900">
-          활성 배정 ({assignments.length})
+          활성 할당 ({assignments.length})
         </h2>
         {selected.size > 0 && (
           <button
@@ -100,7 +100,7 @@ export default function LicenseAssignments({
 
       {assignments.length === 0 ? (
         <div className="rounded-lg bg-white p-6 text-center shadow-sm ring-1 ring-gray-200">
-          <p className="text-sm text-gray-500">배정된 조직원이 없습니다.</p>
+          <p className="text-sm text-gray-500">할당된 조직원이 없습니다.</p>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
@@ -183,10 +183,10 @@ export default function LicenseAssignments({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
             <h3 className="mb-2 text-lg font-semibold text-gray-900">
-              배정 해제 확인
+              할당 해제 확인
             </h3>
             <p className="mb-1 text-sm text-gray-600">
-              선택한 {selected.size}건의 배정을 해제하시겠습니까?
+              선택한 {selected.size}건의 할당을 해제하시겠습니까?
             </p>
             <p className="mb-4 text-xs text-gray-500">
               이 작업은 이력에 기록됩니다.

@@ -3,24 +3,34 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Package, History } from "lucide-react";
 import ManageLicenses from "./manage-licenses";
+import OrgEditForm from "./org-edit-form";
 
 export const dynamic = "force-dynamic";
 
 export default async function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const employeeId = Number(id);
-  const employee = await prisma.employee.findUnique({
-    where: { id: employeeId },
-    include: {
-      assignments: {
-        include: {
-          license: true,
-          seat: { select: { key: true } },
+
+  const [employee, companies] = await Promise.all([
+    prisma.employee.findUnique({
+      where: { id: employeeId },
+      include: {
+        assignments: {
+          include: {
+            license: true,
+            seat: { select: { key: true } },
+          },
+          orderBy: { assignedDate: "desc" },
         },
-        orderBy: { assignedDate: "desc" },
       },
-    },
-  });
+    }),
+    prisma.orgCompany.findMany({
+      include: {
+        orgs: { orderBy: { name: "asc" } },
+      },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   if (!employee) notFound();
 
@@ -86,7 +96,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
 
   const history: HistoryEntry[] = assignmentHistory.map((h) => {
     const licenseName = h.assignment?.license?.name ?? `License #${h.licenseId}`;
-    const actionLabel = h.action === "ASSIGNED" ? "배정" : h.action === "RETURNED" ? "반납" : "해제";
+    const actionLabel = h.action === "ASSIGNED" ? "할당" : h.action === "RETURNED" ? "반납" : "해제";
     return {
       id: `ah-${h.id}`,
       action: h.action,
@@ -111,7 +121,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
   };
 
   const actionLabelMap: Record<string, string> = {
-    ASSIGNED: "배정",
+    ASSIGNED: "할당",
     RETURNED: "반납",
     REVOKED: "해제",
     UNASSIGNED: "해제",
@@ -150,7 +160,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
 
         {/* Employee Info */}
         <div className="mb-6 rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-200">
-          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <dl className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
               <dt className="text-xs font-medium uppercase text-gray-500">이름</dt>
               <dd className="mt-1 text-sm text-gray-900">{employee.name}</dd>
@@ -164,6 +174,16 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
               <dd className="mt-1 text-sm text-gray-900">{employee.email ?? "—"}</dd>
             </div>
           </dl>
+          <div className="border-t border-gray-100 pt-4">
+            <OrgEditForm
+              employeeId={employee.id}
+              initialTitle={employee.title ?? null}
+              initialCompanyId={employee.companyId ?? null}
+              initialOrgId={employee.orgId ?? null}
+              initialSubOrgId={employee.subOrgId ?? null}
+              companies={companies}
+            />
+          </div>
         </div>
 
         {/* Manage Licenses - bulk assign/unassign */}
@@ -184,7 +204,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">라이선스</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">배정일</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">할당일</th>
                     <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">반납일</th>
                   </tr>
                 </thead>

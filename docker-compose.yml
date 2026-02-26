@@ -1,6 +1,7 @@
+# 변경: environment 블록 추가 — DATABASE_URL, SECURE_COOKIE 환경변수 주입
+
 services:
   app:
-    # 빌드된 이미지를 사용하거나, 없을 경우 현재 폴더의 dockerfile로 빌드
     build:
       context: .
       dockerfile: dockerfile
@@ -8,8 +9,11 @@ services:
     container_name: license-app
     ports:
       - "80:3000"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: "file:/app/dev.db"
+      SECURE_COOKIE: "false"
     volumes:
-      # [데이터 핵심] 호스트의 data 폴더와 컨테이너 내부 DB 파일을 연결
       - /home/ssm-user/app/data/dev.db:/app/dev.db
     restart: always
     logging:

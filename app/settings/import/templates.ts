@@ -1,3 +1,5 @@
+// 변경: assignments/groups label "배정"→"할당", employees 헤더에 title/companyName/orgName/subOrgName 추가
+
 import type { ImportType } from "@/lib/csv-import";
 
 type TemplateDefinition = {
@@ -62,25 +64,25 @@ export const templates: Record<ImportType, TemplateDefinition> = {
   },
   employees: {
     label: "조직원",
-    headers: ["name", "department", "email", "groupName"],
+    headers: ["name", "department", "email", "title", "companyName", "orgName", "subOrgName", "groupName"],
     sampleRows: [
-      ["홍길동", "개발팀", "hong@example.com", "기본 그룹"],
-      ["김철수", "마케팅팀", "kim@example.com", ""],
+      ["홍길동", "개발팀", "hong@example.com", "선임연구원", "본사", "개발본부", "백엔드팀", "기본 그룹"],
+      ["김철수", "마케팅팀", "kim@example.com", "", "", "", "", ""],
     ],
   },
   groups: {
     label: "그룹",
     headers: ["name", "description", "isDefault", "licenseNames"],
     sampleRows: [
-      ["기본 그룹", "신규 입사자 기본 배정", "true", "Microsoft 365 Business;Slack"],
+      ["기본 그룹", "신규 입사자 기본 할당", "true", "Microsoft 365 Business;Slack"],
       ["디자인팀 그룹", "디자인팀 전용 라이선스", "false", "Adobe Creative Cloud"],
     ],
   },
   assignments: {
-    label: "배정",
+    label: "할당",
     headers: ["licenseName", "employeeEmail", "assignedDate", "reason"],
     sampleRows: [
-      ["Microsoft 365 Business", "hong@example.com", "2024-06-01", "입사 시 배정"],
+      ["Microsoft 365 Business", "hong@example.com", "2024-06-01", "입사 시 할당"],
       ["Slack", "kim@example.com", "", ""],
     ],
   },

@@ -11,7 +11,7 @@ const ACTIONS = ["", "CREATED", "UPDATED", "DELETED", "ASSIGNED", "UNASSIGNED", 
 const entityLabel: Record<string, string> = {
   LICENSE: "라이선스",
   EMPLOYEE: "조직원",
-  ASSIGNMENT: "배정",
+  ASSIGNMENT: "할당",
   SEAT: "시트",
 };
 
@@ -19,7 +19,7 @@ const actionLabel: Record<string, string> = {
   CREATED: "생성",
   UPDATED: "수정",
   DELETED: "삭제",
-  ASSIGNED: "배정",
+  ASSIGNED: "할당",
   UNASSIGNED: "해제",
   REVOKED: "해제",
   IMPORTED: "가져오기",
