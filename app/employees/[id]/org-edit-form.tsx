@@ -50,7 +50,7 @@ export default function OrgEditForm({
   async function handleSave() {
     setIsPending(true);
     try {
-      await fetch(`/api/employees/${employeeId}`, {
+      const res = await fetch(`/api/employees/${employeeId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -60,8 +60,12 @@ export default function OrgEditForm({
           subOrgId: subOrgId || null,
         }),
       });
+      if (!res.ok) throw new Error("Failed to update");
       setIsEditing(false);
       router.refresh();
+    } catch (error) {
+      console.error(error);
+      alert("조직 정보 수정에 실패했습니다.");
     } finally {
       setIsPending(false);
     }
