@@ -1,4 +1,4 @@
-// 변경: datasource url 추가, User 미사용 필드(googleId/email/name) 제거, OrgCompany/OrgUnit 모델 추가, Employee 조직 계층 필드 추가
+// License Manager v2 — Renewal 자동화 + 알림 + 문서 관리 + 보고서
 
 generator client {
   provider = "prisma-client"
@@ -10,13 +10,15 @@ datasource db {
 }
 
 model User {
-  id        Int       @id @default(autoincrement())
-  username  String    @unique
-  password  String
-  role      Role      @default(USER)
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  sessions  Session[]
+  id             Int              @id @default(autoincrement())
+  username       String           @unique
+  password       String
+  role           Role             @default(USER)
+  isActive       Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  sessions       Session[]
+  renewalEvents  RenewalEvent[]
+  documents      Document[]
 }
 
 model Session {
@@ -49,11 +51,22 @@ model License {
   isVatIncluded      Boolean              @default(false)
   totalAmountForeign Float?
   totalAmountKRW     Float?
+  // Phase 1: Renewal 필드
+  firstPurchasedAt   DateTime?
+  lastRenewedAt      DateTime?
+  renewalDate        DateTime?
+  renewalCycle       RenewalCycle         @default(ANNUAL)
+  cycleMonths        Int?
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   assignments        Assignment[]
   groupMembers       LicenseGroupMember[]
   seats              LicenseSeat[]
+  renewalEvents      RenewalEvent[]
+  notifications      NotificationLog[]
+  documents          Document[]
+
+  @@index([renewalDate])
 }
 
 model Employee {
@@ -178,6 +191,70 @@ model AuditLog {
   @@index([createdAt])
 }
 
+// Phase 1: 갱신 이벤트 기록
+model RenewalEvent {
+  id          Int       @id @default(autoincrement())
+  licenseId   Int
+  renewedAt   DateTime
+  nextDueAt   DateTime
+  note        String?
+  createdBy   Int?
+  createdAt   DateTime  @default(now())
+  license     License   @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  actor       User?     @relation(fields: [createdBy], references: [id])
+
+  @@index([licenseId])
+}
+
+// Phase 1: 알림 발송 기록 (중복 방지)
+model NotificationLog {
+  id          Int              @id @default(autoincrement())
+  licenseId   Int
+  type        NotificationType
+  sentAt      DateTime?
+  status      NotifStatus      @default(PENDING)
+  retryCount  Int              @default(0)
+  errorMsg    String?
+  targetEmail String
+  createdAt   DateTime         @default(now())
+  license     License          @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@unique([licenseId, type, targetEmail])
+  @@index([licenseId])
+}
+
+// Phase 2: 문서 관리
+model Document {
+  id          Int          @id @default(autoincrement())
+  licenseId   Int
+  type        DocumentType
+  filename    String
+  s3Key       String       @unique
+  sizeBytes   Int?
+  uploadedBy  Int
+  createdAt   DateTime     @default(now())
+  license     License      @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  uploader    User         @relation(fields: [uploadedBy], references: [id])
+
+  @@index([licenseId])
+}
+
+// Phase 3: 보고서 이력
+model ReportHistory {
+  id          Int          @id @default(autoincrement())
+  period      String       // "2026-02" 형식
+  format      String       @default("PDF")
+  s3Key       String?
+  status      ReportStatus @default(PENDING)
+  errorMsg    String?
+  generatedBy Int?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([period, format])
+  @@index([period])
+}
+
 enum Role {
   ADMIN
   USER
@@ -201,4 +278,36 @@ enum Currency {
   JPY
   GBP
   CNY
+}
+
+enum RenewalCycle {
+  MONTHLY
+  ANNUAL
+  CUSTOM
+  MANUAL
+}
+
+enum NotificationType {
+  D60
+  D30
+}
+
+enum NotifStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum DocumentType {
+  CONTRACT
+  QUOTE
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
 }
