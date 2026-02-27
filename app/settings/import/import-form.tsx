@@ -29,9 +29,7 @@ export default function ImportForm() {
     const a = document.createElement("a");
     a.href = url;
     a.download = `${type}_template.csv`;
-    document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
 
