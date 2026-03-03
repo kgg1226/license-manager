@@ -84,3 +84,10 @@ deploy.ps1
 *.zip
 .tmp-*
 *.tar*
+.env.infra
+.claude/settings.local.json
+
+!.env.infra.example
+!.claude/
+!.claude/commands/
+!.claude/commands/*.md

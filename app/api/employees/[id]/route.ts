@@ -82,11 +82,6 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         ...(orgId !== undefined && { orgId: orgId ? Number(orgId) : null }),
         ...(subOrgId !== undefined && { subOrgId: subOrgId ? Number(subOrgId) : null }),
       },
-      include: {
-        company: { select: { id: true, name: true } },
-        org: { select: { id: true, name: true } },
-        subOrg: { select: { id: true, name: true } },
-      },
     });
 
     return NextResponse.json(employee);
