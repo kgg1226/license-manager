@@ -91,3 +91,4 @@ deploy.ps1
 !.claude/
 !.claude/commands/
 !.claude/commands/*.md
+.claire/
