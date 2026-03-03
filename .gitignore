@@ -79,3 +79,8 @@ Desktop.ini
 *credentials*
 *serviceAccountKey*
 *.keystore
+deploy.ps
+deploy.ps1
+*.zip
+.tmp-*
+*.tar*
