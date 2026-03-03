@@ -80,3 +80,7 @@ Desktop.ini
 *serviceAccountKey*
 *.keystore
 deploy.ps
+deploy.ps1
+*.zip
+.tmp-*
+*.tar*
