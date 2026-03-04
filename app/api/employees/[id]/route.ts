@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { writeAuditLog } from "@/lib/audit-log";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest, { params }: Params) {
   }
 }
 
-// PUT /api/employees/:id — 조직원 수정
+// PUT /api/employees/:id — 기본 정보 수정 { name, department, email, title }
 export async function PUT(request: NextRequest, { params }: Params) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
@@ -45,7 +46,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, department, email } = body;
+    const { name, department, email, title } = body;
 
     const employee = await prisma.employee.update({
       where: { id: Number(id) },
@@ -53,6 +54,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
         ...(name !== undefined && { name }),
         ...(department !== undefined && { department }),
         ...(email !== undefined && { email: email || null }),
+        ...(title !== undefined && { title: title || null }),
       },
     });
 
@@ -66,24 +68,48 @@ export async function PUT(request: NextRequest, { params }: Params) {
   }
 }
 
-// PATCH /api/employees/:id — 조직 정보 수정 { companyId?, orgId?, subOrgId?, title? }
+// PATCH /api/employees/:id — 조직 배치 변경 { companyId?, orgUnitId?, title? }
 export async function PATCH(request: NextRequest, { params }: Params) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   if (user.role !== "ADMIN") return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
   try {
     const { id } = await params;
+    const employeeId = Number(id);
     const body = await request.json();
-    const { companyId, orgId, subOrgId, title } = body;
+    const { companyId, orgUnitId, title } = body;
 
-    const employee = await prisma.employee.update({
-      where: { id: Number(id) },
-      data: {
-        ...(title !== undefined && { title: title || null }),
-        ...(companyId !== undefined && { companyId: companyId ? Number(companyId) : null }),
-        ...(orgId !== undefined && { orgId: orgId ? Number(orgId) : null }),
-        ...(subOrgId !== undefined && { subOrgId: subOrgId ? Number(subOrgId) : null }),
-      },
+    const employee = await prisma.$transaction(async (tx) => {
+      const before = await tx.employee.findUnique({
+        where: { id: employeeId },
+        select: { orgUnitId: true },
+      });
+
+      const updated = await tx.employee.update({
+        where: { id: employeeId },
+        data: {
+          ...(title !== undefined && { title: title || null }),
+          ...(companyId !== undefined && { companyId: companyId ? Number(companyId) : null }),
+          ...(orgUnitId !== undefined && { orgUnitId: orgUnitId ? Number(orgUnitId) : null }),
+        },
+      });
+
+      if (orgUnitId !== undefined && before?.orgUnitId !== updated.orgUnitId) {
+        await writeAuditLog(tx, {
+          entityType: "EMPLOYEE",
+          entityId: employeeId,
+          action: "MEMBER_MOVED",
+          actor: user.username,
+          actorType: "USER",
+          actorId: user.id,
+          details: {
+            fromOrgUnitId: before?.orgUnitId ?? null,
+            toOrgUnitId: updated.orgUnitId,
+          },
+        });
+      }
+
+      return updated;
     });
 
     return NextResponse.json(employee);
@@ -93,7 +119,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   }
 }
 
-// DELETE /api/employees/:id — 조직원 삭제
+// DELETE /api/employees/:id — 즉시 삭제 (ADMIN 전용)
 export async function DELETE(request: NextRequest, { params }: Params) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
@@ -103,13 +129,35 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     const employeeId = Number(id);
 
     await prisma.$transaction(async (tx) => {
-      // 일부 배포 DB에는 AssignmentHistory.employeeId FK가 남아 있을 수 있어
-      // 직원 삭제 전에 관련 이력을 먼저 정리한다.
+      const employee = await tx.employee.findUnique({
+        where: { id: employeeId },
+        select: { id: true, name: true, email: true, companyId: true, orgUnitId: true },
+      });
+
       await tx.assignmentHistory.deleteMany({ where: { employeeId } });
       await tx.employee.delete({ where: { id: employeeId } });
+
+      // Tombstone AuditLog
+      await writeAuditLog(tx, {
+        entityType: "EMPLOYEE",
+        entityId: employeeId,
+        action: "DELETED",
+        actor: user.username,
+        actorType: "USER",
+        actorId: user.id,
+        details: {
+          tombstone: true,
+          name: employee?.name,
+          email: employee?.email,
+          companyId: employee?.companyId,
+          orgUnitId: employee?.orgUnitId,
+          deletedAt: new Date().toISOString(),
+          deletedBy: user.username,
+        },
+      });
     });
 
-    return NextResponse.json({ message: "조직원이 삭제되었습니다." });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to delete employee:", error);
     return NextResponse.json(

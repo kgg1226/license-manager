@@ -1,4 +1,4 @@
-// 변경: title/companyId/orgId/subOrgId 파싱 추가, 자동 할당 전체를 트랜잭션으로 묶어 불일치 방지
+// 변경: title/companyId/orgUnitId 파싱 추가, 자동 할당 전체를 트랜잭션으로 묶어 불일치 방지
 
 "use server";
 
@@ -21,8 +21,7 @@ export async function createEmployee(
   const email = formData.get("email") as string;
   const title = formData.get("title") as string;
   const companyIdRaw = formData.get("companyId") as string;
-  const orgIdRaw = formData.get("orgId") as string;
-  const subOrgIdRaw = formData.get("subOrgId") as string;
+  const orgUnitIdRaw = formData.get("orgUnitId") as string;
 
   const errors: Record<string, string> = {};
 
@@ -34,8 +33,7 @@ export async function createEmployee(
   }
 
   const companyId = companyIdRaw ? Number(companyIdRaw) : null;
-  const orgId = orgIdRaw ? Number(orgIdRaw) : null;
-  const subOrgId = subOrgIdRaw ? Number(subOrgIdRaw) : null;
+  const orgUnitId = orgUnitIdRaw ? Number(orgUnitIdRaw) : null;
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -46,8 +44,7 @@ export async function createEmployee(
           email: email?.trim() || null,
           title: title?.trim() || null,
           companyId,
-          orgId,
-          subOrgId,
+          orgUnitId,
         },
       });
 

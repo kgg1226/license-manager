@@ -17,17 +17,13 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   const username = process.env.SEED_ADMIN_USERNAME;
   const password = process.env.SEED_ADMIN_PASSWORD;
-  const email    = process.env.SEED_ADMIN_EMAIL   || undefined;
-  const name     = process.env.SEED_ADMIN_NAME    || undefined;
 
   if (!username || !password) {
     console.error(
       "❌  SEED_ADMIN_USERNAME, SEED_ADMIN_PASSWORD 환경변수가 필요합니다.\n" +
       "   .env 파일에 아래 항목을 추가하세요:\n\n" +
       "   SEED_ADMIN_USERNAME=admin\n" +
-      "   SEED_ADMIN_PASSWORD=changeme123\n" +
-      "   SEED_ADMIN_EMAIL=admin@example.com\n" +
-      "   SEED_ADMIN_NAME=관리자\n"
+      "   SEED_ADMIN_PASSWORD=changeme123\n"
     );
     process.exit(1);
   }
@@ -41,27 +37,11 @@ async function main() {
 
   const user = await prisma.user.upsert({
     where:  { username },
-    update: {
-      password: hash,
-      role:     "ADMIN",
-      isActive: true,
-      ...(email !== undefined && { email }),
-      ...(name  !== undefined && { name  }),
-    },
-    create: {
-      username,
-      password: hash,
-      role:     "ADMIN",
-      isActive: true,
-      ...(email !== undefined && { email }),
-      ...(name  !== undefined && { name  }),
-    },
+    update: { password: hash, role: "ADMIN", isActive: true },
+    create: { username, password: hash, role: "ADMIN", isActive: true },
   });
 
-  console.log(
-    `✓ 관리자 계정 '${user.username}' (id: ${user.id}) 시드 완료` +
-    (user.email ? ` — ${user.email}` : "")
-  );
+  console.log(`✓ 관리자 계정 '${user.username}' (id: ${user.id}) 시드 완료`);
 }
 
 main()

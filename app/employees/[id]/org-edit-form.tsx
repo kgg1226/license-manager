@@ -1,4 +1,4 @@
-// 신규: 조직원 상세 페이지에서 조직 정보(직함/회사/조직/하위조직)를 인라인 수정하는 클라이언트 컴포넌트
+// [2026-03-04] orgId/subOrgId → orgUnitId 단일 필드로 통합
 
 "use client";
 
@@ -12,15 +12,13 @@ export default function OrgEditForm({
   employeeId,
   initialTitle,
   initialCompanyId,
-  initialOrgId,
-  initialSubOrgId,
+  initialOrgUnitId,
   companies,
 }: {
   employeeId: number;
   initialTitle: string | null;
   initialCompanyId: number | null;
-  initialOrgId: number | null;
-  initialSubOrgId: number | null;
+  initialOrgUnitId: number | null;
   companies: Company[];
 }) {
   const router = useRouter();
@@ -29,22 +27,14 @@ export default function OrgEditForm({
 
   const [title, setTitle] = useState(initialTitle ?? "");
   const [companyId, setCompanyId] = useState<number | "">(initialCompanyId ?? "");
-  const [orgId, setOrgId] = useState<number | "">(initialOrgId ?? "");
-  const [subOrgId, setSubOrgId] = useState<number | "">(initialSubOrgId ?? "");
+  const [orgUnitId, setOrgUnitId] = useState<number | "">(initialOrgUnitId ?? "");
 
   const selectedCompany = companies.find((c) => c.id === companyId);
-  const topOrgs = selectedCompany?.orgs.filter((o) => o.parentId === null) ?? [];
-  const subOrgs = selectedCompany?.orgs.filter((o) => o.parentId === orgId) ?? [];
+  const orgUnits = selectedCompany?.orgs ?? [];
 
   function handleCompanyChange(val: string) {
     setCompanyId(val ? Number(val) : "");
-    setOrgId("");
-    setSubOrgId("");
-  }
-
-  function handleOrgChange(val: string) {
-    setOrgId(val ? Number(val) : "");
-    setSubOrgId("");
+    setOrgUnitId("");
   }
 
   async function handleSave() {
@@ -56,8 +46,7 @@ export default function OrgEditForm({
         body: JSON.stringify({
           title: title || null,
           companyId: companyId || null,
-          orgId: orgId || null,
-          subOrgId: subOrgId || null,
+          orgUnitId: orgUnitId || null,
         }),
       });
       setIsEditing(false);
@@ -70,14 +59,12 @@ export default function OrgEditForm({
   function handleCancel() {
     setTitle(initialTitle ?? "");
     setCompanyId(initialCompanyId ?? "");
-    setOrgId(initialOrgId ?? "");
-    setSubOrgId(initialSubOrgId ?? "");
+    setOrgUnitId(initialOrgUnitId ?? "");
     setIsEditing(false);
   }
 
   const initialCompany = companies.find((c) => c.id === initialCompanyId);
-  const initialOrg = initialCompany?.orgs.find((o) => o.id === initialOrgId);
-  const initialSubOrg = initialCompany?.orgs.find((o) => o.id === initialSubOrgId);
+  const initialOrgUnit = initialCompany?.orgs.find((o) => o.id === initialOrgUnitId);
 
   if (!isEditing) {
     return (
@@ -91,7 +78,7 @@ export default function OrgEditForm({
             수정
           </button>
         </div>
-        <dl className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+        <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
             <dt className="text-xs font-medium uppercase text-gray-500">직함</dt>
             <dd className="mt-1 text-sm text-gray-900">{initialTitle ?? "—"}</dd>
@@ -101,12 +88,8 @@ export default function OrgEditForm({
             <dd className="mt-1 text-sm text-gray-900">{initialCompany?.name ?? "—"}</dd>
           </div>
           <div>
-            <dt className="text-xs font-medium uppercase text-gray-500">조직</dt>
-            <dd className="mt-1 text-sm text-gray-900">{initialOrg?.name ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium uppercase text-gray-500">하위조직</dt>
-            <dd className="mt-1 text-sm text-gray-900">{initialSubOrg?.name ?? "—"}</dd>
+            <dt className="text-xs font-medium uppercase text-gray-500">소속 조직</dt>
+            <dd className="mt-1 text-sm text-gray-900">{initialOrgUnit?.name ?? "—"}</dd>
           </div>
         </dl>
       </div>
@@ -118,7 +101,7 @@ export default function OrgEditForm({
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-medium text-gray-700">조직 정보 수정</h3>
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div>
           <label className="mb-1 block text-xs font-medium text-gray-600">직함</label>
           <input
@@ -143,29 +126,15 @@ export default function OrgEditForm({
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">조직</label>
+          <label className="mb-1 block text-xs font-medium text-gray-600">소속 조직</label>
           <select
-            value={orgId}
-            onChange={(e) => handleOrgChange(e.target.value)}
+            value={orgUnitId}
+            onChange={(e) => setOrgUnitId(e.target.value ? Number(e.target.value) : "")}
             className="input text-sm"
-            disabled={!companyId || topOrgs.length === 0}
+            disabled={!companyId || orgUnits.length === 0}
           >
             <option value="">선택 안 함</option>
-            {topOrgs.map((o) => (
-              <option key={o.id} value={o.id}>{o.name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">하위조직</label>
-          <select
-            value={subOrgId}
-            onChange={(e) => setSubOrgId(e.target.value ? Number(e.target.value) : "")}
-            className="input text-sm"
-            disabled={!orgId || subOrgs.length === 0}
-          >
-            <option value="">선택 안 함</option>
-            {subOrgs.map((o) => (
+            {orgUnits.map((o) => (
               <option key={o.id} value={o.id}>{o.name}</option>
             ))}
           </select>

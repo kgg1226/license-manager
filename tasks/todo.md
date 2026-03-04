@@ -72,27 +72,29 @@
 
 ### DB 마이그레이션 (백엔드 선행 필수)
 > `tasks/db-changes.md` [2026-03-04] 항목 참조
-- [ ] OrgUnit: `sortOrder`, `updatedAt` 추가 + unique 제약 변경
-- [ ] Employee: `orgUnitId`, `status`, `offboardingUntil` 추가 + 데이터 마이그레이션 + 구 컬럼(`orgId`, `subOrgId`) 제거
-- [ ] User: `mustChangePassword` 추가
-- [ ] License: `renewalDate`, `renewalDateManual`, `renewalStatus` 추가
-- [ ] 신규 테이블: `LicenseRenewalHistory`, `LicenseOwner`, `NotificationLog`
-- [ ] AuditLog: `actorType`, `actorId` 컬럼 추가
-- [ ] `prisma generate` 실행
+> ✅ prisma/schema.prisma 반영 완료 (2026-03-04), EC2 호스트에서 migration.sql 실행 필요
+- [x] OrgUnit: `sortOrder`, `updatedAt` 추가 + unique 제약 변경 → schema 반영 완료
+- [x] Employee: `orgUnitId`, `status`, `offboardingUntil` 추가 + 데이터 마이그레이션 + 구 컬럼(`orgId`, `subOrgId`) 제거 → schema 반영 완료
+- [x] User: `mustChangePassword` 추가 → schema 반영 완료
+- [x] License: `renewalDate`, `renewalDateManual`, `renewalStatus` 추가 → schema 반영 완료
+- [x] 신규 테이블: `LicenseRenewalHistory`, `LicenseOwner`, `NotificationLog` → schema 반영 완료
+- [x] AuditLog: `actorType`, `actorId` 컬럼 추가 → schema 반영 완료
+- [x] `prisma generate` 실행 → 완료 (2026-03-04)
+- [ ] ⚠️ EC2 호스트에서 `prisma/migrations/20260304000000_.../migration.sql` 실행 (DevOps)
 
 ### 백엔드 — 신규 API 구현
 > `tasks/api-spec.md` 참조
-- [ ] OrgUnit CRUD: `GET /api/org/units`, `POST`, `PUT /[id]`, `DELETE /[id]`
-- [ ] OrgUnit 삭제 프리뷰: `GET /api/org/units/[id]/delete-preview`
-- [ ] 구성원 조직 이동: `PATCH /api/employees/[id]` (orgUnitId 변경 + AuditLog)
-- [ ] 구성원 퇴사 처리: `POST /api/employees/[id]/offboard`
-- [ ] 라이선스 갱신 상태 변경: `PUT /api/licenses/[id]/renewal-status`
-- [ ] 라이선스 갱신 이력 조회: `GET /api/licenses/[id]/renewal-history`
-- [ ] 라이선스 갱신일 수동 설정: `PUT /api/licenses/[id]/renewal-date`
-- [ ] 라이선스 담당자 관리: `GET|POST|DELETE /api/licenses/[id]/owners`
-- [ ] Admin 비밀번호 리셋: `POST /api/admin/users/[id]/reset-password`
-- [ ] Admin 사용자 삭제: `DELETE /api/admin/users/[id]`
-- [ ] `GET /api/history` (AuditLog 조회 REST API) 구현 여부 확인
+- [x] OrgUnit CRUD: `GET /api/org/units`, `POST`, `PUT /[id]`, `DELETE /[id]` → 구현 완료 (2026-03-04)
+- [x] OrgUnit 삭제 프리뷰: `GET /api/org/units/[id]/delete-preview` → 구현 완료 (2026-03-04)
+- [x] 구성원 조직 이동: `PATCH /api/employees/[id]` (orgUnitId 변경 + AuditLog) → 구현 완료 (2026-03-04)
+- [x] 구성원 퇴사 처리: `POST /api/employees/[id]/offboard` → 구현 완료 (2026-03-04)
+- [x] 라이선스 갱신 상태 변경: `PUT /api/licenses/[id]/renewal-status` → 구현 완료 (2026-03-04)
+- [x] 라이선스 갱신 이력 조회: `GET /api/licenses/[id]/renewal-history` → 구현 완료 (2026-03-04)
+- [x] 라이선스 갱신일 수동 설정: `PUT /api/licenses/[id]/renewal-date` → 구현 완료 (2026-03-04)
+- [x] 라이선스 담당자 관리: `GET|POST|DELETE /api/licenses/[id]/owners` → 구현 완료 (2026-03-04)
+- [x] Admin 비밀번호 리셋: `POST /api/admin/users/[id]/reset-password` → 구현 완료 (2026-03-04)
+- [x] Admin 사용자 삭제: `DELETE /api/admin/users/[id]` → 기구현 확인 완료 (2026-03-04)
+- [x] `GET /api/history` (AuditLog 조회 REST API) 구현 여부 확인 → 기구현 확인 완료 (2026-03-04)
 
 ### 백엔드 — 배치/스케줄러
 - [ ] OFFBOARDING 자동 삭제 배치 (매일 실행, `offboardingUntil` 경과 구성원 삭제 + tombstone)

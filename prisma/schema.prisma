@@ -1,4 +1,6 @@
 // 변경: datasource url 추가, User 미사용 필드(googleId/email/name) 제거, OrgCompany/OrgUnit 모델 추가, Employee 조직 계층 필드 추가
+// [2026-03-04] MemberStatus/RenewalStatus enum 추가, OrgUnit sortOrder/updatedAt, Employee orgUnitId/status/offboardingUntil 통합,
+//              License renewal 필드, LicenseRenewalHistory/LicenseOwner/NotificationLog 신규, AuditLog actorType/actorId, User mustChangePassword
 
 generator client {
   provider = "prisma-client"
@@ -11,13 +13,14 @@ datasource db {
 }
 
 model User {
-  id        Int       @id @default(autoincrement())
-  username  String    @unique
-  password  String
-  role      Role      @default(USER)
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  sessions  Session[]
+  id                 Int       @id @default(autoincrement())
+  username           String    @unique
+  password           String
+  role               Role      @default(USER)
+  isActive           Boolean   @default(true)
+  mustChangePassword Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  sessions           Session[]
 }
 
 model Session {
@@ -31,10 +34,10 @@ model Session {
 }
 
 model License {
-  id                 Int                  @id @default(autoincrement())
-  name               String               @unique
+  id                 Int                    @id @default(autoincrement())
+  name               String                 @unique
   key                String?
-  licenseType        LicenseType          @default(KEY_BASED)
+  licenseType        LicenseType            @default(KEY_BASED)
   totalQuantity      Int
   price              Float?
   purchaseDate       DateTime
@@ -45,33 +48,42 @@ model License {
   paymentCycle       PaymentCycle?
   quantity           Int?
   unitPrice          Float?
-  currency           Currency             @default(KRW)
-  exchangeRate       Float                @default(1.0)
-  isVatIncluded      Boolean              @default(false)
+  currency           Currency               @default(KRW)
+  exchangeRate       Float                  @default(1.0)
+  isVatIncluded      Boolean                @default(false)
   totalAmountForeign Float?
   totalAmountKRW     Float?
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
+  renewalDate        DateTime?
+  renewalDateManual  DateTime?
+  renewalStatus      RenewalStatus          @default(BEFORE_RENEWAL)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
   assignments        Assignment[]
   groupMembers       LicenseGroupMember[]
   seats              LicenseSeat[]
+  renewalHistories   LicenseRenewalHistory[]
+  owners             LicenseOwner[]
+  notificationLogs   NotificationLog[]
 }
 
 model Employee {
-  id          Int          @id @default(autoincrement())
-  name        String
-  department  String
-  email       String?      @unique
-  title       String?
-  companyId   Int?
-  orgId       Int?
-  subOrgId    Int?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  assignments Assignment[]
-  company     OrgCompany?  @relation(fields: [companyId], references: [id])
-  org         OrgUnit?     @relation("OrgMembers", fields: [orgId], references: [id])
-  subOrg      OrgUnit?     @relation("SubOrgMembers", fields: [subOrgId], references: [id])
+  id               Int           @id @default(autoincrement())
+  name             String
+  department       String
+  email            String?       @unique
+  title            String?
+  companyId        Int?
+  orgUnitId        Int?
+  status           MemberStatus  @default(ACTIVE)
+  offboardingUntil DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  assignments      Assignment[]
+  company          OrgCompany?   @relation(fields: [companyId], references: [id])
+  orgUnit          OrgUnit?      @relation("OrgMembers", fields: [orgUnitId], references: [id])
+
+  @@index([orgUnitId])
+  @@index([status])
 }
 
 // 회사 단위
@@ -85,18 +97,19 @@ model OrgCompany {
 
 // 조직/하위조직 단위 (self-relation으로 계층 표현)
 model OrgUnit {
-  id         Int        @id @default(autoincrement())
-  name       String
-  companyId  Int
-  parentId   Int?       // null이면 최상위 조직, 값이 있으면 하위조직
-  createdAt  DateTime   @default(now())
-  company    OrgCompany @relation(fields: [companyId], references: [id])
-  parent     OrgUnit?   @relation("OrgHierarchy", fields: [parentId], references: [id])
-  children   OrgUnit[]  @relation("OrgHierarchy")
-  members    Employee[] @relation("OrgMembers")
-  subMembers Employee[] @relation("SubOrgMembers")
+  id        Int        @id @default(autoincrement())
+  name      String
+  companyId Int
+  parentId  Int?
+  sortOrder Int        @default(0)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  company   OrgCompany @relation(fields: [companyId], references: [id])
+  parent    OrgUnit?   @relation("OrgHierarchy", fields: [parentId], references: [id])
+  children  OrgUnit[]  @relation("OrgHierarchy")
+  members   Employee[] @relation("OrgMembers")
 
-  @@unique([name, companyId, parentId])
+  @@unique([name, companyId])
 }
 
 model LicenseSeat {
@@ -166,12 +179,53 @@ model LicenseGroupMember {
   @@index([licenseId])
 }
 
+model LicenseRenewalHistory {
+  id         Int           @id @default(autoincrement())
+  licenseId  Int
+  fromStatus RenewalStatus
+  toStatus   RenewalStatus
+  actorType  String        @default("USER")
+  actorId    Int?
+  memo       String?
+  changedAt  DateTime      @default(now())
+  license    License       @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@index([licenseId])
+}
+
+model LicenseOwner {
+  id        Int      @id @default(autoincrement())
+  licenseId Int
+  userId    Int?
+  orgUnitId Int?
+  createdAt DateTime @default(now())
+  license   License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@index([licenseId])
+}
+
+model NotificationLog {
+  id        Int      @id @default(autoincrement())
+  licenseId Int
+  channel   String
+  recipient String
+  status    String
+  errorMsg  String?
+  sentAt    DateTime @default(now())
+  license   License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@index([licenseId])
+  @@index([sentAt])
+}
+
 model AuditLog {
   id         Int      @id @default(autoincrement())
   entityType String
   entityId   Int
   action     String
   actor      String?
+  actorType  String   @default("USER")
+  actorId    Int?
   details    String?
   createdAt  DateTime @default(now())
 
@@ -202,4 +256,17 @@ enum Currency {
   JPY
   GBP
   CNY
+}
+
+enum MemberStatus {
+  ACTIVE
+  OFFBOARDING
+  DELETED
+}
+
+enum RenewalStatus {
+  BEFORE_RENEWAL
+  IN_PROGRESS
+  NOT_RENEWING
+  RENEWED
 }

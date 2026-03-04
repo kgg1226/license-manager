@@ -179,8 +179,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
               employeeId={employee.id}
               initialTitle={employee.title ?? null}
               initialCompanyId={employee.companyId ?? null}
-              initialOrgId={employee.orgId ?? null}
-              initialSubOrgId={employee.subOrgId ?? null}
+              initialOrgUnitId={employee.orgUnitId ?? null}
               companies={companies}
             />
           </div>
