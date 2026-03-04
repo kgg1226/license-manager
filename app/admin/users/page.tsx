@@ -25,9 +25,7 @@ export default async function AdminUsersPage({
           ? {
               OR: [
                 { username: { contains: q } },
-                { email: { contains: q } },
-                { name: { contains: q } },
-              ],
+                              ],
             }
           : {},
         roleFilter ? { role: roleFilter } : {},
@@ -36,8 +34,6 @@ export default async function AdminUsersPage({
     select: {
       id:        true,
       username:  true,
-      email:     true,
-      name:      true,
       role:      true,
       isActive:  true,
       createdAt: true,
@@ -74,7 +70,7 @@ export default async function AdminUsersPage({
             type="search"
             name="q"
             defaultValue={q ?? ""}
-            placeholder="사용자명 / 이메일 / 이름 검색..."
+            placeholder="사용자명 검색..."
             className="input flex-1 min-w-48"
           />
           <select

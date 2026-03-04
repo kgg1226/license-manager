@@ -15,8 +15,6 @@ export async function createUser(
 
   const username = (formData.get("username") as string)?.trim();
   const password = formData.get("password") as string;
-  const name     = (formData.get("name")     as string)?.trim() || undefined;
-  const email    = (formData.get("email")    as string)?.trim() || undefined;
   const role     = formData.get("role") as "ADMIN" | "USER";
 
   if (!username || !password)
@@ -31,8 +29,6 @@ export async function createUser(
         username,
         password: hash,
         role: role === "ADMIN" ? "ADMIN" : "USER",
-        ...(name  ? { name  } : {}),
-        ...(email ? { email } : {}),
       },
     });
   } catch {
@@ -51,8 +47,6 @@ export async function updateUser(
 ): Promise<FormState> {
   const me = await requireAdmin();
 
-  const name  = (formData.get("name")  as string)?.trim() || null;
-  const email = (formData.get("email") as string)?.trim() || null;
   const role  = formData.get("role") as "ADMIN" | "USER";
 
   // 자신의 관리자 권한은 박탈 불가
@@ -63,13 +57,11 @@ export async function updateUser(
     await prisma.user.update({
       where: { id: userId },
       data: {
-        name:  name  ?? null,
-        email: email ?? null,
         role:  role === "ADMIN" ? "ADMIN" : "USER",
       },
     });
   } catch {
-    return { error: "이미 사용 중인 이메일입니다." };
+    return { error: "사용자 수정에 실패했습니다." };
   }
 
   revalidatePath("/admin/users");

@@ -189,8 +189,14 @@ export async function DELETE(request: NextRequest, { params }: Params) {
   if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   try {
     const { id } = await params;
-    await prisma.license.delete({
-      where: { id: Number(id) },
+    const licenseId = Number(id);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.assignmentHistory.deleteMany({ where: { licenseId } });
+      await tx.assignment.deleteMany({ where: { licenseId } });
+      await tx.licenseGroupMember.deleteMany({ where: { licenseId } });
+      await tx.licenseSeat.deleteMany({ where: { licenseId } });
+      await tx.license.delete({ where: { id: licenseId } });
     });
 
     return NextResponse.json({ message: "라이선스가 삭제되었습니다." });

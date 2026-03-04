@@ -91,7 +91,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   }
 }
 
-// DELETE /api/employees/:id — 조직원 삭제 (활성 배정 이력 기록 후 삭제)
+// DELETE /api/employees/:id — 조직원 삭제
 export async function DELETE(request: NextRequest, { params }: Params) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
@@ -99,25 +99,11 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     const { id } = await params;
     const employeeId = Number(id);
 
-    // Log revocation history for active assignments before cascade delete
-    const activeAssignments = await prisma.assignment.findMany({
-      where: { employeeId, returnedDate: null },
-    });
-
-    if (activeAssignments.length > 0) {
-      await prisma.assignmentHistory.createMany({
-        data: activeAssignments.map((a) => ({
-          assignmentId: null, // will be cascade-deleted
-          licenseId: a.licenseId,
-          employeeId,
-          action: "REVOKED",
-          reason: "Employee deleted",
-        })),
-      });
-    }
-
-    await prisma.employee.delete({
-      where: { id: employeeId },
+    await prisma.$transaction(async (tx) => {
+      // 일부 배포 DB에는 AssignmentHistory.employeeId FK가 남아 있을 수 있어
+      // 직원 삭제 전에 관련 이력을 먼저 정리한다.
+      await tx.assignmentHistory.deleteMany({ where: { employeeId } });
+      await tx.employee.delete({ where: { id: employeeId } });
     });
 
     return NextResponse.json({ message: "조직원이 삭제되었습니다." });

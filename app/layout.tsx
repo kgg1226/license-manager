@@ -1,7 +1,6 @@
 // 변경: DB 에러 시 전체 앱 장애 방지(catch), 조직도 메뉴 추가
 
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -10,15 +9,6 @@ import LogoutButton from "./logout-button";
 import { getCurrentUser } from "@/lib/auth";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "License Manager",
@@ -41,9 +31,7 @@ export default async function RootLayout({
 
   return (
     <html lang="ko">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} font-[family-name:var(--font-geist-sans)] bg-gray-50 text-gray-900 antialiased`}
-      >
+      <body className="bg-gray-50 text-gray-900 antialiased">
         {user && (
           <nav className="border-b border-gray-200 bg-white">
             <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">

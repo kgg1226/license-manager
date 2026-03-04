@@ -41,3 +41,9 @@ README.md
 
 # 개발용 일회성 테스트 스크립트 — 프로덕션 이미지 불필요
 verify_api.mjs
+
+# EC2 수동 배포 중 생성될 수 있는 중첩 압축 해제 디렉터리 제외
+license-manager/
+
+# 배포 산출 zip 제외
+*.zip
