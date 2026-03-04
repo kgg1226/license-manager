@@ -104,15 +104,21 @@
   - NotificationLog 기록 (성공/실패 모두)
 
 ### 프론트엔드 — 신규 UI
-- [ ] OrgUnit 트리 UI (생성·수정·삭제 + 삭제 확인 모달 — 문구 입력 방식)
-- [ ] 삭제 확인 모달: 하위 부서 목록 + 영향 구성원 수 표시 + "삭제하겠습니다" 입력 요구
-- [ ] 구성원 드래그&드롭 이동 (소속/미소속 패널, OrgUnit 트리와 연동)
+> 백엔드 API 전체 완료 — 모두 착수 가능
+- [ ] OrgUnit 트리 편집 UI — `/org` 페이지에 생성·수정·삭제 버튼 추가
+  - 삭제 확인 모달: 하위 부서 목록 + 영향 구성원 수 표시 + "삭제하겠습니다" 문구 입력 요구
+  - `GET /api/org/units/[id]/delete-preview` 연동
+- [ ] 구성원 조직 이동 UI — 구성원 상세 페이지에서 소속 부서 변경 드롭다운 (`PATCH /api/employees/[id]`)
+- [ ] 구성원 퇴사 처리 UI — 퇴사 버튼 + 날짜 선택 모달 (`POST /api/employees/[id]/offboard`)
 - [ ] 구성원 중복 이름 구분 표시 (이름 + 이메일 앞부분 마스킹 함께 노출)
-- [ ] 라이선스 갱신 상태 변경 UI (상태 드롭다운 + 메모 입력)
-- [ ] 라이선스 갱신 이력 뷰 (타임라인 형태)
-- [ ] 알림 담당자 설정 UI (개인 또는 부서 지정)
+- [ ] 라이선스 갱신 상태 변경 UI — 상태 드롭다운 + 메모 입력 (`PUT /api/licenses/[id]/renewal-status`)
+- [ ] 라이선스 갱신일 수동 설정 UI (`PUT /api/licenses/[id]/renewal-date`)
+- [ ] 라이선스 갱신 이력 뷰 (타임라인 형태, `GET /api/licenses/[id]/renewal-history`)
+- [ ] 라이선스 담당자 설정 UI — 개인 또는 부서 지정 (`GET|POST|DELETE /api/licenses/[id]/owners`)
+- [ ] Admin 비밀번호 리셋 UI (`POST /api/admin/users/[id]/reset-password`)
 
 ### 프론트엔드 — UI 개선
+> 기존 API로 바로 착수 가능
 - [ ] 라이선스 목록 페이지 페이지네이션 (대량 데이터 대응)
 - [ ] 구성원 목록 검색·필터 기능 (이름, 부서, 상태)
 - [ ] 모바일 반응형 레이아웃 검토
