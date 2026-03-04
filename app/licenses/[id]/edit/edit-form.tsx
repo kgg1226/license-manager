@@ -102,7 +102,12 @@ export default function EditLicenseForm({
       return;
     }
     setIsDeleting(true);
-    await deleteLicense(license.id);
+    const result = await deleteLicense(license.id);
+
+    if (result?.message) {
+      setIsDeleting(false);
+      window.alert(result.message);
+    }
   }
 
   return (

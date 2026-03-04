@@ -239,6 +239,12 @@ export async function deleteLicense(id: number): Promise<FormState> {
     });
 
     await prisma.$transaction(async (tx) => {
+      // 배포 환경의 기존 FK 제약과 호환되도록 자식 레코드를 명시적으로 정리
+      await tx.assignmentHistory.deleteMany({ where: { licenseId: id } });
+      await tx.assignment.deleteMany({ where: { licenseId: id } });
+      await tx.licenseGroupMember.deleteMany({ where: { licenseId: id } });
+      await tx.licenseSeat.deleteMany({ where: { licenseId: id } });
+
       await writeAuditLog(tx, {
         entityType: "LICENSE",
         entityId: id,
@@ -248,7 +254,8 @@ export async function deleteLicense(id: number): Promise<FormState> {
 
       await tx.license.delete({ where: { id } });
     });
-  } catch {
+  } catch (error) {
+    console.error("Failed to delete license:", error);
     return { message: "라이선스 삭제에 실패했습니다." };
   }
 

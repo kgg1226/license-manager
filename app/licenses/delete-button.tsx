@@ -11,7 +11,12 @@ export default function DeleteButton({ id, name }: { id: number; name: string })
       return;
     }
     setIsDeleting(true);
-    await deleteLicense(id);
+    const result = await deleteLicense(id);
+
+    if (result?.message) {
+      setIsDeleting(false);
+      window.alert(result.message);
+    }
   }
 
   return (
