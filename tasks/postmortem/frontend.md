@@ -32,7 +32,7 @@
 
 ## PM-FE-002: 템플릿 다운로드 버튼이 동작하지 않음
 
-- **상태**: 🔧 미해결
+- **상태**: ✅ 해결
 - **날짜**: (최초 발생일)
 - **세션**: 프론트
 
@@ -43,7 +43,7 @@ CSV 템플릿 다운로드 버튼 클릭 시 아무 반응 없음.
 `document.createElement('a')`로 생성한 앵커 태그를 DOM에 append하지 않고 `a.click()` 호출.
 
 ### 해결
-(미적용) `document.body.appendChild(a)` 후 `a.click()` 호출, 이후 `document.body.removeChild(a)` 정리.
+`document.body.appendChild(a)` 후 `a.click()` 호출, 이후 `document.body.removeChild(a)` 정리. (`app/settings/import/import-form.tsx` 반영 완료)
 
 ### 예방
 - 프로그래밍 방식 다운로드 시: 반드시 `appendChild → click → removeChild` 패턴 사용
