@@ -91,19 +91,10 @@
 
 ## 대기
 
-### 사람이 해야 하는 작업 (블로커)
-> 아래 순서가 완료되어야 Agent가 다음 단계 착수 가능
+### Agent 착수 가능 (코드 작업, EC2 무관)
 
-1. **PR 머지** (GitHub에서 직접)
-   - `claude/backend-development-C6wwi` → master
-   - `claude/security-improvements-I55Yn` → master
-   - `claude/frontend-work-4WHnC` → master
-2. **EC2 DB 마이그레이션** (VPN 접속 후 수동 실행)
-   - `tasks/db-changes.md` [2026-03-04] 항목의 SQL을 `sqlite3 dev.db`로 실행
-3. **배포** (Docker 빌드 + 컨테이너 재시작)
-
-### 프론트엔드 — 신규 UI (위 블로커 해소 후 Agent 착수 가능)
-> PR 머지 + EC2 DB 마이그레이션 완료 전까지 착수 불가
+### 프론트엔드 — 신규 UI
+> 백엔드 API 코드가 `claude/backend-development-C6wwi`에 완성됨 — 바로 착수 가능
 - [ ] OrgUnit 트리 편집 UI — `/org` 페이지에 생성·수정·삭제 버튼 추가
   - 삭제 확인 모달: 하위 부서 목록 + 영향 구성원 수 표시 + "삭제하겠습니다" 문구 입력 요구
   - `GET /api/org/units/[id]/delete-preview` 연동
@@ -129,11 +120,11 @@
   - Email 발송 (가능 시)
   - NotificationLog 기록 (성공/실패 모두)
 
-### DevOps (전부 사람이 직접 실행)
-> EC2는 VPN 경유만 가능 — Agent 접속 불가
-- [ ] VPN 접속 후 DB 마이그레이션 SQL 실행
-- [ ] `free -h` 스왑 확인 후 Docker 빌드
-- [ ] 컨테이너 재시작 및 정상 기동 확인
+### 사람이 직접 해야 하는 작업 (배포)
+> 코드가 모두 완성된 후 사람이 EC2에 VPN 접속하여 진행
+1. PR 머지: `backend-C6wwi` → `security-I55Yn` → `frontend-4WHnC` → 프론트 신규 UI 브랜치
+2. EC2에서 DB 마이그레이션 SQL 실행 (`tasks/db-changes.md` [2026-03-04] 참조)
+3. `free -h` 스왑 확인 후 Docker 빌드 + 컨테이너 재시작
 
 ---
 
