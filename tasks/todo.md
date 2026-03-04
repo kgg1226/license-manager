@@ -1,6 +1,6 @@
 # TODO
 
-> 기획 세션(/project:planning)에서 관리한다.
+> 기획 세션(/planning)에서 관리한다.
 
 ---
 
@@ -64,21 +64,55 @@
 
 ## 대기
 
-### 백엔드 — API 확인·보완
+### 백엔드 — API 확인·보완 (완료)
 - [x] `GET /api/org/units` 구현 여부 확인 및 미구현 시 개발 → 기구현
 - [x] OrgUnit CRUD API 구현 (`POST`, `PUT /[id]`, `DELETE /[id]`) → 구현 완료 (2026-03-04)
 - [x] `GET /api/history` (AuditLog 조회 REST API) 구현 여부 확인 → 구현 완료 (2026-03-04)
 - [x] Admin 사용자 관리 API 전체 엔드포인트 확인 (`PUT`, `DELETE`) → 구현 완료 (2026-03-04)
 
-### 기획 — 미정의 스펙
-- [ ] OrgUnit CRUD 상세 스펙 정의 (부서 생성·수정·삭제 규칙)
-- [ ] 라이선스 만료 알림 기준 정의 (noticePeriodDays 활용 방식, 알림 대상)
-- [ ] 조직원 삭제 정책 명확화 (소프트 삭제 vs 하드 삭제, 이력 보존 범위)
-- [ ] 할당 이력 보존 정책 정의 (AssignmentHistory 보존 기간)
+### DB 마이그레이션 (백엔드 선행 필수)
+> `tasks/db-changes.md` [2026-03-04] 항목 참조
+- [ ] OrgUnit: `sortOrder`, `updatedAt` 추가 + unique 제약 변경
+- [ ] Employee: `orgUnitId`, `status`, `offboardingUntil` 추가 + 데이터 마이그레이션 + 구 컬럼(`orgId`, `subOrgId`) 제거
+- [ ] User: `mustChangePassword` 추가
+- [ ] License: `renewalDate`, `renewalDateManual`, `renewalStatus` 추가
+- [ ] 신규 테이블: `LicenseRenewalHistory`, `LicenseOwner`, `NotificationLog`
+- [ ] AuditLog: `actorType`, `actorId` 컬럼 추가
+- [ ] `prisma generate` 실행
+
+### 백엔드 — 신규 API 구현
+> `tasks/api-spec.md` 참조
+- [ ] OrgUnit CRUD: `GET /api/org/units`, `POST`, `PUT /[id]`, `DELETE /[id]`
+- [ ] OrgUnit 삭제 프리뷰: `GET /api/org/units/[id]/delete-preview`
+- [ ] 구성원 조직 이동: `PATCH /api/employees/[id]` (orgUnitId 변경 + AuditLog)
+- [ ] 구성원 퇴사 처리: `POST /api/employees/[id]/offboard`
+- [ ] 라이선스 갱신 상태 변경: `PUT /api/licenses/[id]/renewal-status`
+- [ ] 라이선스 갱신 이력 조회: `GET /api/licenses/[id]/renewal-history`
+- [ ] 라이선스 갱신일 수동 설정: `PUT /api/licenses/[id]/renewal-date`
+- [ ] 라이선스 담당자 관리: `GET|POST|DELETE /api/licenses/[id]/owners`
+- [ ] Admin 비밀번호 리셋: `POST /api/admin/users/[id]/reset-password`
+- [ ] Admin 사용자 삭제: `DELETE /api/admin/users/[id]`
+- [ ] `GET /api/history` (AuditLog 조회 REST API) 구현 여부 확인
+
+### 백엔드 — 배치/스케줄러
+- [ ] OFFBOARDING 자동 삭제 배치 (매일 실행, `offboardingUntil` 경과 구성원 삭제 + tombstone)
+- [ ] 라이선스 갱신 알림 스케줄러 (D-70, D-30, D-15, D-7 발송)
+  - Slack 발송 (가능 시)
+  - Email 발송 (가능 시)
+  - NotificationLog 기록 (성공/실패 모두)
+
+### 프론트엔드 — 신규 UI
+- [ ] OrgUnit 트리 UI (생성·수정·삭제 + 삭제 확인 모달 — 문구 입력 방식)
+- [ ] 삭제 확인 모달: 하위 부서 목록 + 영향 구성원 수 표시 + "삭제하겠습니다" 입력 요구
+- [ ] 구성원 드래그&드롭 이동 (소속/미소속 패널, OrgUnit 트리와 연동)
+- [ ] 구성원 중복 이름 구분 표시 (이름 + 이메일 앞부분 마스킹 함께 노출)
+- [ ] 라이선스 갱신 상태 변경 UI (상태 드롭다운 + 메모 입력)
+- [ ] 라이선스 갱신 이력 뷰 (타임라인 형태)
+- [ ] 알림 담당자 설정 UI (개인 또는 부서 지정)
 
 ### 프론트엔드 — UI 개선
 - [ ] 라이선스 목록 페이지 페이지네이션 (대량 데이터 대응)
-- [ ] 조직원 목록 검색·필터 기능
+- [ ] 구성원 목록 검색·필터 기능 (이름, 부서, 상태)
 - [ ] 모바일 반응형 레이아웃 검토
 
 ---
