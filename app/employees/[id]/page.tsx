@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Package, History } from "lucide-react";
 import ManageLicenses from "./manage-licenses";
 import OrgEditForm from "./org-edit-form";
+import OffboardButton from "./offboard-button";
 
 export const dynamic = "force-dynamic";
 
@@ -135,9 +136,16 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
       <div className="mx-auto max-w-5xl px-4">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">{employee.name}</h1>
-          <Link href="/employees" className="text-sm text-gray-500 hover:text-gray-700">
-            &larr; 목록으로
-          </Link>
+          <div className="flex items-center gap-3">
+            <OffboardButton
+              employeeId={employee.id}
+              employeeName={employee.name}
+              currentStatus={(employee as { status?: string }).status ?? "ACTIVE"}
+            />
+            <Link href="/employees" className="text-sm text-gray-500 hover:text-gray-700">
+              &larr; 목록으로
+            </Link>
+          </div>
         </div>
 
         {/* Asset Overview Cards */}
