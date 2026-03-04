@@ -59,50 +59,51 @@
 
 ### 사용자 관리
 - [x] 사용자 목록 / 생성 / 수정 (ADMIN 전용, /admin/users)
+- [x] Admin 사용자 삭제 `DELETE /api/admin/users/[id]`
+- [x] Admin 비밀번호 리셋 `POST /api/admin/users/[id]/reset-password`
+
+### DB 스키마 확장 (backend-C6wwi 브랜치)
+> master 머지 전, EC2 호스트에서 SQL 직접 실행 필요
+- [x] OrgUnit: `sortOrder`, `updatedAt` 추가 + unique 제약 변경
+- [x] Employee: `orgUnitId`, `status`, `offboardingUntil` 추가 + 구 컬럼(`orgId`, `subOrgId`) 제거
+- [x] User: `mustChangePassword` 추가
+- [x] License: `renewalDate`, `renewalDateManual`, `renewalStatus` 추가
+- [x] 신규 테이블: `LicenseRenewalHistory`, `LicenseOwner`, `NotificationLog`
+- [x] AuditLog: `actorType`, `actorId` 컬럼 추가
+
+### 백엔드 — 신규 API (backend-C6wwi 브랜치)
+- [x] OrgUnit CRUD: `GET|POST /api/org/units`, `PUT|DELETE /api/org/units/[id]`
+- [x] OrgUnit 삭제 프리뷰: `GET /api/org/units/[id]/delete-preview`
+- [x] 구성원 조직 이동: `PATCH /api/employees/[id]`
+- [x] 구성원 퇴사 처리: `POST /api/employees/[id]/offboard`
+- [x] 라이선스 갱신 상태 변경: `PUT /api/licenses/[id]/renewal-status`
+- [x] 라이선스 갱신 이력 조회: `GET /api/licenses/[id]/renewal-history`
+- [x] 라이선스 갱신일 수동 설정: `PUT /api/licenses/[id]/renewal-date`
+- [x] 라이선스 담당자 관리: `GET|POST|DELETE /api/licenses/[id]/owners`
+- [x] 로그인 브루트포스 방어 (rate-limit)
+
+### 보안 (security-I55Yn 브랜치)
+- [x] 전체 코드베이스 보안 리뷰 완료
+- [x] `tasks/security/guidelines.md` 업데이트
+- [x] `tasks/security/review-2026-03-04.md` 작성
 
 ---
 
 ## 대기
 
-### DB 마이그레이션 (백엔드 선행 필수)
-> `tasks/db-changes.md` [2026-03-04] 항목 참조
-- [ ] OrgUnit: `sortOrder`, `updatedAt` 추가 + unique 제약 변경
-- [ ] Employee: `orgUnitId`, `status`, `offboardingUntil` 추가 + 데이터 마이그레이션 + 구 컬럼(`orgId`, `subOrgId`) 제거
-- [ ] Employee: `mustChangePassword` 추가 (User 테이블)
-- [ ] License: `renewalDate`, `renewalDateManual`, `renewalStatus` 추가
-- [ ] 신규 테이블: `LicenseRenewalHistory`, `LicenseOwner`, `NotificationLog`
-- [ ] AuditLog: `actorType`, `actorId` 컬럼 추가
-- [ ] `prisma generate` 실행
+### PR 머지 대기 중
+> 아래 브랜치들이 master에 아직 머지되지 않음 — 순서대로 머지 필요
+1. `claude/backend-development-C6wwi` — DB 스키마 + 신규 API 전체
+2. `claude/security-improvements-I55Yn` — 보안 리뷰 + guidelines.md
+3. `claude/frontend-work-4WHnC` — UI 개선 (검색·필터·페이지네이션·중복이름)
 
-### 백엔드 — 신규 API 구현
-> `tasks/api-spec.md` 참조
-- [x] OrgUnit CRUD: `GET /api/org/units`, `POST`, `PUT /[id]`, `DELETE /[id]`
-- [ ] OrgUnit 삭제 프리뷰: `GET /api/org/units/[id]/delete-preview`
-- [x] 구성원 조직 이동: `PATCH /api/employees/[id]` (orgUnitId 변경 + AuditLog)
-- [ ] 구성원 퇴사 처리: `POST /api/employees/[id]/offboard`
-- [ ] 라이선스 갱신 상태 변경: `PUT /api/licenses/[id]/renewal-status`
-- [ ] 라이선스 갱신 이력 조회: `GET /api/licenses/[id]/renewal-history`
-- [ ] 라이선스 갱신일 수동 설정: `PUT /api/licenses/[id]/renewal-date`
-- [ ] 라이선스 담당자 관리: `GET|POST|DELETE /api/licenses/[id]/owners`
-- [ ] Admin 비밀번호 리셋: `POST /api/admin/users/[id]/reset-password`
-- [ ] Admin 사용자 삭제: `DELETE /api/admin/users/[id]`
-- [ ] `GET /api/history` (AuditLog 조회 REST API) 구현 여부 확인
-
-### 백엔드 — 배치/스케줄러
-- [ ] OFFBOARDING 자동 삭제 배치 (매일 실행, `offboardingUntil` 경과 구성원 삭제 + tombstone)
-- [ ] 라이선스 갱신 알림 스케줄러 (D-70, D-30, D-15, D-7 발송)
-  - Slack 발송 (가능 시)
-  - Email 발송 (가능 시)
-  - NotificationLog 기록 (성공/실패 모두)
-
-### 프론트엔드 — 신규 UI
-> 백엔드 API 전체 완료 — 모두 착수 가능
+### 프론트엔드 — 신규 UI (백엔드 PR 머지 후 착수)
+> `claude/backend-development-C6wwi` 머지 후 API 사용 가능
 - [ ] OrgUnit 트리 편집 UI — `/org` 페이지에 생성·수정·삭제 버튼 추가
   - 삭제 확인 모달: 하위 부서 목록 + 영향 구성원 수 표시 + "삭제하겠습니다" 문구 입력 요구
   - `GET /api/org/units/[id]/delete-preview` 연동
 - [ ] 구성원 조직 이동 UI — 구성원 상세 페이지에서 소속 부서 변경 드롭다운 (`PATCH /api/employees/[id]`)
 - [ ] 구성원 퇴사 처리 UI — 퇴사 버튼 + 날짜 선택 모달 (`POST /api/employees/[id]/offboard`)
-- [ ] 구성원 중복 이름 구분 표시 (이름 + 이메일 앞부분 마스킹 함께 노출)
 - [ ] 라이선스 갱신 상태 변경 UI — 상태 드롭다운 + 메모 입력 (`PUT /api/licenses/[id]/renewal-status`)
 - [ ] 라이선스 갱신일 수동 설정 UI (`PUT /api/licenses/[id]/renewal-date`)
 - [ ] 라이선스 갱신 이력 뷰 (타임라인 형태, `GET /api/licenses/[id]/renewal-history`)
@@ -110,10 +111,23 @@
 - [ ] Admin 비밀번호 리셋 UI (`POST /api/admin/users/[id]/reset-password`)
 
 ### 프론트엔드 — UI 개선
-> 기존 API로 바로 착수 가능
-- [ ] 라이선스 목록 페이지 페이지네이션 (대량 데이터 대응)
-- [ ] 구성원 목록 검색·필터 기능 (이름, 부서, 상태)
+> `claude/frontend-work-4WHnC` 브랜치에 구현됨, 머지 대기
+- [x] 라이선스 목록 페이지 페이지네이션 (대량 데이터 대응)
+- [x] 구성원 목록 검색·필터 기능 (이름, 부서, 상태)
+- [x] 구성원 중복 이름 구분 표시 (이름 + 이메일 앞부분 마스킹 함께 노출)
 - [ ] 모바일 반응형 레이아웃 검토
+
+### 백엔드 — 배치/스케줄러 (미착수)
+- [ ] OFFBOARDING 자동 삭제 배치 (매일 실행, `offboardingUntil` 경과 구성원 삭제 + tombstone)
+- [ ] 라이선스 갱신 알림 스케줄러 (D-70, D-30, D-15, D-7 발송)
+  - Slack 발송 (가능 시)
+  - Email 발송 (가능 시)
+  - NotificationLog 기록 (성공/실패 모두)
+
+### DevOps (미착수)
+> `claude/devops-setup-V6y5L` 브랜치 없음 — 세션 재시작 필요
+- [ ] Docker 이미지 빌드 및 EC2 ARM64 배포 검증
+- [ ] 스왑 설정 + 빌드 메모리 최적화
 
 ---
 
