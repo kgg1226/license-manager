@@ -19,8 +19,42 @@
 역할 진입 전에는 코드를 수정하지 않는다.
 보안 세션이 `tasks/security/guidelines.md`를 업데이트하면, 다른 역할 세션은 작업 전 반드시 확인한다.
 
+## 세션 시작 절차 (필수)
+모든 역할 세션은 코드 작성 전 아래 순서를 반드시 따른다.
+
+### 1단계 — 최신 상태 동기화
+```bash
+# 관련 브랜치 전체 fetch
+git fetch origin
+
+# 현재 실제 상태 파일 읽기 (가장 중요)
+# tasks/current-state.md — 기획 세션이 관리하는 "단일 진실 원본"
+```
+
+### 2단계 — 필수 문서 확인 (순서대로)
+1. `tasks/current-state.md` — **현재 브랜치별 완료 현황, 구현된 API 목록**
+2. `tasks/todo.md` — 잔여 작업 목록
+3. `tasks/security/guidelines.md` — 보안 규칙
+4. 역할별 추가 참조:
+   - 프론트엔드: `tasks/api-spec.md` (호출할 API 스펙)
+   - 백엔드: `tasks/api-spec.md`, `tasks/db-changes.md`
+   - DevOps: `.env.infra` (Git 미추적, 로컬 전용)
+
+### 3단계 — 다른 브랜치 파일 직접 확인 (필요 시)
+`current-state.md`에 "구현됨"으로 표시된 API/코드가 실제로 있는지 확인:
+```bash
+# 예: 백엔드 브랜치의 특정 파일 확인
+git show origin/<브랜치명>:<파일경로>
+
+# 예: 백엔드 브랜치의 API 라우트 목록
+git show origin/claude/backend-development-C6wwi:app/api/org/units/[id]/route.ts
+```
+
+> ⚠️ `current-state.md` 없이 `todo.md`만 보고 작업하면 구현 완료된 내용을 모르고 중복 작업하거나, 없는 API를 있다고 판단할 수 있다.
+
 ## 필수 참조 파일
-- 작업 시작 전: `tasks/todo.md`, `tasks/lessons.md` 확인
+- **최우선**: `tasks/current-state.md` — 브랜치별 실제 완료 현황
+- 작업 전: `tasks/todo.md`, `tasks/lessons.md` 확인
 - 코드 작성 전: `tasks/security/guidelines.md` 보안 규칙 확인
 - 에러 해결 후: `tasks/postmortem/` 해당 카테고리에 기록
 - API 구현/호출: `tasks/api-spec.md` 준수
