@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
+  const ip = request.headers.get("x-forwarded-for") ?? "unknown";
   try {
     const { username, password } = await request.json();
 
@@ -21,6 +22,15 @@ export async function POST(request: NextRequest) {
     const user = await prisma.user.findUnique({ where: { username } });
 
     if (!user || !(await verifyPassword(password, user.password))) {
+      // 로그인 실패 AuditLog (best-effort)
+      await prisma.auditLog.create({
+        data: {
+          entityType: "USER",
+          entityId: 0,
+          action: "LOGIN_FAILED",
+          details: JSON.stringify({ username, ip }),
+        },
+      }).catch(() => {});
       return NextResponse.json(
         { error: "사용자명 또는 비밀번호가 올바르지 않습니다." },
         { status: 401 }
@@ -28,6 +38,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (!user.isActive) {
+      await prisma.auditLog.create({
+        data: {
+          entityType: "USER",
+          entityId: user.id,
+          action: "LOGIN_FAILED",
+          details: JSON.stringify({ username, ip, reason: "inactive" }),
+        },
+      }).catch(() => {});
       return NextResponse.json(
         { error: "비활성화된 계정입니다. 관리자에게 문의하세요." },
         { status: 403 }
@@ -35,6 +53,17 @@ export async function POST(request: NextRequest) {
     }
 
     const sessionId = await createSession(user.id);
+
+    // 로그인 성공 AuditLog (best-effort)
+    await prisma.auditLog.create({
+      data: {
+        entityType: "USER",
+        entityId: user.id,
+        action: "LOGIN",
+        actor: user.username,
+        details: JSON.stringify({ ip }),
+      },
+    }).catch(() => {});
 
     const response = NextResponse.json({
       message: "로그인 성공",

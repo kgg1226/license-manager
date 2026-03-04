@@ -4,6 +4,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import { requireAdmin } from "@/lib/auth";
 
 export type FormState = {
   errors?: Record<string, string>;
@@ -14,6 +15,7 @@ export async function createEmployee(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
+  await requireAdmin();
   const name = formData.get("name") as string;
   const department = formData.get("department") as string;
   const email = formData.get("email") as string;

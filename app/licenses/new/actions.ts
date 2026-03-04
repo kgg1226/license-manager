@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { syncSeats } from "@/lib/license-seats";
 import { writeAuditLog } from "@/lib/audit-log";
+import { requireAdmin } from "@/lib/auth";
 import {
   computeCost,
   VALID_PAYMENT_CYCLES,
@@ -24,6 +25,7 @@ export async function createLicense(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
+  const currentUser = await requireAdmin();
   const name = formData.get("name") as string;
   const key = formData.get("key") as string;
   const licenseType = (formData.get("licenseType") as string) || "KEY_BASED";
@@ -167,6 +169,7 @@ export async function createLicense(
         entityType: "LICENSE",
         entityId: license.id,
         action: "CREATED",
+        actor: currentUser.username,
         details: {
           summary: `${name.trim()} 등록 (수량: ${qty}, ${typeLabel})`,
         },

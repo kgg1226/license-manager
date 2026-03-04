@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { syncSeats, deleteAllSeats } from "@/lib/license-seats";
 import { writeAuditLog } from "@/lib/audit-log";
+import { requireAdmin } from "@/lib/auth";
 import {
   computeCost,
   VALID_PAYMENT_CYCLES,
@@ -25,6 +26,7 @@ export async function updateLicense(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
+  const currentUser = await requireAdmin();
   const name = formData.get("name") as string;
   const key = formData.get("key") as string;
   const licenseType = (formData.get("licenseType") as string) || "KEY_BASED";
@@ -197,13 +199,15 @@ export async function updateLicense(
       if ((existing.price ?? null) !== (newData.price ?? null)) changes.price = { from: existing.price, to: newData.price };
       if (existing.noticePeriodDays !== newData.noticePeriodDays) changes.noticePeriodDays = { from: existing.noticePeriodDays, to: newData.noticePeriodDays };
       if ((existing.adminName ?? null) !== (newData.adminName ?? null)) changes.adminName = { from: existing.adminName, to: newData.adminName };
-      if ((existing.key ?? null) !== (newData.key ?? null)) changes.key = { from: existing.key, to: newData.key };
+      if ((existing.key ?? null) !== (newData.key ?? null))
+        changes.key = { from: existing.key ? "****" : null, to: newData.key ? "****" : null };
 
       if (Object.keys(changes).length > 0) {
         await writeAuditLog(tx, {
           entityType: "LICENSE",
           entityId: id,
           action: "UPDATED",
+          actor: currentUser.username,
           details: {
             summary: `${newData.name} 수정`,
             changes,
@@ -232,6 +236,7 @@ export async function updateLicense(
 }
 
 export async function deleteLicense(id: number): Promise<FormState> {
+  const currentUser = await requireAdmin();
   try {
     const license = await prisma.license.findUnique({
       where: { id },
@@ -249,6 +254,7 @@ export async function deleteLicense(id: number): Promise<FormState> {
         entityType: "LICENSE",
         entityId: id,
         action: "DELETED",
+        actor: currentUser.username,
         details: { summary: `${license?.name ?? id} 삭제` },
       });
 

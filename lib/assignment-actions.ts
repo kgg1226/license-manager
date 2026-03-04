@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { writeAuditLog } from "@/lib/audit-log";
+import { getCurrentUser } from "@/lib/auth";
 
 export type ActionResult = {
   success: boolean;
@@ -49,6 +50,10 @@ export async function assignLicenses(
   licenseIds: number[]
 ): Promise<ActionResult> {
   if (licenseIds.length === 0) return { success: false, message: "배정할 라이선스를 선택하세요." };
+  const currentUser = await getCurrentUser();
+  if (!currentUser) return { success: false, message: "인증이 필요합니다." };
+  if (currentUser.role !== "ADMIN") return { success: false, message: "권한이 없습니다." };
+  const actor = currentUser.username;
 
   try {
     const result = await prisma.$transaction(async (tx) => {
@@ -101,6 +106,7 @@ export async function assignLicenses(
             entityType: "ASSIGNMENT",
             entityId: assignment.id,
             action: "ASSIGNED",
+            actor,
             details: {
               summary: `${employee.name} → ${license.name}`,
               employeeId,
@@ -139,6 +145,7 @@ export async function assignLicenses(
             entityType: "ASSIGNMENT",
             entityId: assignment.id,
             action: "ASSIGNED",
+            actor,
             details: {
               summary: `${employee.name} → ${license.name}${license.licenseType === "VOLUME" ? " (Volume)" : " (No Key)"}`,
               employeeId,
@@ -180,6 +187,10 @@ export async function unassignLicenses(
   assignmentIds: number[]
 ): Promise<ActionResult> {
   if (assignmentIds.length === 0) return { success: false, message: "해제할 배정을 선택하세요." };
+  const currentUser = await getCurrentUser();
+  if (!currentUser) return { success: false, message: "인증이 필요합니다." };
+  if (currentUser.role !== "ADMIN") return { success: false, message: "권한이 없습니다." };
+  const actor = currentUser.username;
 
   try {
     const result = await prisma.$transaction(async (tx) => {
@@ -218,6 +229,7 @@ export async function unassignLicenses(
           entityType: "ASSIGNMENT",
           entityId: assignmentId,
           action: "UNASSIGNED",
+          actor,
           details: {
             summary: `${employee?.name ?? employeeId} ← ${assignment.license.name}`,
             employeeId,

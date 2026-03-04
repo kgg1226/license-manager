@@ -1,14 +1,30 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getSessionToken, deleteSession, SESSION_COOKIE } from "@/lib/auth";
+import { getSessionToken, deleteSession, SESSION_COOKIE, getCurrentUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export async function POST() {
   try {
     const cookieStore = await cookies();
     const token = getSessionToken(cookieStore);
 
+    // 로그아웃 전 사용자 정보 확인
+    const currentUser = await getCurrentUser();
+
     if (token) {
       await deleteSession(token);
+    }
+
+    // 로그아웃 AuditLog (best-effort)
+    if (currentUser) {
+      await prisma.auditLog.create({
+        data: {
+          entityType: "USER",
+          entityId: currentUser.id,
+          action: "LOGOUT",
+          actor: currentUser.username,
+        },
+      }).catch(() => {});
     }
 
     const response = NextResponse.json({ message: "로그아웃 완료" });

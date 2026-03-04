@@ -9,6 +9,7 @@ import { generateTemplateCsv } from "./templates";
 import { templates } from "./templates";
 import { syncSeats } from "@/lib/license-seats";
 import { writeAuditLog } from "@/lib/audit-log";
+import { requireAdmin } from "@/lib/auth";
 
 // ─── Public Server Actions ─────────────────────────────────────────────
 
@@ -17,6 +18,8 @@ export async function getTemplateCsv(type: ImportType): Promise<string> {
 }
 
 export async function importCsv(formData: FormData): Promise<ImportResult> {
+  const currentUser = await requireAdmin();
+  const actor = currentUser.username;
   const type = formData.get("type") as ImportType | null;
   const file = formData.get("file") as File | null;
 
@@ -62,15 +65,15 @@ export async function importCsv(formData: FormData): Promise<ImportResult> {
   try {
     switch (type) {
       case "licenses":
-        return await importLicenses(parsed.data);
+        return await importLicenses(parsed.data, actor);
       case "employees":
-        return await importEmployees(parsed.data);
+        return await importEmployees(parsed.data, actor);
       case "groups":
         return await importGroups(parsed.data);
       case "assignments":
-        return await importAssignments(parsed.data);
+        return await importAssignments(parsed.data, actor);
       case "seats":
-        return await importSeats(parsed.data);
+        return await importSeats(parsed.data, actor);
     }
   } catch (error) {
     return {
@@ -100,7 +103,7 @@ function getRequiredHeaders(type: ImportType): string[] {
 
 // ─── License Import ────────────────────────────────────────────────────
 
-async function importLicenses(rows: Record<string, string>[]): Promise<ImportResult> {
+async function importLicenses(rows: Record<string, string>[], actor: string): Promise<ImportResult> {
   const errors: RowError[] = [];
 
   // Phase 1: 필드 파싱 & 기본 검증
@@ -266,6 +269,7 @@ async function importLicenses(rows: Record<string, string>[]): Promise<ImportRes
         entityType: "LICENSE",
         entityId: 0,
         action: "IMPORTED",
+        actor,
         details: JSON.stringify({ summary: `라이선스 CSV 가져오기: ${created}건 생성, ${updated}건 수정` }),
       },
     });
@@ -276,7 +280,7 @@ async function importLicenses(rows: Record<string, string>[]): Promise<ImportRes
 
 // ─── Employee Import ───────────────────────────────────────────────────
 
-async function importEmployees(rows: Record<string, string>[]): Promise<ImportResult> {
+async function importEmployees(rows: Record<string, string>[], actor: string): Promise<ImportResult> {
   const errors: RowError[] = [];
 
   const validated = rows.map((row, i) => {
@@ -460,6 +464,7 @@ async function importEmployees(rows: Record<string, string>[]): Promise<ImportRe
         entityType: "EMPLOYEE",
         entityId: 0,
         action: "IMPORTED",
+        actor,
         details: JSON.stringify({ summary: `조직원 CSV 가져오기: ${created}건 생성, ${updated}건 수정` }),
       },
     });
@@ -537,7 +542,7 @@ async function importGroups(rows: Record<string, string>[]): Promise<ImportResul
 
 // ─── Assignment Import ─────────────────────────────────────────────────
 
-async function importAssignments(rows: Record<string, string>[]): Promise<ImportResult> {
+async function importAssignments(rows: Record<string, string>[], actor: string): Promise<ImportResult> {
   const errors: RowError[] = [];
 
   const validated = rows.map((row, i) => {
@@ -649,6 +654,7 @@ async function importAssignments(rows: Record<string, string>[]): Promise<Import
         entityType: "ASSIGNMENT",
         entityId: 0,
         action: "IMPORTED",
+        actor,
         details: JSON.stringify({ summary: `배정 CSV 가져오기: ${created}건 생성` }),
       },
     });
@@ -664,7 +670,7 @@ async function importAssignments(rows: Record<string, string>[]): Promise<Import
 //   2. 트랜잭션은 검증 통과 후 쓰기만 담당 → DB Lock 최소화
 //   3. 행 번호 기반 에러 메시지로 사용자가 CSV 원본에서 문제 위치를 즉시 파악
 
-async function importSeats(rows: Record<string, string>[]): Promise<ImportResult> {
+async function importSeats(rows: Record<string, string>[], actor: string): Promise<ImportResult> {
   const errors: RowError[] = [];
 
   // ── Phase 1: 필드 파싱 ─────────────────────────────────────────────
@@ -809,6 +815,7 @@ async function importSeats(rows: Record<string, string>[]): Promise<ImportResult
         entityType: "SEAT",
         entityId: 0,
         action: "IMPORTED",
+        actor,
         details: JSON.stringify({ summary: `시트 키 CSV 가져오기: ${updated}건 등록` }),
       },
     });

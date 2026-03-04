@@ -16,7 +16,7 @@ export async function createUser(_prev: FormState, formData: FormData): Promise<
   const role = formData.get("role") as "ADMIN" | "USER";
 
   if (!username || !password) return { error: "사용자명과 비밀번호는 필수입니다." };
-  if (password.length < 4) return { error: "비밀번호는 4자 이상이어야 합니다." };
+  if (password.length < 8) return { error: "비밀번호는 8자 이상이어야 합니다." };
 
   try {
     const hash = await hashPassword(password);
@@ -42,7 +42,7 @@ export async function changePassword(userId: number, _prev: FormState, formData:
   await requireAdmin();
 
   const password = formData.get("password") as string;
-  if (!password || password.length < 4) return { error: "비밀번호는 4자 이상이어야 합니다." };
+  if (!password || password.length < 8) return { error: "비밀번호는 8자 이상이어야 합니다." };
 
   const hash = await hashPassword(password);
   await prisma.user.update({ where: { id: userId }, data: { password: hash } });
