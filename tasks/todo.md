@@ -65,11 +65,10 @@
 ## 대기
 
 ### 백엔드 — API 확인·보완
-- [ ] `GET /api/org/units` 구현 여부 확인 및 미구현 시 개발
-- [ ] OrgUnit CRUD API 구현 (`POST`, `PUT /[id]`, `DELETE /[id]`)
-  - 현재 조직도 페이지에서 부서 추가·수정·삭제 가능 여부 불명확
-- [ ] `GET /api/history` (AuditLog 조회 REST API) 구현 여부 확인
-- [ ] Admin 사용자 관리 API 전체 엔드포인트 확인 (`PUT`, `DELETE`)
+- [x] `GET /api/org/units` 구현 여부 확인 및 미구현 시 개발 → 기구현
+- [x] OrgUnit CRUD API 구현 (`POST`, `PUT /[id]`, `DELETE /[id]`) → 구현 완료 (2026-03-04)
+- [x] `GET /api/history` (AuditLog 조회 REST API) 구현 여부 확인 → 구현 완료 (2026-03-04)
+- [x] Admin 사용자 관리 API 전체 엔드포인트 확인 (`PUT`, `DELETE`) → 구현 완료 (2026-03-04)
 
 ### 기획 — 미정의 스펙
 - [ ] OrgUnit CRUD 상세 스펙 정의 (부서 생성·수정·삭제 규칙)

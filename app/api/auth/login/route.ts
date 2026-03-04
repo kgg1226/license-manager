@@ -6,9 +6,15 @@ import {
   SESSION_COOKIE,
   SESSION_DURATION_MS,
 } from "@/lib/auth";
+import {
+  isRateLimited,
+  recordFailure,
+  clearAttempts,
+  getRemainingLockSeconds,
+} from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get("x-forwarded-for") ?? "unknown";
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
   try {
     const { username, password } = await request.json();
 
@@ -19,9 +25,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Rate limit: IP 기반 (5회 실패 → 15분 잠금)
+    const rateLimitKey = `login:${ip}`;
+    if (isRateLimited(rateLimitKey)) {
+      const remaining = getRemainingLockSeconds(rateLimitKey);
+      return NextResponse.json(
+        { error: `로그인 시도 횟수를 초과했습니다. ${remaining}초 후 다시 시도하세요.` },
+        { status: 429 }
+      );
+    }
+
     const user = await prisma.user.findUnique({ where: { username } });
 
     if (!user || !(await verifyPassword(password, user.password))) {
+      const lockMs = recordFailure(rateLimitKey);
       // 로그인 실패 AuditLog (best-effort)
       await prisma.auditLog.create({
         data: {
@@ -31,6 +48,13 @@ export async function POST(request: NextRequest) {
           details: JSON.stringify({ username, ip }),
         },
       }).catch(() => {});
+
+      if (lockMs > 0) {
+        return NextResponse.json(
+          { error: `로그인 시도 횟수를 초과했습니다. ${Math.ceil(lockMs / 1000)}초 후 다시 시도하세요.` },
+          { status: 429 }
+        );
+      }
       return NextResponse.json(
         { error: "사용자명 또는 비밀번호가 올바르지 않습니다." },
         { status: 401 }
@@ -38,6 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!user.isActive) {
+      recordFailure(rateLimitKey);
       await prisma.auditLog.create({
         data: {
           entityType: "USER",
@@ -51,6 +76,9 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       );
     }
+
+    // 로그인 성공 — 실패 카운터 초기화
+    clearAttempts(rateLimitKey);
 
     const sessionId = await createSession(user.id);
 
