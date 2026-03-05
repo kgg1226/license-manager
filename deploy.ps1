@@ -109,24 +109,10 @@ Log "=== [2/3] S3 업로드 준비 ==="
 $zipPath = Join-Path $env:TEMP $ZIP_NAME
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 
-$excludeList = @(".git*", "node_modules*", ".next*", ".env*", ".claude*", "*.zip")
-$items = Get-ChildItem -Path . | Where-Object {
-    $name = $_.Name
-    $exclude = $false
-    foreach ($p in $excludeList) { if ($name -like $p) { $exclude = $true; break } }
-    -not $exclude
-}
-
-if ($null -eq $items -or ($items | Measure-Object).Count -eq 0) {
-    Fail "압축할 대상이 없습니다. 현재 경로($pwd)를 확인하세요."
-    exit 1
-}
-
-Log "압축 대상:"
-$items | ForEach-Object { Write-Host "  - $($_.Name)" -ForegroundColor Gray }
-
-Log "압축 파일 생성 중..."
-Compress-Archive -Path ($items.FullName) -DestinationPath $zipPath -Force
+# git archive 사용: 포워드 슬래시(/) 경로로 생성 → Linux unzip 호환
+# .gitignore 적용되므로 node_modules, .next 등 자동 제외
+Log "압축 파일 생성 중 (git archive)..."
+Invoke-OrFail { git archive --format=zip HEAD -o $zipPath } "git archive 실패 (Git이 설치되어 있는지 확인하세요)"
 
 Log "S3 업로드 중..."
 Invoke-OrFail {
