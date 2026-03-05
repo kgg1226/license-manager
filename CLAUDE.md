@@ -5,7 +5,7 @@
 - 스택: Next.js 15 App Router + Prisma 7 + better-sqlite3 + Tailwind CSS 4
 - 인증: 자체 구현 (세션 쿠키 + bcryptjs), 역할: ADMIN / USER
 - DB: SQLite (`dev.db`), Prisma 클라이언트 출력 경로 → `generated/prisma/`
-- 배포: Docker, AWS EC2 (ARM64), 폐쇄망
+- 배포: Docker, AWS EC2 t4g.small (ARM64, vCPU 2, RAM 2GB), S3 → EC2 배포, 폐쇄망
 - 포트: 로컬 dev `3000` / 컨테이너 `3000` / 호스트 `80` (docker-compose.yml 기준)
 
 ## 폐쇄망 제약
@@ -14,7 +14,7 @@
 - 모든 라이브러리는 `npm install`로 번들에 포함
 
 ## 빌드 주의사항
-- EC2 ARM64, RAM 1GB 제한 — 빌드 전 스왑 확인 필수 (`free -h`)
+- EC2 t4g.small (ARM64, RAM 2GB) — 빌드 전 스왑 확인 권장 (`free -h`)
 - 프로덕션 컨테이너에서 `prisma CLI` 실행 금지
 - DB 스키마 변경은 호스트에서 `sqlite3`로 직접 SQL 실행
 - `prisma generate` 결과물은 `generated/prisma/`에 위치 (`lib/prisma.ts`에서 import)
