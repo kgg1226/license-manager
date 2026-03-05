@@ -5,8 +5,12 @@
 - 스택: Next.js 15 App Router + Prisma 7 + better-sqlite3 + Tailwind CSS 4
 - 인증: 자체 구현 (세션 쿠키 + bcryptjs), 역할: ADMIN / USER
 - DB: SQLite (`dev.db`), Prisma 클라이언트 출력 경로 → `generated/prisma/`
-- 배포: Docker, AWS EC2 t4g.small (ARM64, vCPU 2, RAM 2GB), S3 → EC2 배포, 폐쇄망
-- 포트: 로컬 dev `3000` / 컨테이너 `3000` / 호스트 `80` (docker-compose.yml 기준)
+- 배포: Docker, AWS EC2 t4g.small (ARM64, vCPU 2, RAM 2GB), 폐쇄망
+- 포트: 로컬 dev `3000` / 컨테이너 `3000` / 호스트 `8080` (deploy.ps1 기준)
+- 배포 방식: `deploy.ps1` (Windows PowerShell) → S3 업로드 → EC2 SSM으로 실행
+  - S3: `s3://triplecomma-releases/triplecomma-backoffice/`
+  - EC2: `i-0aeda7845a9634718` / 리전: `ap-northeast-2` / 프로필: `hyeongunk`
+  - EC2 원격 경로: `/home/ssm-user/app` / DB 볼륨: `/home/ssm-user/license-manager/data/dev.db`
 
 ## 폐쇄망 제약
 - 런타임에 외부 URL 호출 금지
@@ -14,11 +18,12 @@
 - 모든 라이브러리는 `npm install`로 번들에 포함
 
 ## 빌드 주의사항
-- EC2 t4g.small (ARM64, RAM 2GB) — 빌드 전 스왑 확인 권장 (`free -h`)
+- EC2 t4g.small (ARM64, RAM 2GB) — 빌드 전 스왑 자동 생성 (2GB, deploy.sh 내장)
 - 프로덕션 컨테이너에서 `prisma CLI` 실행 금지
 - DB 스키마 변경은 호스트에서 `sqlite3`로 직접 SQL 실행
 - `prisma generate` 결과물은 `generated/prisma/`에 위치 (`lib/prisma.ts`에서 import)
 - `prisma.config.ts` — 루트에 위치, Prisma 설정 파일
+- ⚠️ `deploy.ps1` 내부에 `git pull --rebase` 포함 → master에 커밋 충돌 있으면 배포 실패. 배포 전 반드시 master 클린 상태 확인
 
 ---
 
