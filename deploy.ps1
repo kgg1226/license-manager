@@ -165,12 +165,15 @@ $inputJson = [ordered]@{
 $tmpFile = Join-Path $env:TEMP "ssm-deploy-input.json"
 $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 [System.IO.File]::WriteAllText($tmpFile, $inputJson, $utf8NoBom)
+Log "SSM 입력 파일 생성: $tmpFile"
+Log "JSON 미리보기: $($inputJson.Substring(0, [Math]::Min(120, $inputJson.Length)))..."
 
-# file:// 경로는 슬래시(/) 사용 필수
-$tmpFileUri = "file://" + ($tmpFile -replace '\\', '/')
+# Windows 로컬 파일 URI: file:///드라이브:/경로 (슬래시 3개 필수)
+$tmpFileUri = "file:///" + ($tmpFile -replace '\\', '/')
+Log "file URI: $tmpFileUri"
 
 $COMMAND_ID = aws ssm send-command `
-    --cli-input-json $tmpFileUri `
+    --cli-input-json "$tmpFileUri" `
     --query "Command.CommandId" `
     --output text `
     --profile $PROFILE_NAME `
