@@ -146,7 +146,7 @@ $commands = @(
     "cd $REMOTE_DIR",
     "aws s3 cp $S3_BUCKET/$ZIP_NAME .",
     "echo '=== [2/5] 기존 소스 완전 삭제 후 재배치 ==='",
-    "rm -rf $APP_NAME",
+    "sudo rm -rf $APP_NAME",
     "mkdir -p $APP_NAME",
     "unzip -q $ZIP_NAME -d $APP_NAME",
     "rm -f $ZIP_NAME",
