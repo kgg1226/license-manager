@@ -1,141 +1,110 @@
 # TODO
 
 > 기획 세션(/planning)에서 관리한다.
+> 최종 업데이트: 2026-03-05
 
 ---
 
-## 완료된 기능 (구현 확인됨)
+## 완료된 기능 (master 반영 확인됨)
 
 ### 인증
 - [x] 로그인 / 로그아웃 (세션 쿠키 기반)
 - [x] 세션 확인 API
 - [x] 역할 기반 접근 제어 (ADMIN / USER)
+- [x] 로그인 브루트포스 방어 (IP 기반, 5회 실패 → 15분 잠금)
 
 ### 라이선스 관리
-- [x] 라이선스 목록 조회 (할당 수, 잔여 수량, 키 미등록 카운트 포함)
-- [x] 라이선스 등록 (KEY_BASED / VOLUME / NO_KEY 3가지 유형)
-- [x] 라이선스 상세 조회
-- [x] 라이선스 수정 (유형 변경 시 활성 배정 유무 검증)
-- [x] 라이선스 삭제 (관련 배정·시트·이력 함께 삭제)
+- [x] 라이선스 CRUD (KEY_BASED / VOLUME / NO_KEY)
 - [x] 시트(개별 키) 등록·수정, 중복 검사
-
-### 조직원 관리
-- [x] 조직원 목록 조회 (활성 배정 수 포함)
-- [x] 조직원 등록 (기본 그룹 라이선스 자동 할당)
-- [x] 조직원 상세 조회 (보유 라이선스 목록 포함)
-- [x] 조직원 기본 정보 수정 (이름, 부서, 이메일)
-- [x] 조직원 조직 정보 수정 (회사, 부서, 직급)
-- [x] 조직원 삭제
+- [x] 라이선스 갱신 상태 변경 + 이력 기록
+- [x] 라이선스 갱신일 수동 설정
+- [x] 라이선스 담당자 관리 (개인/부서)
+- [x] 라이선스 그룹 CRUD + 기본 그룹 자동 할당
 
 ### 할당·반납
-- [x] 할당 목록 조회
-- [x] 라이선스 할당 (Server Action)
-- [x] 라이선스 반납
-- [x] 할당 삭제
+- [x] 라이선스 할당 (Server Action — lib/assignment-actions.ts)
+- [x] 라이선스 반납 / 삭제
 
-### 라이선스 그룹
-- [x] 그룹 목록 / 상세 조회
-- [x] 그룹 생성·수정·삭제
-- [x] 그룹 라이선스 멤버 추가·제거
-- [x] 기본 그룹 설정 (조직원 등록 시 자동 할당)
+### 조직원 관리
+- [x] 조직원 CRUD
+- [x] 조직원 조직 이동 (`PATCH /api/employees/[id]`)
+- [x] 조직원 퇴사 처리 — 7일 유예 (`POST /api/employees/[id]/offboard`)
 
 ### 조직 관리
-- [x] 회사(OrgCompany) 목록 조회 (부서 계층 포함)
-- [x] 회사 생성
-- [x] 조직도 페이지 (계층 구조 시각화)
+- [x] 회사(OrgCompany) CRUD
+- [x] OrgUnit CRUD + 삭제 영향 범위 미리보기
 
-### 대시보드
-- [x] 라이선스 현황 요약 (총 라이선스, 연간 비용, 갱신 예정)
-- [x] 월별 비용 추이 차트
-- [x] 라이선스 유형 분포 차트
-- [x] 누적 성장 추이 차트
+### 배치/스케줄러
+- [x] OFFBOARDING 자동 삭제 (`POST /api/cron/offboard`, CRON_SECRET 인증)
+- [x] 라이선스 갱신 알림 (`POST /api/cron/renewal-notify`, D-70/30/15/7, Slack + Email)
 
-### 감사 로그
-- [x] 전체 감사 이력 조회 페이지 (/history)
-- [x] 엔티티 타입 / 액션 타입 필터
+### Admin
+- [x] 사용자 CRUD
+- [x] 사용자 삭제 (`DELETE /api/admin/users/[id]`)
+- [x] 임시 비밀번호 발급 + mustChangePassword 플래그
 
-### 데이터 가져오기
+### 대시보드 / 감사 로그 / CSV
+- [x] 대시보드 차트 (비용 추이, 유형 분포, 누적 성장)
+- [x] 감사 로그 조회 (`GET /api/history`)
 - [x] CSV 임포트 (라이선스, 조직원, 그룹, 배정)
 
-### 사용자 관리
-- [x] 사용자 목록 / 생성 / 수정 (ADMIN 전용, /admin/users)
-- [x] Admin 사용자 삭제 `DELETE /api/admin/users/[id]`
-- [x] Admin 비밀번호 리셋 `POST /api/admin/users/[id]/reset-password`
-
-### DB 스키마 확장 (backend-C6wwi 브랜치)
-> master 머지 전, **사람이 직접** EC2 호스트에 VPN 접속 후 SQL 실행 필요 (Agent 접근 불가)
-- [x] OrgUnit: `sortOrder`, `updatedAt` 추가 + unique 제약 변경
-- [x] Employee: `orgUnitId`, `status`, `offboardingUntil` 추가 + 구 컬럼(`orgId`, `subOrgId`) 제거
-- [x] User: `mustChangePassword` 추가
-- [x] License: `renewalDate`, `renewalDateManual`, `renewalStatus` 추가
-- [x] 신규 테이블: `LicenseRenewalHistory`, `LicenseOwner`, `NotificationLog`
-- [x] AuditLog: `actorType`, `actorId` 컬럼 추가
-
-### 백엔드 — 신규 API (backend-C6wwi 브랜치)
-- [x] OrgUnit CRUD: `GET|POST /api/org/units`, `PUT|DELETE /api/org/units/[id]`
-- [x] OrgUnit 삭제 프리뷰: `GET /api/org/units/[id]/delete-preview`
-- [x] 구성원 조직 이동: `PATCH /api/employees/[id]`
-- [x] 구성원 퇴사 처리: `POST /api/employees/[id]/offboard`
-- [x] 라이선스 갱신 상태 변경: `PUT /api/licenses/[id]/renewal-status`
-- [x] 라이선스 갱신 이력 조회: `GET /api/licenses/[id]/renewal-history`
-- [x] 라이선스 갱신일 수동 설정: `PUT /api/licenses/[id]/renewal-date`
-- [x] 라이선스 담당자 관리: `GET|POST|DELETE /api/licenses/[id]/owners`
-- [x] 로그인 브루트포스 방어 (rate-limit)
-
-### 백엔드 — 배치/스케줄러 (backend-C6wwi 브랜치)
-- [x] OFFBOARDING 자동 삭제 배치 (`POST /api/cron/offboard`) → 구현 완료 (2026-03-05)
-- [x] 라이선스 갱신 알림 스케줄러 (`POST /api/cron/renewal-notify`) → 구현 완료 (2026-03-05)
-  - Slack 발송 (SLACK_WEBHOOK_URL 환경변수)
-  - Email 발송 (SMTP_* 환경변수, nodemailer)
-  - NotificationLog 기록 (성공/실패 모두)
-
-
-### 보안 (security-I55Yn 브랜치)
-- [x] 전체 코드베이스 보안 리뷰 완료
-- [x] `tasks/security/guidelines.md` 업데이트
-- [x] `tasks/security/review-2026-03-04.md` 작성
+### 프론트엔드 — UI
+- [x] 라이선스 목록 페이지네이션
+- [x] 조직원 목록 검색·필터 (이름, 부서, 상태)
+- [x] 조직원 중복 이름 구분 표시
 
 ---
 
-## 대기
+## 대기 — 배포 전 확인 티켓
 
-### Agent 착수 가능 (코드 작업, EC2 무관)
+### 백엔드 (`role/backend` 브랜치)
 
-### 프론트엔드 — 신규 UI
-> 백엔드 API 코드가 `claude/backend-development-C6wwi`에 완성됨 — 바로 착수 가능
-- [ ] OrgUnit 트리 편집 UI — `/org` 페이지에 생성·수정·삭제 버튼 추가
-  - 삭제 확인 모달: 하위 부서 목록 + 영향 구성원 수 표시 + "삭제하겠습니다" 문구 입력 요구
-  - `GET /api/org/units/[id]/delete-preview` 연동
-- [ ] 구성원 조직 이동 UI — 구성원 상세 페이지에서 소속 부서 변경 드롭다운 (`PATCH /api/employees/[id]`)
-- [ ] 구성원 퇴사 처리 UI — 퇴사 버튼 + 날짜 선택 모달 (`POST /api/employees/[id]/offboard`)
-- [ ] 라이선스 갱신 상태 변경 UI — 상태 드롭다운 + 메모 입력 (`PUT /api/licenses/[id]/renewal-status`)
-- [ ] 라이선스 갱신일 수동 설정 UI (`PUT /api/licenses/[id]/renewal-date`)
-- [ ] 라이선스 갱신 이력 뷰 (타임라인 형태, `GET /api/licenses/[id]/renewal-history`)
-- [ ] 라이선스 담당자 설정 UI — 개인 또는 부서 지정 (`GET|POST|DELETE /api/licenses/[id]/owners`)
-- [ ] Admin 비밀번호 리셋 UI (`POST /api/admin/users/[id]/reset-password`)
+> 코드 점검 결과 발견된 항목. 구현 완료로 보이나 정확성 확인 필요.
 
-### 프론트엔드 — UI 개선
-> `claude/frontend-work-4WHnC` 브랜치에 구현됨, 머지 대기
-- [x] 라이선스 목록 페이지 페이지네이션 (대량 데이터 대응)
-- [x] 구성원 목록 검색·필터 기능 (이름, 부서, 상태)
-- [x] 구성원 중복 이름 구분 표시 (이름 + 이메일 앞부분 마스킹 함께 노출)
-- [ ] 모바일 반응형 레이아웃 검토
+- [ ] **[BE-001]** `PATCH /api/employees/[id]` — 조직 이동 시 AuditLog 기록 여부 확인
+  - `actorType`, `actorId`, 변경 전/후 orgUnitId 기록되는지 검증
+- [ ] **[BE-002]** `DELETE /api/admin/users/[id]` — 자신의 계정 삭제 방지 로직 확인
+  - 없으면 `if (targetId === currentUser.id) return 400` 추가
+- [ ] **[BE-003]** 에러 응답 안전성 확인
+  - 모든 catch 블록에서 스택트레이스 미노출, 제네릭 메시지만 반환 확인
+  - 로그에 비밀번호·라이선스 키 평문 기록 없는지 확인
 
-### 사람이 직접 해야 하는 작업 (배포)
-> 코드가 모두 완성된 후 사람이 EC2에 VPN 접속하여 진행
-1. PR 머지: `backend-C6wwi` → `security-I55Yn` → `frontend-4WHnC` → 프론트 신규 UI 브랜치
-2. EC2에서 DB 마이그레이션 SQL 실행 (`tasks/db-changes.md` [2026-03-04] 참조)
-3. `free -h` 스왑 확인 후 Docker 빌드 + 컨테이너 재시작
+### DevOps (`role/devops` 브랜치)
 
----
+- [ ] **[OPS-001]** `dockerfile` — `USER` 지시문 추가 (비root 실행)
+  - `RUN addgroup -S app && adduser -S app -G app` + `USER app`
+- [ ] **[OPS-002]** `.dockerignore` 점검
+  - `.env`, `dev.db`, `dev.db.backup`, `*.zip`, `.git` 제외 확인
+- [ ] **[OPS-003]** 환경변수 문서화
+  - `.env.example` 파일 생성 (실제 값 없이 키 목록만)
+  - 필수: `DATABASE_URL`, `CRON_SECRET`
+  - 선택: `SLACK_WEBHOOK_URL`, `SMTP_HOST/PORT/USER/PASS/FROM/SECURE`, `SECURE_COOKIE`
 
-## 진행 중
+### 프론트엔드 (`role/frontend` 브랜치)
 
-(없음)
+- [ ] **[FE-001]** `mustChangePassword` 플래그 처리 UI
+  - 로그인 후 플래그가 `true`이면 비밀번호 변경 페이지로 강제 리다이렉트
+  - 변경 완료 시 플래그 `false`로 업데이트 (`PUT /api/admin/users/[id]` 또는 별도 API)
+- [ ] **[FE-002]** 모바일 반응형 레이아웃 (낮은 우선순위)
 
 ---
 
-## 참고: 주요 페이지 목록
+## 대기 — 사람이 직접 해야 하는 작업 (EC2 배포)
+
+> `deploy.ps1` 실행 전 아래 순서 완료 필요
+
+1. [ ] EC2 VPN 접속 → DB 마이그레이션 SQL 실행
+   - `tasks/db-changes.md` [2026-03-04] 항목 참조
+   - `sqlite3 /home/ssm-user/license-manager/data/dev.db`
+2. [ ] `deploy.ps1` 실행 (Windows PowerShell, `hyeongunk` 프로필 필요)
+   - 내부 순서: git push → S3 업로드 → SSM으로 EC2 빌드·배포
+3. [ ] 배포 후 동작 확인
+   - 로그인, 라이선스 목록, 대시보드 접근
+   - 갱신 알림 cron 수동 호출 테스트 (`POST /api/cron/renewal-notify` with CRON_SECRET)
+
+---
+
+## 참고: 주요 페이지 경로
 
 | 경로 | 설명 |
 |---|---|
@@ -143,16 +112,11 @@
 | `/login` | 로그인 |
 | `/dashboard` | 대시보드 |
 | `/licenses` | 라이선스 목록 |
-| `/licenses/new` | 라이선스 등록 |
 | `/licenses/[id]` | 라이선스 상세 |
-| `/licenses/[id]/edit` | 라이선스 수정 |
 | `/employees` | 조직원 목록 |
-| `/employees/new` | 조직원 등록 |
 | `/employees/[id]` | 조직원 상세 |
 | `/settings/groups` | 그룹 목록 |
-| `/settings/groups/new` | 그룹 생성 |
-| `/settings/groups/[id]` | 그룹 상세 |
 | `/settings/import` | CSV 가져오기 |
 | `/org` | 조직도 |
 | `/history` | 감사 로그 |
-| `/admin/users` | 사용자 관리 (ADMIN) |
+| `/admin/users` | 사용자 관리 (ADMIN 전용) |
