@@ -151,18 +151,26 @@ $commands = @(
     "sudo docker ps --filter name=license-app --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
 )
 
-$parametersJson = @{ commands = $commands } | ConvertTo-Json -Compress
+# PowerShell → AWS CLI JSON 전달 시 따옴표 깨짐 방지: 임시 파일 경유
+$inputJson = [ordered]@{
+    DocumentName   = "AWS-RunShellScript"
+    InstanceIds    = @($EC2_ID)
+    Parameters     = @{ commands = $commands }
+    TimeoutSeconds = 600
+    Comment        = "deploy from deploy.ps1"
+} | ConvertTo-Json -Depth 5 -Compress
+
+$tmpFile = Join-Path $env:TEMP "ssm-deploy-input.json"
+[System.IO.File]::WriteAllText($tmpFile, $inputJson, [System.Text.Encoding]::UTF8)
 
 $COMMAND_ID = aws ssm send-command `
-    --instance-ids $EC2_ID `
-    --document-name "AWS-RunShellScript" `
-    --parameters $parametersJson `
-    --timeout-seconds 600 `
-    --comment "deploy from deploy.ps1" `
+    --cli-input-json "file://$tmpFile" `
     --query "Command.CommandId" `
     --output text `
     --profile $PROFILE_NAME `
     --region $REGION
+
+Remove-Item $tmpFile -ErrorAction SilentlyContinue
 
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($COMMAND_ID)) {
     Fail "SSM 명령 전송 실패"
