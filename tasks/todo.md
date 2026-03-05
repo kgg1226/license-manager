@@ -59,67 +59,72 @@
 
 ### 사용자 관리
 - [x] 사용자 목록 / 생성 / 수정 (ADMIN 전용, /admin/users)
+- [x] Admin 사용자 삭제 `DELETE /api/admin/users/[id]`
+- [x] Admin 비밀번호 리셋 `POST /api/admin/users/[id]/reset-password`
+
+### DB 스키마 확장 (backend-C6wwi 브랜치)
+> master 머지 전, **사람이 직접** EC2 호스트에 VPN 접속 후 SQL 실행 필요 (Agent 접근 불가)
+- [x] OrgUnit: `sortOrder`, `updatedAt` 추가 + unique 제약 변경
+- [x] Employee: `orgUnitId`, `status`, `offboardingUntil` 추가 + 구 컬럼(`orgId`, `subOrgId`) 제거
+- [x] User: `mustChangePassword` 추가
+- [x] License: `renewalDate`, `renewalDateManual`, `renewalStatus` 추가
+- [x] 신규 테이블: `LicenseRenewalHistory`, `LicenseOwner`, `NotificationLog`
+- [x] AuditLog: `actorType`, `actorId` 컬럼 추가
+
+### 백엔드 — 신규 API (backend-C6wwi 브랜치)
+- [x] OrgUnit CRUD: `GET|POST /api/org/units`, `PUT|DELETE /api/org/units/[id]`
+- [x] OrgUnit 삭제 프리뷰: `GET /api/org/units/[id]/delete-preview`
+- [x] 구성원 조직 이동: `PATCH /api/employees/[id]`
+- [x] 구성원 퇴사 처리: `POST /api/employees/[id]/offboard`
+- [x] 라이선스 갱신 상태 변경: `PUT /api/licenses/[id]/renewal-status`
+- [x] 라이선스 갱신 이력 조회: `GET /api/licenses/[id]/renewal-history`
+- [x] 라이선스 갱신일 수동 설정: `PUT /api/licenses/[id]/renewal-date`
+- [x] 라이선스 담당자 관리: `GET|POST|DELETE /api/licenses/[id]/owners`
+- [x] 로그인 브루트포스 방어 (rate-limit)
+
+### 백엔드 — 배치/스케줄러 (backend-C6wwi 브랜치)
+- [x] OFFBOARDING 자동 삭제 배치 (`POST /api/cron/offboard`) → 구현 완료 (2026-03-05)
+- [x] 라이선스 갱신 알림 스케줄러 (`POST /api/cron/renewal-notify`) → 구현 완료 (2026-03-05)
+  - Slack 발송 (SLACK_WEBHOOK_URL 환경변수)
+  - Email 발송 (SMTP_* 환경변수, nodemailer)
+  - NotificationLog 기록 (성공/실패 모두)
+
+### 보안 (security-I55Yn 브랜치)
+- [x] 전체 코드베이스 보안 리뷰 완료
+- [x] `tasks/security/guidelines.md` 업데이트
+- [x] `tasks/security/review-2026-03-04.md` 작성
 
 ---
 
 ## 대기
 
-### 백엔드 — API 확인·보완 (완료)
-- [x] `GET /api/org/units` 구현 여부 확인 및 미구현 시 개발 → 기구현
-- [x] OrgUnit CRUD API 구현 (`POST`, `PUT /[id]`, `DELETE /[id]`) → 구현 완료 (2026-03-04)
-- [x] `GET /api/history` (AuditLog 조회 REST API) 구현 여부 확인 → 구현 완료 (2026-03-04)
-- [x] Admin 사용자 관리 API 전체 엔드포인트 확인 (`PUT`, `DELETE`) → 구현 완료 (2026-03-04)
-
-### DB 마이그레이션 (백엔드 선행 필수)
-> `tasks/db-changes.md` [2026-03-04] 항목 참조
-> ✅ prisma/schema.prisma 반영 완료 (2026-03-04), EC2 호스트에서 migration.sql 실행 필요
-- [x] OrgUnit: `sortOrder`, `updatedAt` 추가 + unique 제약 변경 → schema 반영 완료
-- [x] Employee: `orgUnitId`, `status`, `offboardingUntil` 추가 + 데이터 마이그레이션 + 구 컬럼(`orgId`, `subOrgId`) 제거 → schema 반영 완료
-- [x] User: `mustChangePassword` 추가 → schema 반영 완료
-- [x] License: `renewalDate`, `renewalDateManual`, `renewalStatus` 추가 → schema 반영 완료
-- [x] 신규 테이블: `LicenseRenewalHistory`, `LicenseOwner`, `NotificationLog` → schema 반영 완료
-- [x] AuditLog: `actorType`, `actorId` 컬럼 추가 → schema 반영 완료
-- [x] `prisma generate` 실행 → 완료 (2026-03-04)
-- [ ] ⚠️ EC2 호스트에서 `prisma/migrations/20260304000000_.../migration.sql` 실행 (DevOps)
-
-### 백엔드 — 신규 API 구현
-> `tasks/api-spec.md` 참조
-- [x] OrgUnit CRUD: `GET /api/org/units`, `POST`, `PUT /[id]`, `DELETE /[id]`
-- [ ] OrgUnit 삭제 프리뷰: `GET /api/org/units/[id]/delete-preview`
-- [x] 구성원 조직 이동: `PATCH /api/employees/[id]` (orgUnitId 변경 + AuditLog)
-- [ ] 구성원 퇴사 처리: `POST /api/employees/[id]/offboard`
-- [ ] 라이선스 갱신 상태 변경: `PUT /api/licenses/[id]/renewal-status`
-- [ ] 라이선스 갱신 이력 조회: `GET /api/licenses/[id]/renewal-history`
-- [ ] 라이선스 갱신일 수동 설정: `PUT /api/licenses/[id]/renewal-date`
-- [ ] 라이선스 담당자 관리: `GET|POST|DELETE /api/licenses/[id]/owners`
-- [ ] Admin 비밀번호 리셋: `POST /api/admin/users/[id]/reset-password`
-- [ ] Admin 사용자 삭제: `DELETE /api/admin/users/[id]`
-- [ ] `GET /api/history` (AuditLog 조회 REST API) 구현 여부 확인
-
-### 백엔드 — 배치/스케줄러
-- [x] OFFBOARDING 자동 삭제 배치 (매일 실행, `offboardingUntil` 경과 구성원 삭제 + tombstone) → 구현 완료 (2026-03-05)
-- [x] 라이선스 갱신 알림 스케줄러 (D-70, D-30, D-15, D-7 발송) → 구현 완료 (2026-03-05)
-  - Slack 발송 (SLACK_WEBHOOK_URL 환경변수)
-  - Email 발송 (SMTP_* 환경변수, nodemailer)
-  - NotificationLog 기록 (성공/실패 모두)
+### Agent 착수 가능 (코드 작업, EC2 무관)
 
 ### 프론트엔드 — 신규 UI
-> 백엔드 API 완료 항목만 착수 가능
-- [ ] **[착수 가능]** OrgUnit 트리 편집 UI — `/org` 페이지에 생성·수정·삭제 버튼 추가
+> 백엔드 API 코드가 `claude/backend-development-C6wwi`에 완성됨 — 바로 착수 가능
+- [ ] OrgUnit 트리 편집 UI — `/org` 페이지에 생성·수정·삭제 버튼 추가
   - 삭제 확인 모달: 하위 부서 목록 + 영향 구성원 수 표시 + "삭제하겠습니다" 문구 입력 요구
-  - OrgUnit 삭제 프리뷰 API(`delete-preview`) 백엔드 완료 후 연동
-- [ ] **[착수 가능]** 구성원 조직 이동 UI — 구성원 상세 페이지에서 소속 부서 변경 드롭다운
-- [ ] **[착수 가능]** 구성원 중복 이름 구분 표시 (이름 + 이메일 앞부분 마스킹 함께 노출)
-- [ ] **[백엔드 대기]** 구성원 퇴사 처리 UI (`offboard` API 완료 후)
-- [ ] **[백엔드 대기]** 라이선스 갱신 상태 변경 UI (상태 드롭다운 + 메모 입력)
-- [ ] **[백엔드 대기]** 라이선스 갱신 이력 뷰 (타임라인 형태)
-- [ ] **[백엔드 대기]** 알림 담당자 설정 UI (개인 또는 부서 지정)
+  - `GET /api/org/units/[id]/delete-preview` 연동
+- [ ] 구성원 조직 이동 UI — 구성원 상세 페이지에서 소속 부서 변경 드롭다운 (`PATCH /api/employees/[id]`)
+- [ ] 구성원 퇴사 처리 UI — 퇴사 버튼 + 날짜 선택 모달 (`POST /api/employees/[id]/offboard`)
+- [ ] 라이선스 갱신 상태 변경 UI — 상태 드롭다운 + 메모 입력 (`PUT /api/licenses/[id]/renewal-status`)
+- [ ] 라이선스 갱신일 수동 설정 UI (`PUT /api/licenses/[id]/renewal-date`)
+- [ ] 라이선스 갱신 이력 뷰 (타임라인 형태, `GET /api/licenses/[id]/renewal-history`)
+- [ ] 라이선스 담당자 설정 UI — 개인 또는 부서 지정 (`GET|POST|DELETE /api/licenses/[id]/owners`)
+- [ ] Admin 비밀번호 리셋 UI (`POST /api/admin/users/[id]/reset-password`)
 
 ### 프론트엔드 — UI 개선
-> 기존 API로 바로 착수 가능
-- [ ] **[착수 가능]** 라이선스 목록 페이지 페이지네이션 (대량 데이터 대응)
-- [ ] **[착수 가능]** 구성원 목록 검색·필터 기능 (이름, 부서, 상태)
+> `claude/frontend-work-4WHnC` 브랜치에 구현됨, 머지 대기
+- [x] 라이선스 목록 페이지 페이지네이션 (대량 데이터 대응)
+- [x] 구성원 목록 검색·필터 기능 (이름, 부서, 상태)
+- [x] 구성원 중복 이름 구분 표시 (이름 + 이메일 앞부분 마스킹 함께 노출)
 - [ ] 모바일 반응형 레이아웃 검토
+
+### 사람이 직접 해야 하는 작업 (배포)
+> 코드가 모두 완성된 후 사람이 EC2에 VPN 접속하여 진행
+1. PR 머지: `backend-C6wwi` → `security-I55Yn` → `frontend-4WHnC` → 프론트 신규 UI 브랜치
+2. EC2에서 DB 마이그레이션 SQL 실행 (`tasks/db-changes.md` [2026-03-04] 참조)
+3. `free -h` 스왑 확인 후 Docker 빌드 + 컨테이너 재시작
 
 ---
 
