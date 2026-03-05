@@ -103,7 +103,7 @@ Invoke-OrFail { git push origin master } "git push 실패"
 Success "Git 동기화 완료"
 
 # ============================================================
-# [2/3] S3 업로드
+# [2/3] S3 업로드 (소스 패키지 + 배포 스크립트)
 # ============================================================
 Log "=== [2/3] S3 업로드 준비 ==="
 $zipPath = Join-Path $env:TEMP $ZIP_NAME
@@ -114,72 +114,89 @@ if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 Log "압축 파일 생성 중 (git archive)..."
 Invoke-OrFail { git archive --format=zip HEAD -o $zipPath } "git archive 실패 (Git이 설치되어 있는지 확인하세요)"
 
-Log "S3 업로드 중..."
+# EC2에서 실행할 배포 셸 스크립트를 로컬에서 생성 후 S3 업로드
+# → SSM에는 단순 명령 2줄만 전달하므로 JSON 이스케이프 문제 완전 회피
+$deployShPath = Join-Path $env:TEMP "deploy.sh"
+$deployShContent = @"
+#!/bin/bash
+set -e
+
+echo '=== [1/5] S3에서 소스 다운로드 ==='
+cd $REMOTE_DIR
+aws s3 cp $S3_BUCKET/$ZIP_NAME .
+
+echo '=== [2/5] 기존 소스 완전 삭제 후 재배치 ==='
+sudo rm -rf $APP_NAME
+mkdir -p $APP_NAME
+unzip -q $ZIP_NAME -d $APP_NAME
+rm -f $ZIP_NAME
+cd $APP_NAME
+
+echo '=== [3/5] 스왑 확인 ==='
+free -h
+if [ ! -f /swapfile ]; then
+    sudo dd if=/dev/zero of=/swapfile bs=128M count=16
+    sudo chmod 600 /swapfile
+    sudo mkswap /swapfile
+    sudo swapon /swapfile
+    echo '스왑 설정 완료'
+else
+    echo '스왑 이미 존재'
+fi
+
+echo '=== [4/5] Docker 이미지 빌드 ==='
+sudo docker build -t license-manager:new .
+
+echo '=== [5/5] 컨테이너 교체 ==='
+sudo docker tag license-manager:latest license-manager:backup 2>/dev/null || true
+sudo docker rm -f license-app || true
+sudo docker run -d --name license-app -p 8080:3000 \
+    -e DATABASE_URL=file:/app/dev.db \
+    -e NODE_ENV=production \
+    -e SECURE_COOKIE=false \
+    -v /home/ssm-user/license-manager/data/dev.db:/app/dev.db \
+    license-manager:new
+sudo docker tag license-manager:new license-manager:latest
+
+echo '=== 배포 완료 ==='
+sudo docker ps --filter name=license-app --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+"@
+# LF 줄바꿈 강제 (Windows CRLF → Linux bash 호환)
+$deployShContent = $deployShContent -replace "`r`n", "`n"
+[System.IO.File]::WriteAllText($deployShPath, $deployShContent, [System.Text.UTF8Encoding]::new($false))
+
+Log "S3 업로드 중 (소스 패키지)..."
 Invoke-OrFail {
     aws s3 cp $zipPath "$S3_BUCKET/$ZIP_NAME" --profile $PROFILE_NAME --region $REGION
-} "S3 업로드 실패"
-Success "S3 업로드 완료: $S3_BUCKET/$ZIP_NAME"
+} "S3 업로드 실패 (zip)"
+
+Log "S3 업로드 중 (배포 스크립트)..."
+Invoke-OrFail {
+    aws s3 cp $deployShPath "$S3_BUCKET/deploy.sh" --profile $PROFILE_NAME --region $REGION
+} "S3 업로드 실패 (deploy.sh)"
+
+Remove-Item $zipPath, $deployShPath -ErrorAction SilentlyContinue
+Success "S3 업로드 완료: $S3_BUCKET/"
 
 # ============================================================
 # [3/3] EC2 배포 (SSM)
 # ============================================================
 Log "=== [3/3] EC2 배포 시작 (SSM) ==="
 
-# EC2는 IAM Role로 S3 접근 → --profile 불필요
-$commands = @(
-    "set -e",
-    "echo '=== [1/5] S3에서 소스 다운로드 ==='",
-    "cd $REMOTE_DIR",
-    "aws s3 cp $S3_BUCKET/$ZIP_NAME .",
-    "echo '=== [2/5] 기존 소스 완전 삭제 후 재배치 ==='",
-    "sudo rm -rf $APP_NAME",
-    "mkdir -p $APP_NAME",
-    "unzip -q $ZIP_NAME -d $APP_NAME",
-    "rm -f $ZIP_NAME",
-    "cd $APP_NAME",
-    "echo '=== [3/5] 스왑 확인 ==='",
-    "free -h",
-    "if [ ! -f /swapfile ]; then sudo dd if=/dev/zero of=/swapfile bs=128M count=16 && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile && echo '스왑 설정 완료'; else echo '스왑 이미 존재'; fi",
-    "echo '=== [4/5] Docker 이미지 빌드 ==='",
-    "sudo docker build -t license-manager:new .",
-    "echo '=== [5/5] 컨테이너 교체 ==='",
-    "sudo docker tag license-manager:latest license-manager:backup 2>/dev/null || true",
-    "sudo docker rm -f license-app || true",
-    "sudo docker run -d --name license-app -p 8080:3000 -e DATABASE_URL=file:/app/dev.db -e NODE_ENV=production -e SECURE_COOKIE=false -v /home/ssm-user/license-manager/data/dev.db:/app/dev.db license-manager:new",
-    "sudo docker tag license-manager:new license-manager:latest",
-    "echo '=== 배포 완료 ==='",
-    "sudo docker ps --filter name=license-app --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
-)
-
-# PowerShell → AWS CLI JSON 전달 시 따옴표 깨짐 방지: 임시 파일 경유
-# - BOM 없는 UTF-8 로 작성 (BOM 있으면 AWS CLI JSON 파싱 실패)
-# - 경로 백슬래시 → 슬래시 변환 (file:// 은 슬래시 필요)
-$inputJson = [ordered]@{
-    DocumentName   = "AWS-RunShellScript"
-    InstanceIds    = @($EC2_ID)
-    Parameters     = @{ commands = $commands }
-    TimeoutSeconds = 600
-    Comment        = "deploy from deploy.ps1"
-} | ConvertTo-Json -Depth 5 -Compress
-
-$tmpFile = Join-Path $env:TEMP "ssm-deploy-input.json"
-$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
-[System.IO.File]::WriteAllText($tmpFile, $inputJson, $utf8NoBom)
-Log "SSM 입력 파일 생성: $tmpFile"
-Log "JSON 미리보기: $($inputJson.Substring(0, [Math]::Min(120, $inputJson.Length)))..."
-
-# Windows 로컬 파일 URI: file:///드라이브:/경로 (슬래시 3개 필수)
-$tmpFileUri = "file:///" + ($tmpFile -replace '\\', '/')
-Log "file URI: $tmpFileUri"
+# S3에 올린 deploy.sh를 EC2에서 내려받아 실행
+# 단순 명령 2줄 → 특수문자 없음 → JSON 이스케이프 문제 없음
+$ssmParams = "commands=aws s3 cp $S3_BUCKET/deploy.sh /tmp/deploy.sh,commands=bash /tmp/deploy.sh"
 
 $COMMAND_ID = aws ssm send-command `
-    --cli-input-json "$tmpFileUri" `
+    --document-name "AWS-RunShellScript" `
+    --instance-ids $EC2_ID `
+    --parameters $ssmParams `
+    --timeout-seconds 600 `
+    --comment "deploy from deploy.ps1" `
     --query "Command.CommandId" `
     --output text `
     --profile $PROFILE_NAME `
     --region $REGION
-
-Remove-Item $tmpFile -ErrorAction SilentlyContinue
 
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($COMMAND_ID)) {
     Fail "SSM 명령 전송 실패"
