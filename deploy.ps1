@@ -179,6 +179,7 @@ Invoke-OrFail {
 Remove-Item $zipPath, $deployShPath -ErrorAction SilentlyContinue
 Success "S3 업로드 완료: $S3_BUCKET/"
 
+# ============================================================
 Log "=== [3/3] EC2 배포 시작 (SSM) ==="
 
 $commands = @(
@@ -192,16 +193,23 @@ $payload = @{
     InstanceIds    = @($EC2_ID)
     TimeoutSeconds = 600
     Comment        = "deploy from deploy.ps1"
-    Parameters     = @{
-        commands = $commands
-    }
+    Parameters     = @{ commands = $commands }
 }
 
 $tmpJson = Join-Path $env:TEMP "ssm-send-command.json"
-$payload | ConvertTo-Json -Depth 10 | Set-Content -Encoding utf8 $tmpJson
+
+# ✅ UTF-8 "No BOM"으로 저장 (AWS CLI 호환성 최우선)
+$jsonText = ($payload | ConvertTo-Json -Depth 10)
+[System.IO.File]::WriteAllText($tmpJson, $jsonText, [System.Text.UTF8Encoding]::new($false))
+
+# ✅ 로컬에서 JSON 자체 검증 (여기서 터지면 JSON 생성이 문제)
+try { $null = $jsonText | ConvertFrom-Json } catch { Fail "생성된 JSON이 PowerShell에서 파싱 불가: $($_.Exception.Message)"; exit 1 }
+
+# ✅ file:///C:/... 형태로 경로 표준화 (Windows AWS CLI 안전)
+$fileUri = "file:///" + ($tmpJson -replace "\\", "/")
 
 $COMMAND_ID = aws ssm send-command `
-    --cli-input-json "file://$tmpJson" `
+    --cli-input-json $fileUri `
     --query "Command.CommandId" `
     --output text `
     --profile $PROFILE_NAME `
@@ -215,19 +223,3 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($COMMAND_ID)) {
 }
 
 Log "SSM 명령 전송됨 (ID: $COMMAND_ID)"
-Log "빌드 완료까지 최대 10분 소요됩니다..."
-
-$result = Wait-SSMCommand -CommandId $COMMAND_ID -MaxWaitSec 600 -IntervalSec 15
-Show-SSMOutput -CommandId $COMMAND_ID
-
-if ($result -eq "Success") {
-    Success "================================================================"
-    Success " 배포 완료!"
-    Success "================================================================"
-}
-else {
-    Fail "================================================================"
-    Fail " 배포 실패 (상태: $result)"
-    Fail "================================================================"
-    exit 1
-}
