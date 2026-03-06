@@ -94,8 +94,7 @@ export async function POST(request: NextRequest) {
     }).catch(() => {});
 
     const response = NextResponse.json({
-      message: "로그인 성공",
-      user: { id: user.id, username: user.username },
+      user: { id: user.id, username: user.username, role: user.role },
     });
 
     response.cookies.set(SESSION_COOKIE, sessionId, {

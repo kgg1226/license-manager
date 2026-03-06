@@ -1,10 +1,9 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import {
   createUser,
   deleteUser,
-  changePassword,
   updateUser,
   toggleUserActive,
 } from "./actions";
@@ -254,6 +253,7 @@ function EditUserModal({
 }
 
 // ── 비밀번호 변경 모달 ───────────────────────────────────────────────────────
+// ── 비밀번호 리셋 모달 (임시 비밀번호 자동 발급) ────────────────────────────
 function PasswordModal({
   user,
   onClose,
@@ -261,25 +261,77 @@ function PasswordModal({
   user: User;
   onClose: () => void;
 }) {
-  const bound = changePassword.bind(null, user.id);
-  const [state, action, isPending] = useActionState(bound, empty);
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  function handleReset() {
+    startTransition(async () => {
+      const res = await fetch(`/api/admin/users/${user.id}/reset-password`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "비밀번호 리셋 실패");
+        return;
+      }
+      setTempPassword(data.tempPassword);
+    });
+  }
 
   return (
-    <Modal title={`비밀번호 재설정 — ${user.username}`} onClose={onClose}>
-      <form action={action} className="space-y-4">
-        <Alert state={state} onSuccess={onClose} />
-        <Field label="새 비밀번호 (8자 이상)">
-          <input
-            type="password"
-            name="password"
-            required
-            minLength={8}
-            autoFocus
-            className="input"
-          />
-        </Field>
-        <ModalFooter onClose={onClose} isPending={isPending} submitLabel="변경" />
-      </form>
+    <Modal title={`비밀번호 리셋 — ${user.username}`} onClose={onClose}>
+      {tempPassword ? (
+        <div className="space-y-4">
+          <div className="rounded-md bg-amber-50 p-4">
+            <p className="text-sm font-medium text-amber-800">
+              임시 비밀번호가 발급되었습니다.
+            </p>
+            <p className="mt-2 rounded border border-amber-200 bg-white px-3 py-2 font-mono text-base font-bold tracking-wider text-gray-900">
+              {tempPassword}
+            </p>
+            <p className="mt-2 text-xs text-amber-700">
+              이 창을 닫으면 다시 확인할 수 없습니다. 사용자에게 즉시
+              전달하세요.
+              <br />
+              다음 로그인 시 비밀번호 변경이 강제됩니다.
+            </p>
+          </div>
+          <div className="flex justify-end">
+            <button
+              onClick={onClose}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              확인 (닫기)
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            <strong>{user.username}</strong> 계정의 비밀번호를 임시 비밀번호로
+            리셋합니다. 임시 비밀번호는 자동 생성되며, 다음 로그인 시 변경이
+            강제됩니다.
+          </p>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md px-4 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleReset}
+              disabled={isPending}
+              className="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+            >
+              {isPending ? "발급 중..." : "임시 비밀번호 발급"}
+            </button>
+          </div>
+        </div>
+      )}
     </Modal>
   );
 }

@@ -15,6 +15,11 @@ import {
 } from "lucide-react";
 import LicenseAssignments from "./license-assignments";
 import { computeCost, CURRENCY_SYMBOLS, PAYMENT_CYCLE_LABELS } from "@/lib/cost-calculator";
+import {
+  RenewalStatusPanel,
+  RenewalHistoryPanel,
+  LicenseOwnersPanel,
+} from "./license-renewal";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +69,18 @@ export default async function LicenseDetailPage({
   });
 
   if (!license) notFound();
+
+  // Fetch users and orgUnits for renewal owner selection
+  const [users, orgUnits] = await Promise.all([
+    prisma.user.findMany({
+      select: { id: true, username: true },
+      orderBy: { username: "asc" },
+    }),
+    prisma.orgUnit.findMany({
+      select: { id: true, name: true, companyId: true },
+      orderBy: { name: "asc" },
+    }).catch(() => [] as { id: number; name: string; companyId: number }[]),
+  ]);
 
   // Fetch history from both AssignmentHistory and AuditLog
   const [assignmentHistory, auditLogs] = await Promise.all([
@@ -467,6 +484,24 @@ export default async function LicenseDetailPage({
             </div>
           </div>
         )}
+
+        {/* Renewal Management */}
+        <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <RenewalStatusPanel
+            licenseId={licenseId}
+            currentStatus={(license as { renewalStatus?: string }).renewalStatus as Parameters<typeof RenewalStatusPanel>[0]["currentStatus"] ?? null}
+            renewalDate={(license as { renewalDate?: string | Date | null }).renewalDate ? new Date((license as { renewalDate: Date }).renewalDate).toISOString() : null}
+            renewalDateManual={(license as { renewalDateManual?: string | Date | null }).renewalDateManual ? new Date((license as { renewalDateManual: Date }).renewalDateManual).toISOString() : null}
+          />
+          <LicenseOwnersPanel
+            licenseId={licenseId}
+            users={users}
+            orgUnits={orgUnits}
+          />
+        </div>
+        <div className="mb-6">
+          <RenewalHistoryPanel licenseId={licenseId} />
+        </div>
 
         {/* Active Assignments */}
         <LicenseAssignments
