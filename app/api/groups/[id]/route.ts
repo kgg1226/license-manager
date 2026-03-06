@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
+import { handleValidationError, vStr, vStrReq, vBool } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -37,15 +38,19 @@ export async function PUT(request: NextRequest, { params }: Params) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, description, isDefault } = body;
+
+    // ── 입력 검증 ──
+    const nameVal = body.name !== undefined ? vStrReq(body.name, "그룹명", 200) : undefined;
+    const descriptionVal = body.description !== undefined ? vStr(body.description, 2000) : undefined;
+    const isDefaultVal = body.isDefault !== undefined ? vBool(body.isDefault) : undefined;
 
     const group = await prisma.$transaction(async (tx) => {
       const updated = await tx.licenseGroup.update({
         where: { id: Number(id) },
         data: {
-          ...(name !== undefined && { name: name.trim() }),
-          ...(description !== undefined && { description: description?.trim() || null }),
-          ...(isDefault !== undefined && { isDefault }),
+          ...(nameVal !== undefined && { name: nameVal }),
+          ...(descriptionVal !== undefined && { description: descriptionVal }),
+          ...(isDefaultVal !== undefined && { isDefault: isDefaultVal }),
         },
         include: { members: { include: { license: true } } },
       });
@@ -65,6 +70,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
     return NextResponse.json(group);
   } catch (error) {
+    const vErr = handleValidationError(error);
+    if (vErr) return vErr;
     console.error("Failed to update group:", error);
     return NextResponse.json({ error: "그룹 수정에 실패했습니다." }, { status: 500 });
   }

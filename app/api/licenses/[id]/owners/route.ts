@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
+import { handleValidationError, vNum } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -39,9 +40,12 @@ export async function POST(request: NextRequest, { params }: Params) {
     const { id } = await params;
     const licenseId = Number(id);
     const body = await request.json();
-    const { userId, orgUnitId } = body;
 
-    if ((userId == null) === (orgUnitId == null)) {
+    // ── 입력 검증 ──
+    const userIdVal = vNum(body.userId, { min: 1, integer: true });
+    const orgUnitIdVal = vNum(body.orgUnitId, { min: 1, integer: true });
+
+    if ((userIdVal == null) === (orgUnitIdVal == null)) {
       return NextResponse.json(
         { error: "userId 또는 orgUnitId 중 하나만 지정해야 합니다." },
         { status: 400 }
@@ -55,8 +59,8 @@ export async function POST(request: NextRequest, { params }: Params) {
       const created = await tx.licenseOwner.create({
         data: {
           licenseId,
-          userId: userId ? Number(userId) : null,
-          orgUnitId: orgUnitId ? Number(orgUnitId) : null,
+          userId: userIdVal,
+          orgUnitId: orgUnitIdVal,
         },
       });
 
@@ -75,6 +79,8 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     return NextResponse.json(owner, { status: 201 });
   } catch (error) {
+    const vErr = handleValidationError(error);
+    if (vErr) return vErr;
     console.error("Failed to add owner:", error);
     return NextResponse.json({ error: "담당자 추가에 실패했습니다." }, { status: 500 });
   }

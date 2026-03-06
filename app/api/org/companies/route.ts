@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
+import { handleValidationError, vStrReq } from "@/lib/validation";
 
 // GET /api/org/companies — 회사 목록 (하위 orgs 중첩 포함)
 export async function GET() {
@@ -38,15 +39,13 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name } = body;
 
-    if (!name?.trim()) {
-      return NextResponse.json({ error: "회사명은 필수입니다." }, { status: 400 });
-    }
+    // ── 입력 검증 ──
+    const nameVal = vStrReq(body.name, "회사명", 200);
 
     const company = await prisma.$transaction(async (tx) => {
       const created = await tx.orgCompany.create({
-        data: { name: name.trim() },
+        data: { name: nameVal },
       });
 
       await writeAuditLog(tx, {
@@ -64,6 +63,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(company, { status: 201 });
   } catch (error) {
+    const vErr = handleValidationError(error);
+    if (vErr) return vErr;
     console.error("Failed to create company:", error);
     if (error instanceof Error && error.message.includes("Unique constraint")) {
       return NextResponse.json({ error: "이미 존재하는 회사명입니다." }, { status: 409 });

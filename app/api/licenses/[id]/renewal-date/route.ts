@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
+import { handleValidationError, vDate } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -15,7 +16,9 @@ export async function PUT(request: NextRequest, { params }: Params) {
     const { id } = await params;
     const licenseId = Number(id);
     const body = await request.json();
-    const { renewalDateManual } = body;
+
+    // ── 입력 검증 ──
+    const manualDate = vDate(body.renewalDateManual);
 
     const license = await prisma.license.findUnique({
       where: { id: licenseId },
@@ -24,8 +27,6 @@ export async function PUT(request: NextRequest, { params }: Params) {
     if (!license) {
       return NextResponse.json({ error: "라이선스를 찾을 수 없습니다." }, { status: 404 });
     }
-
-    const manualDate = renewalDateManual ? new Date(renewalDateManual) : null;
 
     await prisma.$transaction(async (tx) => {
       await tx.license.update({
@@ -59,6 +60,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
       renewalDate: manualDate?.toISOString() ?? null,
     });
   } catch (error) {
+    const vErr = handleValidationError(error);
+    if (vErr) return vErr;
     console.error("Failed to set renewal date:", error);
     return NextResponse.json({ error: "갱신일 설정에 실패했습니다." }, { status: 500 });
   }

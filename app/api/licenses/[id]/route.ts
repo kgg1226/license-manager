@@ -10,10 +10,15 @@ import {
   type PaymentCycle,
   type Currency,
 } from "@/lib/cost-calculator";
+import {
+  ValidationError, handleValidationError,
+  vStr, vStrReq, vNum, vNumReq, vDate, vDateReq, vEnum, vEnumReq, vBool,
+} from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
 
 const VALID_LICENSE_TYPES = ["NO_KEY", "KEY_BASED", "VOLUME"] as const;
+type LicenseType = (typeof VALID_LICENSE_TYPES)[number];
 
 // GET /api/licenses/:id — 라이선스 상세 조회
 export async function GET(request: NextRequest, { params }: Params) {
@@ -73,41 +78,55 @@ export async function PUT(request: NextRequest, { params }: Params) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const {
-      name, key, totalQuantity, price, purchaseDate, expiryDate,
-      noticePeriodDays, adminName, description,
-      paymentCycle: paymentCycleRaw, quantity: billingQty, unitPrice,
-      currency: currencyRaw, exchangeRate: exchangeRateRaw, isVatIncluded,
-    } = body;
-
     const licenseId = Number(id);
-    const licenseType = VALID_LICENSE_TYPES.includes(body.licenseType)
-      ? body.licenseType
-      : undefined;
 
-    // Cost fields
-    const paymentCycle = VALID_PAYMENT_CYCLES.includes(paymentCycleRaw)
-      ? (paymentCycleRaw as PaymentCycle)
-      : undefined;
-    const currency = VALID_CURRENCIES.includes(currencyRaw)
-      ? (currencyRaw as Currency)
-      : undefined;
-    const exchangeRate = exchangeRateRaw != null ? Number(exchangeRateRaw) : undefined;
+    // ── 입력 검증 (모두 선택 필드 — undefined이면 수정 안 함) ──
+    const nameVal = body.name !== undefined ? vStrReq(body.name, "라이선스명", 200) : undefined;
+    const licenseType = body.licenseType !== undefined
+      ? vEnumReq<LicenseType>(body.licenseType, "licenseType", VALID_LICENSE_TYPES) : undefined;
+    const totalQuantity = body.totalQuantity !== undefined
+      ? vNumReq(body.totalQuantity, "totalQuantity", { min: 1, integer: true }) : undefined;
+    const priceVal = body.price !== undefined
+      ? vNum(body.price, { min: 0 }) : undefined;
+    const purchaseDateVal = body.purchaseDate !== undefined ? vDateReq(body.purchaseDate, "purchaseDate") : undefined;
+    const expiryDateVal = body.expiryDate !== undefined ? vDate(body.expiryDate) : undefined;
+    const noticeDays = body.noticePeriodDays !== undefined
+      ? vNum(body.noticePeriodDays, { min: 0, max: 3650, integer: true }) : undefined;
+    const keyVal = body.key !== undefined ? vStr(body.key, 500) : undefined;
+    const adminNameVal = body.adminName !== undefined ? vStr(body.adminName, 200) : undefined;
+    const descriptionVal = body.description !== undefined ? vStr(body.description, 2000) : undefined;
+
+    // 날짜 순서 검증 (둘 다 전달된 경우)
+    if (purchaseDateVal && expiryDateVal && expiryDateVal < purchaseDateVal) {
+      throw new ValidationError("만료일은 구매일 이후여야 합니다.");
+    }
+
+    // 비용 필드 검증
+    const paymentCycle = body.paymentCycle !== undefined
+      ? vEnum<PaymentCycle>(body.paymentCycle, VALID_PAYMENT_CYCLES) : undefined;
+    const billingQty = body.quantity !== undefined
+      ? vNum(body.quantity, { min: 1, integer: true }) : undefined;
+    const unitPriceVal = body.unitPrice !== undefined
+      ? vNum(body.unitPrice, { min: 0 }) : undefined;
+    const currency = body.currency !== undefined
+      ? vEnumReq<Currency>(body.currency, "currency", VALID_CURRENCIES) : undefined;
+    const exchangeRate = body.exchangeRate !== undefined
+      ? (vNum(body.exchangeRate, { min: 0.0001 }) ?? 1.0) : undefined;
 
     let totalAmountForeign: number | null | undefined = undefined;
     let totalAmountKRW: number | null | undefined = undefined;
-    if (paymentCycle && billingQty != null && unitPrice != null) {
+    if (paymentCycle && billingQty != null && unitPriceVal != null) {
       const result = computeCost({
         paymentCycle,
-        quantity: Number(billingQty),
-        unitPrice: Number(unitPrice),
+        quantity: billingQty,
+        unitPrice: unitPriceVal,
         currency: currency ?? "KRW",
         exchangeRate: exchangeRate != null && exchangeRate > 0 ? exchangeRate : 1,
-        isVatIncluded: Boolean(isVatIncluded),
+        isVatIncluded: vBool(body.isVatIncluded),
       });
       totalAmountForeign = result.totalAmountForeign;
       totalAmountKRW = result.totalAmountKRW;
-    } else if (billingQty === null || unitPrice === null) {
+    } else if (billingQty === null || unitPriceVal === null) {
       totalAmountForeign = null;
       totalAmountKRW = null;
     }
@@ -135,22 +154,22 @@ export async function PUT(request: NextRequest, { params }: Params) {
       const updated = await tx.license.update({
         where: { id: licenseId },
         data: {
-          ...(name !== undefined && { name }),
+          ...(nameVal !== undefined && { name: nameVal }),
           ...(licenseType !== undefined && { licenseType }),
-          ...(key !== undefined && { key: newLicenseType === "VOLUME" ? (key || null) : null }),
-          ...(totalQuantity !== undefined && { totalQuantity: Number(totalQuantity) }),
-          ...(price !== undefined && { price: price != null ? Number(price) : null }),
-          ...(purchaseDate !== undefined && { purchaseDate: new Date(purchaseDate) }),
-          ...(expiryDate !== undefined && { expiryDate: expiryDate ? new Date(expiryDate) : null }),
-          ...(noticePeriodDays !== undefined && { noticePeriodDays: noticePeriodDays != null ? Number(noticePeriodDays) : null }),
-          ...(adminName !== undefined && { adminName: adminName || null }),
-          ...(description !== undefined && { description: description || null }),
+          ...(keyVal !== undefined && { key: newLicenseType === "VOLUME" ? (keyVal || null) : null }),
+          ...(totalQuantity !== undefined && { totalQuantity }),
+          ...(priceVal !== undefined && { price: priceVal }),
+          ...(purchaseDateVal !== undefined && { purchaseDate: purchaseDateVal }),
+          ...(expiryDateVal !== undefined && { expiryDate: expiryDateVal }),
+          ...(noticeDays !== undefined && { noticePeriodDays: noticeDays }),
+          ...(adminNameVal !== undefined && { adminName: adminNameVal }),
+          ...(descriptionVal !== undefined && { description: descriptionVal }),
           ...(paymentCycle !== undefined && { paymentCycle }),
-          ...(billingQty !== undefined && { quantity: billingQty != null ? Number(billingQty) : null }),
-          ...(unitPrice !== undefined && { unitPrice: unitPrice != null ? Number(unitPrice) : null }),
+          ...(billingQty !== undefined && { quantity: billingQty }),
+          ...(unitPriceVal !== undefined && { unitPrice: unitPriceVal }),
           ...(currency !== undefined && { currency }),
           ...(exchangeRate !== undefined && { exchangeRate }),
-          ...(isVatIncluded !== undefined && { isVatIncluded: Boolean(isVatIncluded) }),
+          ...(body.isVatIncluded !== undefined && { isVatIncluded: vBool(body.isVatIncluded) }),
           ...(totalAmountForeign !== undefined && { totalAmountForeign }),
           ...(totalAmountKRW !== undefined && { totalAmountKRW }),
         },
@@ -163,12 +182,12 @@ export async function PUT(request: NextRequest, { params }: Params) {
         if (wasKeyBased && !isKeyBased) {
           await deleteAllSeats(tx, licenseId);
         } else if (!wasKeyBased && isKeyBased) {
-          await syncSeats(tx, licenseId, totalQuantity !== undefined ? Number(totalQuantity) : updated.totalQuantity);
+          await syncSeats(tx, licenseId, totalQuantity ?? updated.totalQuantity);
         }
       }
 
-      if (updated.licenseType === "KEY_BASED" && totalQuantity !== undefined) {
-        await syncSeats(tx, licenseId, Number(totalQuantity));
+      if (updated.licenseType === "KEY_BASED" && totalQuantity !== undefined && totalQuantity !== null) {
+        await syncSeats(tx, licenseId, totalQuantity);
       }
 
       await writeAuditLog(tx, {
@@ -186,6 +205,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
     return NextResponse.json(license);
   } catch (error) {
+    const vErr = handleValidationError(error);
+    if (vErr) return vErr;
     console.error("Failed to update license:", error);
     return NextResponse.json(
       { error: "라이선스 수정에 실패했습니다." },

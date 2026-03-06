@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
+import { handleValidationError, vStrReq, vStr, vBool, vNumArr } from "@/lib/validation";
 
 // GET /api/groups — 그룹 목록 조회
 export async function GET() {
@@ -36,21 +37,24 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, description, isDefault, licenseIds } = body;
 
-    if (!name?.trim()) {
-      return NextResponse.json({ error: "그룹명은 필수입니다." }, { status: 400 });
-    }
+    // ── 입력 검증 ──
+    const nameVal = vStrReq(body.name, "그룹명", 200);
+    const descriptionVal = vStr(body.description, 2000);
+    const isDefaultVal = vBool(body.isDefault);
+    const licenseIdsVal = body.licenseIds?.length
+      ? vNumArr(body.licenseIds, "licenseIds")
+      : [];
 
     const group = await prisma.$transaction(async (tx) => {
       const created = await tx.licenseGroup.create({
         data: {
-          name: name.trim(),
-          description: description?.trim() || null,
-          isDefault: isDefault ?? false,
-          ...(licenseIds?.length && {
+          name: nameVal,
+          description: descriptionVal,
+          isDefault: isDefaultVal,
+          ...(licenseIdsVal.length > 0 && {
             members: {
-              create: licenseIds.map((licenseId: number) => ({ licenseId })),
+              create: licenseIdsVal.map((licenseId) => ({ licenseId })),
             },
           }),
         },
@@ -72,6 +76,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(group, { status: 201 });
   } catch (error: unknown) {
+    const vErr = handleValidationError(error);
+    if (vErr) return vErr;
     console.error("Failed to create group:", error);
     if (error instanceof Error && error.message.includes("Unique constraint")) {
       return NextResponse.json({ error: "이미 존재하는 그룹명입니다." }, { status: 409 });

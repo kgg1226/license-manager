@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
+import { handleValidationError, vStrReq, vNumReq, vNum } from "@/lib/validation";
 
 // GET /api/org/units — OrgUnit 목록 (?companyId= 필터, ?parentId= 필터)
 export async function GET(request: NextRequest) {
@@ -44,22 +45,20 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, companyId, parentId, sortOrder } = body;
 
-    if (!name?.trim()) {
-      return NextResponse.json({ error: "조직명은 필수입니다." }, { status: 400 });
-    }
-    if (!companyId) {
-      return NextResponse.json({ error: "companyId는 필수입니다." }, { status: 400 });
-    }
+    // ── 입력 검증 ──
+    const nameVal = vStrReq(body.name, "조직명", 200);
+    const companyIdVal = vNumReq(body.companyId, "companyId", { min: 1, integer: true });
+    const parentIdVal = vNum(body.parentId, { min: 1, integer: true });
+    const sortOrderVal = vNum(body.sortOrder, { min: 0, max: 9999, integer: true });
 
     const unit = await prisma.$transaction(async (tx) => {
       const created = await tx.orgUnit.create({
         data: {
-          name: name.trim(),
-          companyId: Number(companyId),
-          parentId: parentId ? Number(parentId) : null,
-          ...(sortOrder !== undefined && { sortOrder: Number(sortOrder) }),
+          name: nameVal,
+          companyId: companyIdVal,
+          parentId: parentIdVal,
+          ...(sortOrderVal !== null && { sortOrder: sortOrderVal }),
         },
       });
 
@@ -78,6 +77,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(unit, { status: 201 });
   } catch (error) {
+    const vErr = handleValidationError(error);
+    if (vErr) return vErr;
     console.error("Failed to create org unit:", error);
     if (error instanceof Error && error.message.includes("Unique constraint")) {
       return NextResponse.json({ error: "이미 존재하는 부서명입니다" }, { status: 409 });

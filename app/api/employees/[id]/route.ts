@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
+import { handleValidationError, vStr, vStrReq, vNum, vEmail } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -46,16 +47,21 @@ export async function PUT(request: NextRequest, { params }: Params) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, department, email, title } = body;
+
+    // ── 입력 검증 (name, department는 DB 필수 → null 불가) ──
+    const nameVal = body.name !== undefined ? vStrReq(body.name, "이름", 100) : undefined;
+    const departmentVal = body.department !== undefined ? vStrReq(body.department, "부서", 100) : undefined;
+    const emailVal = body.email !== undefined ? vEmail(body.email) : undefined;
+    const titleVal = body.title !== undefined ? vStr(body.title, 100) : undefined;
 
     const employee = await prisma.$transaction(async (tx) => {
       const updated = await tx.employee.update({
         where: { id: Number(id) },
         data: {
-          ...(name !== undefined && { name }),
-          ...(department !== undefined && { department }),
-          ...(email !== undefined && { email: email || null }),
-          ...(title !== undefined && { title: title || null }),
+          ...(nameVal !== undefined && { name: nameVal }),
+          ...(departmentVal !== undefined && { department: departmentVal }),
+          ...(emailVal !== undefined && { email: emailVal }),
+          ...(titleVal !== undefined && { title: titleVal }),
         },
       });
 
@@ -74,6 +80,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
     return NextResponse.json(employee);
   } catch (error) {
+    const vErr = handleValidationError(error);
+    if (vErr) return vErr;
     console.error("Failed to update employee:", error);
     return NextResponse.json(
       { error: "조직원 수정에 실패했습니다." },
@@ -91,7 +99,15 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const { id } = await params;
     const employeeId = Number(id);
     const body = await request.json();
-    const { companyId, orgUnitId, title } = body;
+
+    // ── 입력 검증 ──
+    const titleVal = body.title !== undefined ? vStr(body.title, 100) : undefined;
+    const companyIdVal = body.companyId !== undefined
+      ? (body.companyId ? vNum(body.companyId, { min: 1, integer: true }) : null)
+      : undefined;
+    const orgUnitIdVal = body.orgUnitId !== undefined
+      ? (body.orgUnitId ? vNum(body.orgUnitId, { min: 1, integer: true }) : null)
+      : undefined;
 
     const employee = await prisma.$transaction(async (tx) => {
       const before = await tx.employee.findUnique({
@@ -102,13 +118,13 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       const updated = await tx.employee.update({
         where: { id: employeeId },
         data: {
-          ...(title !== undefined && { title: title || null }),
-          ...(companyId !== undefined && { companyId: companyId ? Number(companyId) : null }),
-          ...(orgUnitId !== undefined && { orgUnitId: orgUnitId ? Number(orgUnitId) : null }),
+          ...(titleVal !== undefined && { title: titleVal }),
+          ...(companyIdVal !== undefined && { companyId: companyIdVal }),
+          ...(orgUnitIdVal !== undefined && { orgUnitId: orgUnitIdVal }),
         },
       });
 
-      if (orgUnitId !== undefined && before?.orgUnitId !== updated.orgUnitId) {
+      if (orgUnitIdVal !== undefined && before?.orgUnitId !== updated.orgUnitId) {
         await writeAuditLog(tx, {
           entityType: "EMPLOYEE",
           entityId: employeeId,
@@ -128,6 +144,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     return NextResponse.json(employee);
   } catch (error) {
+    const vErr = handleValidationError(error);
+    if (vErr) return vErr;
     console.error("Failed to patch employee:", error);
     return NextResponse.json({ error: "조직 정보 수정에 실패했습니다." }, { status: 500 });
   }

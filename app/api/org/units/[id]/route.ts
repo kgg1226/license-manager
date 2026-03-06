@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
+import { handleValidationError, vStrReq, vNum } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -30,16 +31,26 @@ export async function PUT(request: NextRequest, { params }: Params) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, parentId, sortOrder } = body;
+
+    // ── 입력 검증 ──
+    const nameVal = body.name !== undefined ? vStrReq(body.name, "조직명", 200) : undefined;
+    const parentIdVal = body.parentId !== undefined
+      ? (body.parentId != null ? vNum(body.parentId, { min: 1, integer: true }) : null)
+      : undefined;
+    const sortOrderVal = body.sortOrder !== undefined
+      ? vNum(body.sortOrder, { min: 0, max: 9999, integer: true })
+      : undefined;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: Record<string, any> = {};
+    if (nameVal !== undefined) data.name = nameVal;
+    if (parentIdVal !== undefined) data.parentId = parentIdVal;
+    if (sortOrderVal !== undefined) data.sortOrder = sortOrderVal;
 
     const unit = await prisma.$transaction(async (tx) => {
       const updated = await tx.orgUnit.update({
         where: { id: Number(id) },
-        data: {
-          ...(name !== undefined && { name: name.trim() }),
-          ...(parentId !== undefined && { parentId: parentId != null ? Number(parentId) : null }),
-          ...(sortOrder !== undefined && { sortOrder: Number(sortOrder) }),
-        },
+        data,
         include: { children: true },
       });
 
@@ -58,6 +69,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
     return NextResponse.json(unit);
   } catch (error) {
+    const vErr = handleValidationError(error);
+    if (vErr) return vErr;
     console.error("Failed to update org unit:", error);
     if (error instanceof Error && error.message.includes("Unique constraint")) {
       return NextResponse.json({ error: "이미 존재하는 부서명입니다" }, { status: 409 });

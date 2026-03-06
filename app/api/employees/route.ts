@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
+import { handleValidationError, vStrReq, vStr, vNum, vEmail } from "@/lib/validation";
 
 // GET /api/employees — 조직원 목록 조회
 // Query: ?orgUnitId=1&status=ACTIVE&unassigned=true
@@ -56,14 +57,14 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   try {
     const body = await request.json();
-    const { name, department, email, title, companyId, orgUnitId } = body;
 
-    if (!name || !department) {
-      return NextResponse.json(
-        { error: "name, department는 필수입니다." },
-        { status: 400 }
-      );
-    }
+    // ── 입력 검증 ──
+    const nameVal = vStrReq(body.name, "이름", 100);
+    const departmentVal = vStrReq(body.department, "부서", 100);
+    const emailVal = vEmail(body.email);
+    const titleVal = vStr(body.title, 100);
+    const companyIdVal = vNum(body.companyId, { min: 1, integer: true });
+    const orgUnitIdVal = vNum(body.orgUnitId, { min: 1, integer: true });
 
     // employee 생성과 자동 할당 전체를 트랜잭션으로 묶어 불일치 방지
     const autoAssigned: { licenseId: number; licenseName: string; groupName: string }[] = [];
@@ -71,12 +72,12 @@ export async function POST(request: NextRequest) {
     const employee = await prisma.$transaction(async (tx) => {
       const emp = await tx.employee.create({
         data: {
-          name,
-          department,
-          email: email || null,
-          title: title || null,
-          companyId: companyId ? Number(companyId) : null,
-          orgUnitId: orgUnitId ? Number(orgUnitId) : null,
+          name: nameVal,
+          department: departmentVal,
+          email: emailVal,
+          title: titleVal,
+          companyId: companyIdVal,
+          orgUnitId: orgUnitIdVal,
         },
       });
 
@@ -140,6 +141,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ...employee, autoAssigned }, { status: 201 });
   } catch (error: unknown) {
+    const vErr = handleValidationError(error);
+    if (vErr) return vErr;
     console.error("Failed to create employee:", error);
     if (
       error instanceof Error &&
