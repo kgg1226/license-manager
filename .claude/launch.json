@@ -7,5 +7,6 @@
       "runtimeArgs": ["node_modules/next/dist/bin/next", "dev"],
       "port": 3000
     }
-  ]
+  ],
+  "autoVerify": false
 }
