@@ -1,16 +1,25 @@
 # License Manager
 
 ## 프로젝트 개요
-사내 소프트웨어 라이선스 관리 웹 앱 (등록·할당·회수·이력 관리).
-- 스택: Next.js 15 App Router + Prisma 7 + better-sqlite3 + Tailwind CSS 4
+사내 **정보자산 통합 관리** 웹 앱 — 소프트웨어 라이선스·클라우드 구독·하드웨어·도메인 등 회사의 모든 자산을 등록·배정·회수하고, 월별 비용 보고서를 내보낸다.
+- 스택: Next.js 15 App Router + Prisma 7 + Supabase(PostgreSQL) + Tailwind CSS 4
 - 인증: 자체 구현 (세션 쿠키 + bcryptjs), 역할: ADMIN / USER
-- DB: SQLite (`dev.db`), Prisma 클라이언트 출력 경로 → `generated/prisma/`
+- DB: Supabase PostgreSQL, Prisma 클라이언트 출력 경로 → `generated/prisma/`
 - 배포: Docker, AWS EC2 t4g.small (ARM64, vCPU 2, RAM 2GB), 폐쇄망
+
+## 제품 로드맵 요약
+| 단계 | 범위 | 상태 |
+|---|---|---|
+| Phase 1 | 소프트웨어 라이선스 관리 (CRUD·할당·갱신·알림) | ✅ 완료 |
+| Phase 2 | 자산 유형 확장 (클라우드·하드웨어·도메인) + Supabase 전환 | 🔄 진행 중 |
+| Phase 3 | 월별 비용 보고서 (집계·Excel/PDF 내보내기) | 📋 예정 |
+
+> 상세 스펙: `tasks/features/roadmap.md`
 - 포트: 로컬 dev `3000` / 컨테이너 `3000` / 호스트 `8080` (deploy.ps1 기준)
 - 배포 방식: `deploy.ps1` (Windows PowerShell) → S3 업로드 → EC2 SSM으로 실행
   - S3: `s3://triplecomma-releases/triplecomma-backoffice/`
   - EC2: `i-0aeda7845a9634718` / 리전: `ap-northeast-2` / 프로필: `hyeongunk`
-  - EC2 원격 경로: `/home/ssm-user/app` / DB 볼륨: `/home/ssm-user/license-manager/data/dev.db`
+  - EC2 원격 경로: `/home/ssm-user/app`
 
 ## 폐쇄망 제약
 - 런타임에 외부 URL 호출 금지
@@ -20,7 +29,7 @@
 ## 빌드 주의사항
 - EC2 t4g.small (ARM64, RAM 2GB) — 빌드 전 스왑 자동 생성 (2GB, deploy.sh 내장)
 - 프로덕션 컨테이너에서 `prisma CLI` 실행 금지
-- DB 스키마 변경은 호스트에서 `sqlite3`로 직접 SQL 실행
+- DB 스키마 변경: Supabase Dashboard SQL Editor 또는 `prisma db push` 사용
 - `prisma generate` 결과물은 `generated/prisma/`에 위치 (`lib/prisma.ts`에서 import)
 - `prisma.config.ts` — 루트에 위치, Prisma 설정 파일
 - ⚠️ `deploy.ps1` 내부에 `git pull --rebase` 포함 → master에 커밋 충돌 있으면 배포 실패. 배포 전 반드시 master 클린 상태 확인
