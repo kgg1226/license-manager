@@ -12,28 +12,10 @@
 
 ### 백엔드 (`role/backend`)
 
-- [ ] **[BE-010]** `prisma/schema.prisma` — DB 프로바이더 변경
-  - `provider = "sqlite"` → `provider = "postgresql"`
-  - SQLite에서 String으로 우회했던 enum → PostgreSQL 네이티브 enum으로 변경
-    - `MemberStatus`, `RenewalStatus`, `Role`, `LicenseType` 등 `@db.Text` 어노테이션 제거
-  - `autoincrement()` → `autoincrement()` 유지 (PostgreSQL SERIAL과 호환됨)
-  - 전체 모델 검토 후 PostgreSQL 비호환 요소 제거
-
-- [ ] **[BE-011]** `lib/prisma.ts` — better-sqlite3 어댑터 제거
-  - `PrismaBetterSqlite3` import 및 adapter 인스턴스 제거
-  - 표준 `new PrismaClient()` 로 교체 (`DATABASE_URL` 환경변수 자동 참조)
-  - `file:` prefix 파싱 로직 제거
-
-- [ ] **[BE-012]** `package.json` — SQLite 관련 패키지 제거
-  - 제거: `better-sqlite3`, `@prisma/adapter-better-sqlite3`, `@types/better-sqlite3`
-  - `npm install` 후 `prisma generate` 재실행
-
-- [ ] **[BE-013]** Supabase 마이그레이션 초기 SQL 생성
-  - Supabase Dashboard → SQL Editor에서 아래 순서로 실행:
-    1. `prisma migrate dev --name init` (로컬 Supabase CLI 연결 시)
-    또는 `prisma db push` (스키마 직접 푸시)
-  - `tasks/db-changes.md`의 `[2026-03-04]` 항목은 **더 이상 필요 없음** (스키마 전체 새로 생성)
-  - 마이그레이션 완료 후 `tasks/db-changes.md` 아카이브 처리
+- [x] **[BE-010]** `prisma/schema.prisma` — DB 프로바이더 변경 ✅ postgresql 전환 완료
+- [x] **[BE-011]** `lib/prisma.ts` — better-sqlite3 어댑터 제거 ✅ 표준 PrismaClient 전환 완료
+- [x] **[BE-012]** `package.json` — SQLite 관련 패키지 제거 ✅ 3개 패키지 제거 완료
+- [x] **[BE-013]** Supabase 마이그레이션 초기화 ✅ `prisma migrate dev --name supabase_init` 완료
 
 - [x] **[BE-001]** `PATCH /api/employees/[id]` — 조직 이동 시 AuditLog 기록 ✅ 이미 구현됨
 - [x] **[BE-002]** `DELETE /api/admin/users/[id]` — 자신의 계정 삭제 방지 ✅ 이미 구현됨
@@ -92,18 +74,14 @@
 > 2026-03-05 백엔드 세션에서 전체 API 라우트 점검 후 제안.
 > 기획 세션에서 우선순위 판단 후 티켓화 요청.
 
-### P1 — 감사 로그 누락 (ISMS-P 2.11 컴플라이언스)
+### P1 — 감사 로그 누락 (ISMS-P 2.11 컴플라이언스) ✅ 완료
 
-> 30개 데이터 변경 API 중 7개만 AuditLog 기록. 23개 누락.
+> 30개 데이터 변경 API 전수에 AuditLog 기록 추가 완료.
 
-- [ ] **[BE-P1-01]** 라이선스 CRUD AuditLog 추가
-  - `POST /api/licenses` (생성), `PUT /api/licenses/[id]` (수정), `DELETE /api/licenses/[id]` (삭제)
-- [ ] **[BE-P1-02]** 조직원 생성·수정·삭제 AuditLog 추가
-  - `POST /api/employees`, `PUT /api/employees/[id]`, `DELETE /api/employees/[id]`
-- [ ] **[BE-P1-03]** 사용자 관리 AuditLog 추가
-  - `POST /api/admin/users` (생성), `PUT /api/admin/users/[id]` (역할/상태 변경), `DELETE /api/admin/users/[id]` (삭제)
-- [ ] **[BE-P1-04]** 그룹·할당·담당자·조직 변경 AuditLog 추가
-  - 그룹 CRUD, 그룹 멤버 추가/제거, 할당 반납/삭제, 담당자 추가/제거, OrgUnit 생성/수정
+- [x] **[BE-P1-01]** 라이선스 CRUD AuditLog 추가 ✅
+- [x] **[BE-P1-02]** 조직원 생성·수정·삭제 AuditLog 추가 ✅
+- [x] **[BE-P1-03]** 사용자 관리 AuditLog 추가 ✅
+- [x] **[BE-P1-04]** 그룹·할당·담당자·조직 변경 AuditLog 추가 ✅
 
 ### P2 — 입력 검증 강화 (ISMS-P 2.8)
 
