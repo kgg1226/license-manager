@@ -5,11 +5,25 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 
 // GET /api/employees — 조직원 목록 조회
-export async function GET() {
+// Query: ?orgUnitId=1&status=ACTIVE&unassigned=true
+export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   try {
+    const { searchParams } = new URL(request.url);
+    const orgUnitId = searchParams.get("orgUnitId");
+    const status = searchParams.get("status");
+    const unassigned = searchParams.get("unassigned");
+
+    const where: Record<string, unknown> = {};
+    if (orgUnitId) where.orgUnitId = Number(orgUnitId);
+    if (status === "ACTIVE" || status === "OFFBOARDING") where.status = status;
+    if (unassigned === "true") {
+      where.assignments = { none: { returnedDate: null } };
+    }
+
     const employees = await prisma.employee.findMany({
+      where,
       include: {
         assignments: {
           where: { returnedDate: null },
@@ -21,7 +35,7 @@ export async function GET() {
 
     const result = employees.map((emp) => ({
       ...emp,
-      activeAssignments: emp.assignments.length,
+      activeAssignmentCount: emp.assignments.length,
       assignments: undefined,
     }));
 
@@ -41,7 +55,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   try {
     const body = await request.json();
-    const { name, department, email } = body;
+    const { name, department, email, title, companyId, orgUnitId } = body;
 
     if (!name || !department) {
       return NextResponse.json(
@@ -59,6 +73,9 @@ export async function POST(request: NextRequest) {
           name,
           department,
           email: email || null,
+          title: title || null,
+          companyId: companyId ? Number(companyId) : null,
+          orgUnitId: orgUnitId ? Number(orgUnitId) : null,
         },
       });
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hashPassword } from "@/lib/auth";
+import { writeAuditLog } from "@/lib/audit-log";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -70,8 +71,31 @@ export async function DELETE(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "자기 자신은 삭제할 수 없습니다." }, { status: 400 });
     }
 
-    await prisma.user.delete({ where: { id: userId } });
-    return NextResponse.json({ message: "사용자가 삭제되었습니다." });
+    await prisma.$transaction(async (tx) => {
+      const target = await tx.user.findUnique({
+        where: { id: userId },
+        select: { id: true, username: true },
+      });
+
+      await tx.session.deleteMany({ where: { userId } });
+      await tx.user.delete({ where: { id: userId } });
+
+      await writeAuditLog(tx, {
+        entityType: "USER",
+        entityId: userId,
+        action: "DELETED",
+        actor: me.username,
+        actorType: "USER",
+        actorId: me.id,
+        details: {
+          targetUsername: target?.username,
+          deletedBy: me.username,
+          deletedAt: new Date().toISOString(),
+        },
+      });
+    });
+
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to delete user:", error);
     return NextResponse.json({ error: "사용자 삭제에 실패했습니다." }, { status: 500 });

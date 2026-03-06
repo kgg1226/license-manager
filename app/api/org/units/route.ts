@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, companyId, parentId } = body;
+    const { name, companyId, parentId, sortOrder } = body;
 
     if (!name?.trim()) {
       return NextResponse.json({ error: "조직명은 필수입니다." }, { status: 400 });
@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         companyId: Number(companyId),
         parentId: parentId ? Number(parentId) : null,
+        ...(sortOrder !== undefined && { sortOrder: Number(sortOrder) }),
       },
     });
 
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Failed to create org unit:", error);
     if (error instanceof Error && error.message.includes("Unique constraint")) {
-      return NextResponse.json({ error: "동일한 이름의 조직이 이미 존재합니다." }, { status: 409 });
+      return NextResponse.json({ error: "이미 존재하는 부서명입니다" }, { status: 409 });
     }
     return NextResponse.json({ error: "조직 생성에 실패했습니다." }, { status: 500 });
   }
