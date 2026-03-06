@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import DeleteEmployeeButton from "./delete-button";
 import EmployeeSearch from "./employee-search";
+import { getEmployeeDisplayNames } from "@/lib/employee-display";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,11 @@ export default async function EmployeesPage({
 
   // 할당 라이선스 없는 구성원만 필터링
   const filtered = unassigned ? employees.filter((e) => e.assignments.length === 0) : employees;
+
+  // 중복 이름 구분을 위한 표시명 계산
+  const displayNames = getEmployeeDisplayNames(
+    filtered.map((e) => ({ id: e.id, name: e.name, email: e.email }))
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 py-10">
@@ -91,7 +97,7 @@ export default async function EmployeesPage({
                   <tr key={emp.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">
                       <Link href={`/employees/${emp.id}`} className="hover:text-blue-600 hover:underline">
-                        {emp.name}
+                        {displayNames[emp.id]}
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{emp.department}</td>
