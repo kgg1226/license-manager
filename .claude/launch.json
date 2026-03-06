@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "Next.js Dev",
+      "name": "next-dev",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["node_modules/next/dist/bin/next", "dev"],
-      "port": 3000
+      "runtimeArgs": ["node_modules/next/dist/bin/next", "dev", "--port", "3001"],
+      "port": 3001
     }
   ],
   "autoVerify": false

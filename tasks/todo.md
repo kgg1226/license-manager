@@ -1,7 +1,7 @@
 # TODO
 
 > 기획 세션(/planning)에서 관리한다.
-> 최종 업데이트: 2026-03-05
+> 최종 업데이트: 2026-03-07
 
 ---
 
@@ -12,28 +12,10 @@
 
 ### 백엔드 (`role/backend`)
 
-- [ ] **[BE-010]** `prisma/schema.prisma` — DB 프로바이더 변경
-  - `provider = "sqlite"` → `provider = "postgresql"`
-  - SQLite에서 String으로 우회했던 enum → PostgreSQL 네이티브 enum으로 변경
-    - `MemberStatus`, `RenewalStatus`, `Role`, `LicenseType` 등 `@db.Text` 어노테이션 제거
-  - `autoincrement()` → `autoincrement()` 유지 (PostgreSQL SERIAL과 호환됨)
-  - 전체 모델 검토 후 PostgreSQL 비호환 요소 제거
-
-- [ ] **[BE-011]** `lib/prisma.ts` — better-sqlite3 어댑터 제거
-  - `PrismaBetterSqlite3` import 및 adapter 인스턴스 제거
-  - 표준 `new PrismaClient()` 로 교체 (`DATABASE_URL` 환경변수 자동 참조)
-  - `file:` prefix 파싱 로직 제거
-
-- [ ] **[BE-012]** `package.json` — SQLite 관련 패키지 제거
-  - 제거: `better-sqlite3`, `@prisma/adapter-better-sqlite3`, `@types/better-sqlite3`
-  - `npm install` 후 `prisma generate` 재실행
-
-- [ ] **[BE-013]** Supabase 마이그레이션 초기 SQL 생성
-  - Supabase Dashboard → SQL Editor에서 아래 순서로 실행:
-    1. `prisma migrate dev --name init` (로컬 Supabase CLI 연결 시)
-    또는 `prisma db push` (스키마 직접 푸시)
-  - `tasks/db-changes.md`의 `[2026-03-04]` 항목은 **더 이상 필요 없음** (스키마 전체 새로 생성)
-  - 마이그레이션 완료 후 `tasks/db-changes.md` 아카이브 처리
+- [x] **[BE-010]** `prisma/schema.prisma` — DB 프로바이더 변경 ✅ postgresql 전환 완료
+- [x] **[BE-011]** `lib/prisma.ts` — better-sqlite3 어댑터 제거 ✅ 표준 PrismaClient 전환 완료
+- [x] **[BE-012]** `package.json` — SQLite 관련 패키지 제거 ✅ 3개 패키지 제거 완료
+- [x] **[BE-013]** Supabase 마이그레이션 초기화 ✅ `prisma migrate dev --name supabase_init` 완료
 
 - [x] **[BE-001]** `PATCH /api/employees/[id]` — 조직 이동 시 AuditLog 기록 ✅ 이미 구현됨
 - [x] **[BE-002]** `DELETE /api/admin/users/[id]` — 자신의 계정 삭제 방지 ✅ 이미 구현됨
@@ -92,50 +74,45 @@
 > 2026-03-05 백엔드 세션에서 전체 API 라우트 점검 후 제안.
 > 기획 세션에서 우선순위 판단 후 티켓화 요청.
 
-### P1 — 감사 로그 누락 (ISMS-P 2.11 컴플라이언스)
+### P1 — 감사 로그 누락 (ISMS-P 2.11 컴플라이언스) ✅ 완료
 
-> 30개 데이터 변경 API 중 7개만 AuditLog 기록. 23개 누락.
+> 30개 데이터 변경 API 전수에 AuditLog 기록 추가 완료.
 
-- [ ] **[BE-P1-01]** 라이선스 CRUD AuditLog 추가
-  - `POST /api/licenses` (생성), `PUT /api/licenses/[id]` (수정), `DELETE /api/licenses/[id]` (삭제)
-- [ ] **[BE-P1-02]** 조직원 생성·수정·삭제 AuditLog 추가
-  - `POST /api/employees`, `PUT /api/employees/[id]`, `DELETE /api/employees/[id]`
-- [ ] **[BE-P1-03]** 사용자 관리 AuditLog 추가
-  - `POST /api/admin/users` (생성), `PUT /api/admin/users/[id]` (역할/상태 변경), `DELETE /api/admin/users/[id]` (삭제)
-- [ ] **[BE-P1-04]** 그룹·할당·담당자·조직 변경 AuditLog 추가
-  - 그룹 CRUD, 그룹 멤버 추가/제거, 할당 반납/삭제, 담당자 추가/제거, OrgUnit 생성/수정
+- [x] **[BE-P1-01]** 라이선스 CRUD AuditLog 추가 ✅
+- [x] **[BE-P1-02]** 조직원 생성·수정·삭제 AuditLog 추가 ✅
+- [x] **[BE-P1-03]** 사용자 관리 AuditLog 추가 ✅
+- [x] **[BE-P1-04]** 그룹·할당·담당자·조직 변경 AuditLog 추가 ✅
 
-### P2 — 입력 검증 강화 (ISMS-P 2.8)
+### P2 — 입력 검증 강화 (ISMS-P 2.8) ✅ 완료
 
-- [ ] **[BE-P2-01]** 문자열 길이 제한 추가
-  - 이름/부서명/설명 등 상한 미설정 → `name ≤ 200`, `description ≤ 2000` 등
-- [ ] **[BE-P2-02]** 숫자 범위 검증 추가
-  - `totalQuantity > 0`, `price ≥ 0`, `exchangeRate > 0`, `noticePeriodDays ≥ 0`
-  - 현재 음수·0 입력 시 에러 없이 저장됨
-- [ ] **[BE-P2-03]** 날짜 검증 추가
-  - `new Date("invalid")` → Invalid Date가 DB에 저장되는 문제
-  - `expiryDate ≥ purchaseDate` 순서 검증
-- [ ] **[BE-P2-04]** enum 유효성 — silent default 제거
-  - `POST /api/licenses`에서 잘못된 `licenseType` 입력 시 `KEY_BASED`로 기본값 대신 400 에러 반환
+> lib/validation.ts 공용 유틸리티 + 15개 API 라우트 적용 완료.
 
-### P3 — 성능 개선
+- [x] **[BE-P2-01]** 문자열 길이 제한 추가 ✅
+- [x] **[BE-P2-02]** 숫자 범위 검증 추가 ✅
+- [x] **[BE-P2-03]** 날짜 검증 추가 ✅
+- [x] **[BE-P2-04]** enum 유효성 — silent default 제거 ✅
 
-- [ ] **[BE-P3-01]** 신규 조직원 자동 할당 N+1 쿼리 개선
-  - `POST /api/employees` — 기본 그룹 라이선스 할당 루프 내 개별 count 쿼리 → 배치 로딩
-  - 기본 그룹에 라이선스 50개 있으면 150+ 쿼리 발생
-- [ ] **[BE-P3-02]** OrgUnit 삭제 시 재귀 쿼리 개선
-  - `collectDescendantIds()` — depth별 개별 쿼리 → 한번에 전체 트리 로딩
+### P3 — 성능 개선 ✅ 완료 (P3-01, P3-02)
+
+> P3-01/02 최적화 완료. P3-03 페이지네이션은 Phase 2 이후 검토.
+
+- [x] **[BE-P3-01]** 신규 조직원 자동 할당 N+1 쿼리 개선 ✅
+  - `POST /api/employees` — 개별 count → groupBy 배치 쿼리 (150+ → 3 쿼리)
+- [x] **[BE-P3-02]** OrgUnit 삭제 시 재귀 쿼리 개선 ✅
+  - `collectDescendantIds()` — 전체 트리 1회 로딩 + 인메모리 BFS
 - [ ] **[BE-P3-03]** 목록 API 페이지네이션 추가 (현재 /history만 지원)
   - `GET /api/licenses`, `GET /api/assignments`, `GET /api/groups`
 
-### P4 — 코드 일관성
+### P4 — 코드 일관성 ✅ 완료
 
-- [ ] **[BE-P4-01]** FK 존재 검증 추가
-  - `POST /api/org/units` — parentId/companyId 미검증 → Prisma FK 에러 시 500 반환
-  - `POST /api/licenses/[id]/owners` — userId/orgUnitId 존재 미검증
-- [ ] **[BE-P4-02]** 에러 응답 패턴 통일
-  - unique 제약 위반: 일부 라우트만 409 반환, 나머지는 500
-  - 유효성 검증 실패: 400 vs silent default 혼재
+> 7개 라우트 FK 검증 + 20개 라우트 handlePrismaError 적용 완료.
+
+- [x] **[BE-P4-01]** FK 존재 검증 추가 ✅
+  - 7개 라우트: org/units, employees, groups, licenses/owners
+  - companyId, parentId, orgUnitId, userId, licenseIds[] 배치 검증
+- [x] **[BE-P4-02]** 에러 응답 패턴 통일 ✅
+  - `handlePrismaError` 유틸리티: P2002→409, P2003→400, P2025→404
+  - 기존 `error.message.includes("Unique constraint")` 전량 교체
 
 ---
 

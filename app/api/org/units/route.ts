@@ -3,6 +3,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { writeAuditLog } from "@/lib/audit-log";
+import { ValidationError, handleValidationError, handlePrismaError, vStrReq, vNumReq, vNum } from "@/lib/validation";
 
 // GET /api/org/units — OrgUnit 목록 (?companyId= 필터, ?parentId= 필터)
 export async function GET(request: NextRequest) {
@@ -43,30 +45,51 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, companyId, parentId, sortOrder } = body;
 
-    if (!name?.trim()) {
-      return NextResponse.json({ error: "조직명은 필수입니다." }, { status: 400 });
-    }
-    if (!companyId) {
-      return NextResponse.json({ error: "companyId는 필수입니다." }, { status: 400 });
-    }
+    // ── 입력 검증 ──
+    const nameVal = vStrReq(body.name, "조직명", 200);
+    const companyIdVal = vNumReq(body.companyId, "companyId", { min: 1, integer: true });
+    const parentIdVal = vNum(body.parentId, { min: 1, integer: true });
+    const sortOrderVal = vNum(body.sortOrder, { min: 0, max: 9999, integer: true });
 
-    const unit = await prisma.orgUnit.create({
-      data: {
-        name: name.trim(),
-        companyId: Number(companyId),
-        parentId: parentId ? Number(parentId) : null,
-        ...(sortOrder !== undefined && { sortOrder: Number(sortOrder) }),
-      },
+    const unit = await prisma.$transaction(async (tx) => {
+      // FK 존재 검증
+      const company = await tx.orgCompany.findUnique({ where: { id: companyIdVal }, select: { id: true } });
+      if (!company) throw new ValidationError("존재하지 않는 회사입니다.");
+      if (parentIdVal) {
+        const parent = await tx.orgUnit.findUnique({ where: { id: parentIdVal }, select: { id: true } });
+        if (!parent) throw new ValidationError("존재하지 않는 상위 조직입니다.");
+      }
+
+      const created = await tx.orgUnit.create({
+        data: {
+          name: nameVal,
+          companyId: companyIdVal,
+          parentId: parentIdVal,
+          ...(sortOrderVal !== null && { sortOrder: sortOrderVal }),
+        },
+      });
+
+      await writeAuditLog(tx, {
+        entityType: "ORG_UNIT",
+        entityId: created.id,
+        action: "CREATED",
+        actor: user.username,
+        actorType: "USER",
+        actorId: user.id,
+        details: { name: created.name, companyId: created.companyId, parentId: created.parentId },
+      });
+
+      return created;
     });
 
     return NextResponse.json(unit, { status: 201 });
   } catch (error) {
+    const vErr = handleValidationError(error);
+    if (vErr) return vErr;
+    const pErr = handlePrismaError(error, { uniqueMessage: "이미 존재하는 부서명입니다" });
+    if (pErr) return pErr;
     console.error("Failed to create org unit:", error);
-    if (error instanceof Error && error.message.includes("Unique constraint")) {
-      return NextResponse.json({ error: "이미 존재하는 부서명입니다" }, { status: 409 });
-    }
     return NextResponse.json({ error: "조직 생성에 실패했습니다." }, { status: 500 });
   }
 }
