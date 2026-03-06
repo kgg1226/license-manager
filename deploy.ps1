@@ -3,18 +3,18 @@ Set-StrictMode -Version Latest
 
 # --- [설정 구간] ---
 $PROFILE_NAME = "hyeongunk"
-$REGION       = "ap-northeast-2"
-$S3_BUCKET    = "s3://triplecomma-releases/triplecomma-backoffice"
-$ZIP_NAME     = "license-manager.zip"
-$EC2_ID       = "i-0aeda7845a9634718"
-$REMOTE_DIR   = "/home/ssm-user/app"
-$APP_NAME     = "license-manager"
+$REGION = "ap-northeast-2"
+$S3_BUCKET = "s3://triplecomma-releases/triplecomma-backoffice"
+$ZIP_NAME = "license-manager.zip"
+$EC2_ID = "i-0aeda7845a9634718"
+$REMOTE_DIR = "/home/ssm-user/app"
+$APP_NAME = "license-manager"
 
 # --- [유틸리티 함수] ---
-function Log($msg)     { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $msg" }
+function Log($msg) { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $msg" }
 function Success($msg) { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $msg" -ForegroundColor Green }
-function Warn($msg)    { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $msg" -ForegroundColor Yellow }
-function Fail($msg)    { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $msg" -ForegroundColor Red }
+function Warn($msg) { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $msg" -ForegroundColor Yellow }
+function Fail($msg) { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $msg" -ForegroundColor Red }
 
 function Invoke-OrFail([scriptblock]$Script, [string]$ErrorMessage) {
     & $Script
@@ -93,7 +93,8 @@ if (-not [string]::IsNullOrWhiteSpace($hasChanges)) {
     $commitMsg = Read-Host "커밋 메시지 입력 (엔터 시 'deploy')"
     if ([string]::IsNullOrWhiteSpace($commitMsg)) { $commitMsg = "deploy" }
     Invoke-OrFail { git commit -m $commitMsg } "git commit 실패"
-} else {
+}
+else {
     Warn "커밋할 변경사항 없음."
 }
 
@@ -179,44 +180,47 @@ Remove-Item $zipPath, $deployShPath -ErrorAction SilentlyContinue
 Success "S3 업로드 완료: $S3_BUCKET/"
 
 # ============================================================
-# [3/3] EC2 배포 (SSM)
-# ============================================================
 Log "=== [3/3] EC2 배포 시작 (SSM) ==="
+# ============================================================
 
-# S3에 올린 deploy.sh를 EC2에서 내려받아 실행
-# 단순 명령 2줄 → 특수문자 없음 → JSON 이스케이프 문제 없음
-$ssmParams = "commands=aws s3 cp $S3_BUCKET/deploy.sh /tmp/deploy.sh,commands=bash /tmp/deploy.sh"
+$commands = @(
+    "aws s3 cp $S3_BUCKET/deploy.sh /tmp/deploy.sh",
+    "chmod +x /tmp/deploy.sh",
+    "bash /tmp/deploy.sh"
+)
+
+$payload = @{
+    DocumentName   = "AWS-RunShellScript"
+    InstanceIds    = @($EC2_ID)
+    TimeoutSeconds = 600
+    Comment        = "deploy from deploy.ps1"
+    Parameters     = @{ commands = $commands }
+}
+
+$tmpJson = Join-Path $env:TEMP "ssm-send-command.json"
+
+# ✅ UTF-8 "No BOM"으로 저장 (AWS CLI 호환성 최우선)
+$jsonText = ($payload | ConvertTo-Json -Depth 10)
+[System.IO.File]::WriteAllText($tmpJson, $jsonText, [System.Text.UTF8Encoding]::new($false))
+
+# ✅ 로컬에서 JSON 자체 검증 (여기서 터지면 JSON 생성이 문제)
+try { $null = $jsonText | ConvertFrom-Json } catch { Fail "생성된 JSON이 PowerShell에서 파싱 불가: $($_.Exception.Message)"; exit 1 }
+
+# ✅ file://C:/... 형태로 경로 표준화 (Windows AWS CLI 안전)
+$fileUri = "file://" + ($tmpJson -replace "\\", "/")
 
 $COMMAND_ID = aws ssm send-command `
-    --document-name "AWS-RunShellScript" `
-    --instance-ids $EC2_ID `
-    --parameters $ssmParams `
-    --timeout-seconds 600 `
-    --comment "deploy from deploy.ps1" `
+    --cli-input-json $fileUri `
     --query "Command.CommandId" `
     --output text `
     --profile $PROFILE_NAME `
     --region $REGION
 
+Remove-Item $tmpJson -ErrorAction SilentlyContinue
+
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($COMMAND_ID)) {
     Fail "SSM 명령 전송 실패"
     exit 1
 }
+
 Log "SSM 명령 전송됨 (ID: $COMMAND_ID)"
-Log "빌드 완료까지 최대 10분 소요됩니다..."
-
-$result = Wait-SSMCommand -CommandId $COMMAND_ID -MaxWaitSec 600 -IntervalSec 15
-Show-SSMOutput -CommandId $COMMAND_ID
-
-if ($result -eq "Success") {
-    Success "================================================================"
-    Success " 배포 완료!"
-    Success "================================================================"
-} else {
-    Fail "================================================================"
-    Fail " 배포 실패 (상태: $result)"
-    Fail " 롤백 명령어:"
-    Write-Host " aws ssm send-command --instance-ids $EC2_ID --document-name AWS-RunShellScript --parameters '{`"commands`":[`"sudo docker rm -f license-app || true && sudo docker run -d --name license-app -p 8080:3000 -e DATABASE_URL=file:/app/dev.db -e NODE_ENV=production -e SECURE_COOKIE=false -v /home/ssm-user/license-manager/data/dev.db:/app/dev.db license-manager:backup`"]}' --profile $PROFILE_NAME --region $REGION" -ForegroundColor Yellow
-    Fail "================================================================"
-    exit 1
-}
