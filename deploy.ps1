@@ -179,36 +179,41 @@ Invoke-OrFail {
 Remove-Item $zipPath, $deployShPath -ErrorAction SilentlyContinue
 Success "S3 업로드 완료: $S3_BUCKET/"
 
-# ============================================================
-# [3/3] EC2 배포 (SSM)
-# ============================================================
 Log "=== [3/3] EC2 배포 시작 (SSM) ==="
 
-# S3에 올린 deploy.sh를 EC2에서 내려받아 실행
 $commands = @(
     "aws s3 cp $S3_BUCKET/deploy.sh /tmp/deploy.sh",
     "chmod +x /tmp/deploy.sh",
     "bash /tmp/deploy.sh"
 )
 
-# --parameters는 JSON으로 안전하게 (PowerShell 따옴표 지옥 회피)
-$ssmParamsJson = @{ commands = $commands } | ConvertTo-Json -Compress
+$payload = @{
+    DocumentName   = "AWS-RunShellScript"
+    InstanceIds    = @($EC2_ID)
+    TimeoutSeconds = 600
+    Comment        = "deploy from deploy.ps1"
+    Parameters     = @{
+        commands = $commands
+    }
+}
+
+$tmpJson = Join-Path $env:TEMP "ssm-send-command.json"
+$payload | ConvertTo-Json -Depth 10 | Set-Content -Encoding utf8 $tmpJson
 
 $COMMAND_ID = aws ssm send-command `
-    --document-name "AWS-RunShellScript" `
-    --instance-ids $EC2_ID `
-    --parameters $ssmParamsJson `
-    --timeout-seconds 600 `
-    --comment "deploy from deploy.ps1" `
+    --cli-input-json "file://$tmpJson" `
     --query "Command.CommandId" `
     --output text `
     --profile $PROFILE_NAME `
     --region $REGION
 
+Remove-Item $tmpJson -ErrorAction SilentlyContinue
+
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($COMMAND_ID)) {
     Fail "SSM 명령 전송 실패"
     exit 1
 }
+
 Log "SSM 명령 전송됨 (ID: $COMMAND_ID)"
 Log "빌드 완료까지 최대 10분 소요됩니다..."
 
