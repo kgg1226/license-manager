@@ -11,7 +11,7 @@ import {
   type Currency,
 } from "@/lib/cost-calculator";
 import {
-  ValidationError, handleValidationError,
+  ValidationError, handleValidationError, handlePrismaError,
   vStrReq, vStr, vNumReq, vNum, vDateReq, vDate, vEnumReq, vEnum, vBool,
 } from "@/lib/validation";
 
@@ -147,6 +147,8 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const vErr = handleValidationError(error);
     if (vErr) return vErr;
+    const pErr = handlePrismaError(error);
+    if (pErr) return pErr;
     console.error("Failed to create license:", error);
     return NextResponse.json(
       { error: "라이선스 등록에 실패했습니다." },

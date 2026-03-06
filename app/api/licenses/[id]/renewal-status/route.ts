@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
-import { handleValidationError, vEnumReq, vStr } from "@/lib/validation";
+import { handleValidationError, handlePrismaError, vEnumReq, vStr } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -67,6 +67,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
   } catch (error) {
     const vErr = handleValidationError(error);
     if (vErr) return vErr;
+    const pErr = handlePrismaError(error);
+    if (pErr) return pErr;
     console.error("Failed to update renewal status:", error);
     return NextResponse.json({ error: "갱신 상태 변경에 실패했습니다." }, { status: 500 });
   }

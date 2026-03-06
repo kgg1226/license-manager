@@ -2,22 +2,35 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
-import { handleValidationError, vStrReq, vNum } from "@/lib/validation";
+import { ValidationError, handleValidationError, handlePrismaError, vStrReq, vNum } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
 
-// 재귀적으로 하위 OrgUnit id 목록 수집
+// 재귀적으로 하위 OrgUnit id 목록 수집 (전체 트리 1회 로딩 → 인메모리 BFS)
 async function collectDescendantIds(rootId: number): Promise<number[]> {
+  // 모든 OrgUnit을 한 번에 로딩하여 N+1 쿼리 방지
+  const allUnits = await prisma.orgUnit.findMany({
+    select: { id: true, parentId: true },
+  });
+
+  // parent → children 맵 구축
+  const childrenMap = new Map<number, number[]>();
+  for (const u of allUnits) {
+    if (u.parentId != null) {
+      const arr = childrenMap.get(u.parentId);
+      if (arr) arr.push(u.id);
+      else childrenMap.set(u.parentId, [u.id]);
+    }
+  }
+
+  // BFS로 하위 트리 수집
   const result: number[] = [];
   const queue: number[] = [rootId];
   while (queue.length > 0) {
     const current = queue.shift()!;
     result.push(current);
-    const children = await prisma.orgUnit.findMany({
-      where: { parentId: current },
-      select: { id: true },
-    });
-    queue.push(...children.map((c) => c.id));
+    const children = childrenMap.get(current);
+    if (children) queue.push(...children);
   }
   return result;
 }
@@ -48,6 +61,12 @@ export async function PUT(request: NextRequest, { params }: Params) {
     if (sortOrderVal !== undefined) data.sortOrder = sortOrderVal;
 
     const unit = await prisma.$transaction(async (tx) => {
+      // FK 존재 검증: parentId가 지정된 경우
+      if (parentIdVal !== undefined && parentIdVal !== null) {
+        const parent = await tx.orgUnit.findUnique({ where: { id: parentIdVal }, select: { id: true } });
+        if (!parent) throw new ValidationError("존재하지 않는 상위 조직입니다.");
+      }
+
       const updated = await tx.orgUnit.update({
         where: { id: Number(id) },
         data,
@@ -71,10 +90,9 @@ export async function PUT(request: NextRequest, { params }: Params) {
   } catch (error) {
     const vErr = handleValidationError(error);
     if (vErr) return vErr;
+    const pErr = handlePrismaError(error, { uniqueMessage: "이미 존재하는 부서명입니다" });
+    if (pErr) return pErr;
     console.error("Failed to update org unit:", error);
-    if (error instanceof Error && error.message.includes("Unique constraint")) {
-      return NextResponse.json({ error: "이미 존재하는 부서명입니다" }, { status: 409 });
-    }
     return NextResponse.json({ error: "조직 수정에 실패했습니다." }, { status: 500 });
   }
 }

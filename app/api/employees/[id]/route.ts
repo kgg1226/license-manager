@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
-import { handleValidationError, vStr, vStrReq, vNum, vEmail } from "@/lib/validation";
+import { ValidationError, handleValidationError, handlePrismaError, vStr, vStrReq, vNum, vEmail } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -80,8 +80,10 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
     return NextResponse.json(employee);
   } catch (error) {
-    const vErr = handleValidationError(error);
-    if (vErr) return vErr;
+    const vErr0 = handleValidationError(error);
+    if (vErr0) return vErr0;
+    const pErr0 = handlePrismaError(error);
+    if (pErr0) return pErr0;
     console.error("Failed to update employee:", error);
     return NextResponse.json(
       { error: "조직원 수정에 실패했습니다." },
@@ -110,6 +112,16 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       : undefined;
 
     const employee = await prisma.$transaction(async (tx) => {
+      // FK 존재 검증
+      if (companyIdVal !== undefined && companyIdVal !== null) {
+        const company = await tx.orgCompany.findUnique({ where: { id: companyIdVal }, select: { id: true } });
+        if (!company) throw new ValidationError("존재하지 않는 회사입니다.");
+      }
+      if (orgUnitIdVal !== undefined && orgUnitIdVal !== null) {
+        const org = await tx.orgUnit.findUnique({ where: { id: orgUnitIdVal }, select: { id: true } });
+        if (!org) throw new ValidationError("존재하지 않는 조직입니다.");
+      }
+
       const before = await tx.employee.findUnique({
         where: { id: employeeId },
         select: { orgUnitId: true },
@@ -146,6 +158,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   } catch (error) {
     const vErr = handleValidationError(error);
     if (vErr) return vErr;
+    const pErr = handlePrismaError(error);
+    if (pErr) return pErr;
     console.error("Failed to patch employee:", error);
     return NextResponse.json({ error: "조직 정보 수정에 실패했습니다." }, { status: 500 });
   }

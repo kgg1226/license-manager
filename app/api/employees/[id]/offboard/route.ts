@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
+import { handlePrismaError } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -54,6 +55,8 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     return NextResponse.json({ success: true, offboardingUntil: offboardingUntil.toISOString() });
   } catch (error) {
+    const pErr = handlePrismaError(error);
+    if (pErr) return pErr;
     console.error("Failed to offboard employee:", error);
     return NextResponse.json({ error: "퇴사 처리에 실패했습니다." }, { status: 500 });
   }

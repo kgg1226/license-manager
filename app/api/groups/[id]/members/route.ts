@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
-import { handleValidationError, vNumArr } from "@/lib/validation";
+import { ValidationError, handleValidationError, handlePrismaError, vNumArr } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -23,6 +23,15 @@ export async function POST(request: NextRequest, { params }: Params) {
     const group = await prisma.licenseGroup.findUnique({ where: { id: groupId } });
     if (!group) {
       return NextResponse.json({ error: "그룹을 찾을 수 없습니다." }, { status: 404 });
+    }
+
+    // FK 존재 검증: licenseIds 배치 확인
+    const existingLicenseCount = await prisma.license.count({ where: { id: { in: licenseIds } } });
+    if (existingLicenseCount !== licenseIds.length) {
+      return NextResponse.json(
+        { error: "존재하지 않는 라이선스가 포함되어 있습니다." },
+        { status: 400 },
+      );
     }
 
     // Get existing members to skip duplicates
@@ -63,6 +72,8 @@ export async function POST(request: NextRequest, { params }: Params) {
   } catch (error) {
     const vErr = handleValidationError(error);
     if (vErr) return vErr;
+    const pErr = handlePrismaError(error);
+    if (pErr) return pErr;
     console.error("Failed to add members:", error);
     return NextResponse.json({ error: "라이선스 추가에 실패했습니다." }, { status: 500 });
   }

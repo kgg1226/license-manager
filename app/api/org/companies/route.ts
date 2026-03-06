@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
-import { handleValidationError, vStrReq } from "@/lib/validation";
+import { handleValidationError, handlePrismaError, vStrReq } from "@/lib/validation";
 
 // GET /api/org/companies — 회사 목록 (하위 orgs 중첩 포함)
 export async function GET() {
@@ -65,10 +65,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const vErr = handleValidationError(error);
     if (vErr) return vErr;
+    const pErr = handlePrismaError(error, { uniqueMessage: "이미 존재하는 회사명입니다." });
+    if (pErr) return pErr;
     console.error("Failed to create company:", error);
-    if (error instanceof Error && error.message.includes("Unique constraint")) {
-      return NextResponse.json({ error: "이미 존재하는 회사명입니다." }, { status: 409 });
-    }
     return NextResponse.json({ error: "회사 생성에 실패했습니다." }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
+import { handlePrismaError } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string; ownerId: string }> };
 
@@ -39,6 +40,8 @@ export async function DELETE(request: NextRequest, { params }: Params) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    const pErr = handlePrismaError(error);
+    if (pErr) return pErr;
     console.error("Failed to delete owner:", error);
     return NextResponse.json({ error: "담당자 삭제에 실패했습니다." }, { status: 500 });
   }

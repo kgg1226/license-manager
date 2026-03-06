@@ -11,7 +11,7 @@ import {
   type Currency,
 } from "@/lib/cost-calculator";
 import {
-  ValidationError, handleValidationError,
+  ValidationError, handleValidationError, handlePrismaError,
   vStr, vStrReq, vNum, vNumReq, vDate, vDateReq, vEnum, vEnumReq, vBool,
 } from "@/lib/validation";
 
@@ -207,6 +207,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
   } catch (error) {
     const vErr = handleValidationError(error);
     if (vErr) return vErr;
+    const pErr = handlePrismaError(error);
+    if (pErr) return pErr;
     console.error("Failed to update license:", error);
     return NextResponse.json(
       { error: "라이선스 수정에 실패했습니다." },
@@ -248,6 +250,8 @@ export async function DELETE(request: NextRequest, { params }: Params) {
 
     return NextResponse.json({ message: "라이선스가 삭제되었습니다." });
   } catch (error) {
+    const pErr2 = handlePrismaError(error);
+    if (pErr2) return pErr2;
     console.error("Failed to delete license:", error);
     return NextResponse.json(
       { error: "라이선스 삭제에 실패했습니다." },

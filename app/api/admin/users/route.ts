@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hashPassword } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
-import { handleValidationError, vStrReq, vEnumReq } from "@/lib/validation";
+import { handleValidationError, handlePrismaError, vStrReq, vEnumReq } from "@/lib/validation";
 
 const VALID_ROLES = ["ADMIN", "USER"] as const;
 
@@ -77,10 +77,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const vErr = handleValidationError(error);
     if (vErr) return vErr;
+    const pErr = handlePrismaError(error, { uniqueMessage: "이미 사용 중인 사용자명입니다." });
+    if (pErr) return pErr;
     console.error("Failed to create user:", error);
-    if (error instanceof Error && error.message.includes("Unique constraint")) {
-      return NextResponse.json({ error: "이미 사용 중인 사용자명입니다." }, { status: 409 });
-    }
     return NextResponse.json({ error: "사용자 생성에 실패했습니다." }, { status: 500 });
   }
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
-import { handleValidationError, vNum } from "@/lib/validation";
+import { ValidationError, handleValidationError, handlePrismaError, vNum } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -56,6 +56,16 @@ export async function POST(request: NextRequest, { params }: Params) {
     if (!exists) return NextResponse.json({ error: "라이선스를 찾을 수 없습니다." }, { status: 404 });
 
     const owner = await prisma.$transaction(async (tx) => {
+      // FK 존재 검증
+      if (userIdVal) {
+        const userExists = await tx.user.findUnique({ where: { id: userIdVal }, select: { id: true } });
+        if (!userExists) throw new ValidationError("존재하지 않는 사용자입니다.");
+      }
+      if (orgUnitIdVal) {
+        const orgExists = await tx.orgUnit.findUnique({ where: { id: orgUnitIdVal }, select: { id: true } });
+        if (!orgExists) throw new ValidationError("존재하지 않는 조직입니다.");
+      }
+
       const created = await tx.licenseOwner.create({
         data: {
           licenseId,
@@ -81,6 +91,8 @@ export async function POST(request: NextRequest, { params }: Params) {
   } catch (error) {
     const vErr = handleValidationError(error);
     if (vErr) return vErr;
+    const pErr = handlePrismaError(error);
+    if (pErr) return pErr;
     console.error("Failed to add owner:", error);
     return NextResponse.json({ error: "담당자 추가에 실패했습니다." }, { status: 500 });
   }

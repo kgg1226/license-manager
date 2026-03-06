@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hashPassword } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
-import { handleValidationError, vEnumReq, vBool, ValidationError } from "@/lib/validation";
+import { handleValidationError, handlePrismaError, vEnumReq, vBool, ValidationError } from "@/lib/validation";
 
 const VALID_ROLES = ["ADMIN", "USER"] as const;
 
@@ -90,6 +90,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
   } catch (error) {
     const vErr = handleValidationError(error);
     if (vErr) return vErr;
+    const pErr = handlePrismaError(error);
+    if (pErr) return pErr;
     console.error("Failed to update user:", error);
     return NextResponse.json({ error: "사용자 수정에 실패했습니다." }, { status: 500 });
   }
@@ -135,6 +137,8 @@ export async function DELETE(request: NextRequest, { params }: Params) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    const pErr2 = handlePrismaError(error);
+    if (pErr2) return pErr2;
     console.error("Failed to delete user:", error);
     return NextResponse.json({ error: "사용자 삭제에 실패했습니다." }, { status: 500 });
   }

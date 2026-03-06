@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
-import { handleValidationError, vStrReq, vNumReq, vNum } from "@/lib/validation";
+import { ValidationError, handleValidationError, handlePrismaError, vStrReq, vNumReq, vNum } from "@/lib/validation";
 
 // GET /api/org/units — OrgUnit 목록 (?companyId= 필터, ?parentId= 필터)
 export async function GET(request: NextRequest) {
@@ -53,6 +53,14 @@ export async function POST(request: NextRequest) {
     const sortOrderVal = vNum(body.sortOrder, { min: 0, max: 9999, integer: true });
 
     const unit = await prisma.$transaction(async (tx) => {
+      // FK 존재 검증
+      const company = await tx.orgCompany.findUnique({ where: { id: companyIdVal }, select: { id: true } });
+      if (!company) throw new ValidationError("존재하지 않는 회사입니다.");
+      if (parentIdVal) {
+        const parent = await tx.orgUnit.findUnique({ where: { id: parentIdVal }, select: { id: true } });
+        if (!parent) throw new ValidationError("존재하지 않는 상위 조직입니다.");
+      }
+
       const created = await tx.orgUnit.create({
         data: {
           name: nameVal,
@@ -79,10 +87,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const vErr = handleValidationError(error);
     if (vErr) return vErr;
+    const pErr = handlePrismaError(error, { uniqueMessage: "이미 존재하는 부서명입니다" });
+    if (pErr) return pErr;
     console.error("Failed to create org unit:", error);
-    if (error instanceof Error && error.message.includes("Unique constraint")) {
-      return NextResponse.json({ error: "이미 존재하는 부서명입니다" }, { status: 409 });
-    }
     return NextResponse.json({ error: "조직 생성에 실패했습니다." }, { status: 500 });
   }
 }

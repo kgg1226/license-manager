@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
-import { handleValidationError, vStr, vStrReq, vBool } from "@/lib/validation";
+import { handleValidationError, handlePrismaError, vStr, vStrReq, vBool } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -72,6 +72,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
   } catch (error) {
     const vErr = handleValidationError(error);
     if (vErr) return vErr;
+    const pErr = handlePrismaError(error, { uniqueMessage: "이미 존재하는 그룹명입니다." });
+    if (pErr) return pErr;
     console.error("Failed to update group:", error);
     return NextResponse.json({ error: "그룹 수정에 실패했습니다." }, { status: 500 });
   }
@@ -104,6 +106,8 @@ export async function DELETE(request: NextRequest, { params }: Params) {
 
     return NextResponse.json({ message: "그룹이 삭제되었습니다." });
   } catch (error) {
+    const pErr2 = handlePrismaError(error);
+    if (pErr2) return pErr2;
     console.error("Failed to delete group:", error);
     return NextResponse.json({ error: "그룹 삭제에 실패했습니다." }, { status: 500 });
   }

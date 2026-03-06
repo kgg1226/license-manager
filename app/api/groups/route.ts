@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
-import { handleValidationError, vStrReq, vStr, vBool, vNumArr } from "@/lib/validation";
+import { ValidationError, handleValidationError, handlePrismaError, vStrReq, vStr, vBool, vNumArr } from "@/lib/validation";
 
 // GET /api/groups — 그룹 목록 조회
 export async function GET() {
@@ -47,6 +47,14 @@ export async function POST(request: NextRequest) {
       : [];
 
     const group = await prisma.$transaction(async (tx) => {
+      // FK 존재 검증: licenseIds 배치 확인
+      if (licenseIdsVal.length > 0) {
+        const existingCount = await tx.license.count({ where: { id: { in: licenseIdsVal } } });
+        if (existingCount !== licenseIdsVal.length) {
+          throw new ValidationError("존재하지 않는 라이선스가 포함되어 있습니다.");
+        }
+      }
+
       const created = await tx.licenseGroup.create({
         data: {
           name: nameVal,
@@ -78,10 +86,9 @@ export async function POST(request: NextRequest) {
   } catch (error: unknown) {
     const vErr = handleValidationError(error);
     if (vErr) return vErr;
+    const pErr = handlePrismaError(error, { uniqueMessage: "이미 존재하는 그룹명입니다." });
+    if (pErr) return pErr;
     console.error("Failed to create group:", error);
-    if (error instanceof Error && error.message.includes("Unique constraint")) {
-      return NextResponse.json({ error: "이미 존재하는 그룹명입니다." }, { status: 409 });
-    }
     return NextResponse.json({ error: "그룹 생성에 실패했습니다." }, { status: 500 });
   }
 }

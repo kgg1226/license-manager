@@ -157,3 +157,38 @@ export function vBool(val: unknown): boolean {
   if (val === "true" || val === 1) return true;
   return false;
 }
+
+// ── Prisma 에러 핸들러 ──
+
+/** Prisma P2002(unique)/P2003(FK)/P2025(not found) 에러를 적절한 HTTP 응답으로 변환 */
+export function handlePrismaError(
+  error: unknown,
+  options?: {
+    uniqueMessage?: string;
+    fkMessage?: string;
+    notFoundMessage?: string;
+  },
+): NextResponse | null {
+  if (!(error instanceof Error) || !("code" in error)) return null;
+  const code = (error as { code: string }).code;
+
+  switch (code) {
+    case "P2002": // Unique constraint violated
+      return NextResponse.json(
+        { error: options?.uniqueMessage ?? "이미 존재하는 값입니다." },
+        { status: 409 },
+      );
+    case "P2003": // Foreign key constraint failed
+      return NextResponse.json(
+        { error: options?.fkMessage ?? "참조된 리소스를 찾을 수 없습니다." },
+        { status: 400 },
+      );
+    case "P2025": // Record not found (update/delete on missing)
+      return NextResponse.json(
+        { error: options?.notFoundMessage ?? "대상을 찾을 수 없습니다." },
+        { status: 404 },
+      );
+    default:
+      return null;
+  }
+}
