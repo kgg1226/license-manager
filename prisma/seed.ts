@@ -1,8 +1,6 @@
 import "dotenv/config";
 import { PrismaClient } from "../generated/prisma/client";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import bcrypt from "bcryptjs";
-import path from "path";
 
 // ── 프로덕션 안전장치 ────────────────────────────────────────────────────────
 if (process.env.NODE_ENV === "production") {
@@ -10,9 +8,7 @@ if (process.env.NODE_ENV === "production") {
   process.exit(1);
 }
 
-const dbPath = path.join(process.cwd(), "dev.db");
-const adapter = new PrismaBetterSqlite3({ url: dbPath });
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 async function main() {
   const username = process.env.SEED_ADMIN_USERNAME;

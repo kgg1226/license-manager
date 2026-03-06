@@ -1,4 +1,4 @@
-// 변경: datasource url 추가, User 미사용 필드(googleId/email/name) 제거, OrgCompany/OrgUnit 모델 추가, Employee 조직 계층 필드 추가
+// [2026-03-05] SQLite → PostgreSQL(Supabase) 전환
 // [2026-03-04] MemberStatus/RenewalStatus enum 추가, OrgUnit sortOrder/updatedAt, Employee orgUnitId/status/offboardingUntil 통합,
 //              License renewal 필드, LicenseRenewalHistory/LicenseOwner/NotificationLog 신규, AuditLog actorType/actorId, User mustChangePassword
 
@@ -8,7 +8,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

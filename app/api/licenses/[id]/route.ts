@@ -176,10 +176,9 @@ export async function PUT(request: NextRequest, { params }: Params) {
     return NextResponse.json(license);
   } catch (error) {
     console.error("Failed to update license:", error);
-    const message = error instanceof Error ? error.message : "라이선스 수정에 실패했습니다.";
     return NextResponse.json(
-      { error: message },
-      { status: 400 }
+      { error: "라이선스 수정에 실패했습니다." },
+      { status: 500 }
     );
   }
 }
