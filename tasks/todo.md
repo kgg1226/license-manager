@@ -87,22 +87,38 @@
 
 ---
 
-## 🟢 장기 방향 — 정보자산 관리 시스템 확장
+## 🟢 Phase 2 — 자산 유형 확장 (Supabase 전환 후 착수)
 
-> 현재는 소프트웨어 라이선스 특화. 아래는 향후 확장 목표.
-> 별도 기능 스펙(`tasks/features/`)으로 분리 예정.
+> 스펙: `tasks/features/asset-management.md`
 
-- [ ] **[FEAT-A]** 정보자산 유형 확장
-  - 하드웨어 자산 (PC, 서버, 모바일 등)
-  - 클라우드/SaaS 구독 (현재 라이선스와 유사하나 별도 모델 필요)
-  - 도메인/SSL 인증서 (만료일 알림)
-- [ ] **[FEAT-B]** 증적용 파일 내보내기
-  - 라이선스 현황 Excel/PDF 내보내기 (감사 대응용)
-  - 자산 배정 이력 리포트 (기간별)
-  - 감사 로그(AuditLog) 내보내기
-- [ ] **[FEAT-C]** 자산 수명주기 관리
-  - 구매일 / 만료일 / 폐기일 추적
-  - 갱신/폐기 워크플로우
+### 백엔드 (`role/backend`)
+- [ ] **[BE-020]** `prisma/schema.prisma` — `Asset`, `HardwareDetail`, `CloudDetail` 모델 추가
+- [ ] **[BE-021]** `GET|POST /api/assets` — 자산 목록 조회·등록
+- [ ] **[BE-022]** `GET|PUT|DELETE /api/assets/[id]` — 자산 상세·수정·삭제
+- [ ] **[BE-023]** `PATCH /api/assets/[id]/status` — 자산 상태 변경 (INACTIVE / DISPOSED)
+- [ ] **[BE-024]** `GET /api/assets/expiring` — 만료 임박 자산 목록
+- [ ] **[BE-025]** `POST /api/cron/renewal-notify` — Asset 만료 알림 통합 (expiryDate 기준)
+
+### 프론트엔드 (`role/frontend`)
+- [ ] **[FE-010]** `/assets` — 자산 목록 페이지 (탭: 전체·소프트웨어·클라우드·하드웨어·도메인)
+- [ ] **[FE-011]** `/assets/new` — 자산 등록 폼 (유형별 추가 필드 동적 표시)
+- [ ] **[FE-012]** `/assets/[id]` — 자산 상세 페이지
+
+---
+
+## 🟢 Phase 3 — 월별 비용 보고서 (Phase 2 완료 후 착수)
+
+> 스펙: `tasks/features/monthly-report.md`
+
+### 백엔드 (`role/backend`)
+- [ ] **[BE-030]** `GET /api/reports/monthly` — 보고서 집계 API (유형별·부서별·변동·만료 예정)
+- [ ] **[BE-031]** `GET /api/reports/monthly/export?format=xlsx` — Excel 내보내기 (`exceljs`)
+- [ ] **[BE-032]** `GET /api/reports/monthly/export?format=pdf` — PDF 내보내기 (`@react-pdf/renderer`)
+- [ ] **[BE-033]** `GET /api/reports/history` — 보고서 생성 이력
+
+### 프론트엔드 (`role/frontend`)
+- [ ] **[FE-020]** `/reports` — 월별 보고서 페이지 (요약 카드·차트·테이블)
+- [ ] **[FE-021]** Excel / PDF 내보내기 버튼
 
 ---
 
