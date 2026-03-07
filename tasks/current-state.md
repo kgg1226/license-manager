@@ -1,7 +1,10 @@
-# 현재 프로젝트 상태
+# 📍 현재 프로젝트 상태
 
-> 🎯 기획 세션이 관리한다. 다른 세션은 **작업 시작 전 반드시 읽는다.**
-> 최종 업데이트: 2026-03-05
+> 🎯 **Planning Role**이 관리합니다. 다른 모든 Role은 **작업 시작 전 반드시 읽으세요.**
+>
+> **📚 먼저 읽어야 할 문서**: [`tasks/README.md`](README.md) → [`tasks/VISION.md`](VISION.md) → [`tasks/TICKETS.md`](TICKETS.md)
+>
+> 최종 업데이트: 2026-03-07 🚀
 
 ---
 
@@ -80,13 +83,73 @@
 
 ---
 
-## 남은 작업
+## 🎯 현재 진행 중 (우선순위 2: 배포 전 마무리)
 
-| 항목 | 담당 브랜치 | 비고 |
-|---|---|---|
-| 모바일 반응형 | `role/frontend` | 낮은 우선순위 |
-| EC2 DB 마이그레이션 SQL 실행 | **사람** | VPN 접속 필요, `tasks/db-changes.md` 참조 |
-| PR 머지 → EC2 배포 | **사람** | VPN 접속 필요 |
+> **모든 작업이 완료되어야 프로덕션 배포 가능**
+>
+> 📋 **자세한 내용**: [`tasks/TICKETS.md`](TICKETS.md) 참고
+>
+> 예상 완료: 2026-03-14 (1주)
+
+### Backend Role
+- **[BE-ORG-001]** `PUT /api/org/companies/[id]` — 회사 이름 수정
+- **[BE-ORG-002]** `DELETE /api/org/companies/[id]` — 회사 삭제
+
+### Frontend Role
+- **[FE-001]** `mustChangePassword` 강제 비밀번호 변경 UI
+- **[FE-ORG-001]** `/org` 페이지 — Company CRUD UI 추가
+
+### DevOps Role
+- **[OPS-010]** `deploy.sh` / `docker-compose.yml` — SQLite 볼륨 제거
+- **[OPS-011]** `.env.example` 생성
+- **[OPS-001]** `dockerfile` — 비root USER 추가
+- **[OPS-002]** `.dockerignore` 점검
+
+### Planning Role
+- ✅ 비전 정의 (VISION.md)
+- ✅ 티켓 생성 (TICKETS.md)
+- ⏳ 진행 상황 모니터링 및 문서 업데이트
+
+---
+
+## 다음 단계
+
+### Phase 1 (완료 ✅)
+- Supabase 전환 완료
+- 라이선스 시스템 안정화
+
+### Phase 2 (다음)
+- Asset 추상화 시작
+- 자산 확장 (하드웨어, 클라우드 등)
+- **자세한 스펙**: [`tasks/features/information-asset-platform-evolution.md`](features/information-asset-platform-evolution.md)
+
+### Phase 3, 4, 5
+- 자세한 내용은 [`tasks/VISION.md`](VISION.md)의 로드맵 참고
+
+---
+
+## 📚 각 Role이 참고해야 할 문서
+
+| Role | 시작 문서 | 스펙 문서 | 참고 |
+|------|---------|---------|------|
+| **Planning** | VISION.md | TICKETS.md | README.md |
+| **Backend** | TICKETS.md | features/*.md | api-spec.md |
+| **Frontend** | TICKETS.md | features/*.md | VISION.md |
+| **DevOps** | TICKETS.md | CLAUDE.md | launch.json |
+| **Security** | VISION.md | features/*.md | security/guidelines.md |
+
+**더 자세한 가이드**: [`tasks/README.md`](README.md)
+
+---
+
+## 남은 준비작업
+
+| 항목 | 담당 | 상태 | 비고 |
+|------|------|------|------|
+| **우선순위 2 티켓 완료** | Backend, Frontend, DevOps | 🔴 진행 중 | [`tasks/TICKETS.md`](TICKETS.md) 참고 |
+| **배포 가능 상태** | All | ⏳ 대기 | 모든 티켓 완료 후 |
+| EC2 배포 | **사람** | ⏳ 대기 | 배포 준비 완료 후 |
+| Phase 2 시작 | Backend, Frontend | ⏳ 대기 | 배포 후 |
 
 ---
 
