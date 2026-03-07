@@ -117,20 +117,7 @@
 
 ## 진행 중
 
-### 백엔드 — 보안 취약점 수정 (🔒 보안 세션 발견, 2026-03-05)
-> 참조: `tasks/security/review-2026-03-05.md`
-- [ ] **[S-001 High]** POST /api/employees에 RBAC 검증 추가
-  - 파일: `app/api/employees/route.ts:41`
-  - 문제: 일반 사용자도 조직원 등록 가능
-  - 수정: `if (user.role !== "ADMIN") return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });` 추가
-- [ ] **[S-002 High]** 로그인 실패 감사 로그 actor 필드 추가
-  - 파일: `app/api/auth/login/route.ts:42-50`
-  - 문제: 행위자 식별 불가 (actor 필드 없음)
-  - 수정: `actor: username` 필드 추가 (시도한 username 기록)
-- [ ] **[S-003 High]** 로그인 실패 entityId 값 변경
-  - 파일: `app/api/auth/login/route.ts:46`
-  - 문제: entityId=0은 실제 User ID와 충돌 가능
-  - 수정: `entityId: -1` 로 변경 (미등록 사용자 구분)
+(없음)
 
 ---
 
