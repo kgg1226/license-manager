@@ -1,12 +1,46 @@
-# TODO
+# TODO (Legacy - See New System Below)
 
-> 기획 세션(/planning)에서 관리한다.
-> 최종 업데이트: 2026-03-07
+> ⚠️ **IMPORTANT: This file has been superseded by a new documentation system. Please read below.**
 
 ---
 
-## 🔴 우선순위 1 — Supabase(PostgreSQL) 전환 (배포 블로커)
+## 🚨 새로운 문서 시스템 (2026-03-07 업데이트)
 
+**현재 활성 작업을 확인하려면 다음 파일들을 참조하세요**:
+
+| 문서 | 용도 |
+|------|------|
+| **`tasks/TICKETS.md`** ⭐ | **모든 활성 티켓 (우선순위 2: 배포 전 마무리)** |
+| **`tasks/VISION.md`** ⭐ | 프로젝트의 최종 목표 및 5단계 로드맵 |
+| **`tasks/README.md`** ⭐ | 역할별 문서 가이드 |
+| `BACKEND-START.md` | 백엔드 역할 빠른 시작 |
+| `FRONTEND-START.md` | 프론트엔드 역할 빠른 시작 |
+| `DEVOPS-START.md` | DevOps 역할 빠른 시작 |
+| `tasks/current-state.md` | 현재 프로젝트 상태 |
+
+**각 역할별 시작하기**:
+- 🔵 **Backend**: `BACKEND-START.md` → `tasks/TICKETS.md` (BE-ORG-001, BE-ORG-002)
+- 🎨 **Frontend**: `FRONTEND-START.md` → `tasks/TICKETS.md` (FE-001, FE-ORG-001)
+- 🟢 **DevOps**: `DEVOPS-START.md` → `tasks/TICKETS.md` (OPS-010/011/001/002)
+- 🎯 **Planning**: `tasks/VISION.md` → `tasks/TICKETS.md` 관리
+
+---
+
+## ⚙️ 이 파일에 대해
+
+이 `todo.md` 파일은 **역사적 기록용**으로 남겨져 있습니다:
+- ✅ **완료된 작업들의 이력** (Supabase 전환, 감사 로그 추가, 입력 검증 강화 등)
+- ✅ **완료된 기능** 목록
+- 📚 **Phase 2-5의 미래 계획** (참고용)
+
+**활성 작업은 `tasks/TICKETS.md`를 참조하세요.**
+
+---
+
+## 🔴 우선순위 1 — Supabase(PostgreSQL) 전환 (배포 블로커) ✅ COMPLETED
+
+> ✅ **이 섹션은 완료된 작업의 역사입니다.** 자세한 내용은 `tasks/current-state.md` 참조.
+>
 > SQLite → Supabase PostgreSQL 전환. 코드 전면 수정 필요.
 > **백엔드 + DevOps 동시 진행 가능. 완료 후 deploy.ps1 실행.**
 
@@ -48,7 +82,14 @@
 
 ---
 
-## 🟡 우선순위 2 — 배포 전 마무리
+## 🟡 우선순위 2 — 배포 전 마무리 🔴 NOW ACTIVE
+
+> ⚠️ **이 섹션의 항목들은 아래 요약이므로, 자세한 요구사항은 반드시 `tasks/TICKETS.md`를 참조하세요.**
+>
+> 각 역할이 실제 작업할 때는:
+> - 🔵 **Backend**: `BACKEND-START.md` → BE-ORG-001, BE-ORG-002 in `TICKETS.md`
+> - 🎨 **Frontend**: `FRONTEND-START.md` → FE-001, FE-ORG-001 in `TICKETS.md`
+> - 🟢 **DevOps**: `DEVOPS-START.md` → OPS-010/011/001/002 in `TICKETS.md`
 
 ### 프론트엔드 (`role/frontend`)
 
@@ -76,7 +117,9 @@
 
 ---
 
-## 🔵 우선순위 3 — 배포 후 (사람이 직접)
+## 🔵 우선순위 3 — 배포 후 (사람이 직접) 📚 REFERENCE
+
+> 이 섹션은 배포 후 진행할 작업 목록입니다. 자세한 내용은 `tasks/VISION.md` 참조.
 
 1. [ ] Supabase Dashboard에서 마이그레이션 확인 (테이블 생성 완료 여부)
 2. [ ] `deploy.ps1` 실행
@@ -134,8 +177,10 @@
 
 ---
 
-## 🟢 Phase 2 — 자산 유형 확장 (Supabase 전환 후 착수)
+## 🟢 Phase 2 — 자산 유형 확장 (Supabase 전환 후 착수) 📚 ROADMAP
 
+> 📌 **미래 계획입니다.** 자세한 내용은 `tasks/VISION.md` (roadmap) 및 스펙 문서 참조.
+>
 > 스펙: `tasks/features/asset-management.md`, `tasks/features/org-and-dashboard-improvements.md`
 
 ### 백엔드 (`role/backend`)
@@ -163,8 +208,10 @@
 
 ---
 
-## 🟢 Phase 3 — 월별 비용 보고서 + 통합 대시보드 (Phase 2 완료 후 착수)
+## 🟢 Phase 3 — 월별 비용 보고서 + 통합 대시보드 (Phase 2 완료 후 착수) 📚 ROADMAP
 
+> 📌 **미래 계획입니다.** 자세한 내용은 `tasks/VISION.md` 참조.
+>
 > 스펙: `tasks/features/monthly-report.md`, `tasks/features/org-and-dashboard-improvements.md`
 
 ### 백엔드 (`role/backend`)
@@ -195,8 +242,10 @@
 
 ---
 
-## 🟢 Phase 4 — 정보자산 증적 시스템 (Phase 3 완료 후 착수)
+## 🟢 Phase 4 — 정보자산 증적 시스템 (Phase 3 완료 후 착수) 📚 ROADMAP
 
+> 📌 **미래 계획입니다. 최종 목표입니다.** 자세한 내용은 `tasks/VISION.md` 참조.
+>
 > 스펙: `tasks/features/asset-archiving.md`
 > ISO27001/ISMS-P 기준 월별 자산 자동 증적 + 구글드라이브 연동
 
@@ -242,6 +291,20 @@
 - [ ] **[FE-032]** 증적 상태 모니터링 UI (진행률, 로그)
 - [ ] **[FE-033]** 기간 선택 캘린더 (최대 5년)
 - [ ] **[FE-034]** 환율 관리 UI (환율 조회, 동기화 트리거)
+
+---
+
+---
+
+## 📋 요약: 이 파일의 역할
+
+| 섹션 | 상태 | 참고 |
+|------|------|------|
+| **우선순위 1 (Supabase 전환)** | ✅ COMPLETED | 역사 기록용 |
+| **우선순위 2 (배포 전 마무리)** | 🔴 NOW ACTIVE | 👉 `TICKETS.md` 참조 (상세) |
+| **우선순위 3 (배포 후)** | 📌 REFERENCE | 배포 후 진행 사항 |
+| **Phase 2-4 (미래 계획)** | 📚 ROADMAP | `VISION.md` 참조 |
+| **완료된 기능** | 📚 REFERENCE | 구현된 기능 목록 |
 
 ---
 
