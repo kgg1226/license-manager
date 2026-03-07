@@ -8,10 +8,12 @@ services:
     image: license-manager:latest
     container_name: license-app
     ports:
-      - "80:3000"
+      - "8080:3000"
     environment:
       NODE_ENV: production
       DATABASE_URL: "file:/app/dev.db"
+      # SECURE_COOKIE: 폐쇄망 HTTP 통신이므로 false
+      # 주의: 향후 HTTPS 종료점(리버스 프록시)을 추가하면 true로 변경 필수
       SECURE_COOKIE: "false"
     volumes:
       - /home/ssm-user/app/data/dev.db:/app/dev.db
