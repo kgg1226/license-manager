@@ -10,16 +10,9 @@
 
 import "dotenv/config";
 import { PrismaClient } from "../generated/prisma/client";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-import path from "path";
 import { runRenewalNotification } from "../lib/batch/renewal-notification";
 
-const dbUrl =
-  process.env.DATABASE_URL?.replace("file:", "") ??
-  path.join(process.cwd(), "dev.db");
-
-const adapter = new PrismaBetterSqlite3({ url: dbUrl });
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 async function main() {
   console.log(`[${new Date().toISOString()}] 라이선스 갱신 알림 스케줄러 시작`);

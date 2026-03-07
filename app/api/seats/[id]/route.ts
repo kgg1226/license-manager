@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
+import { handlePrismaError } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -61,6 +62,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     return NextResponse.json(seat);
   } catch (error) {
+    const pErr = handlePrismaError(error);
+    if (pErr) return pErr;
     console.error("Failed to update seat:", error);
     return NextResponse.json(
       { error: "시트 키 수정에 실패했습니다." },
