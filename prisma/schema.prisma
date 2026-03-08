@@ -209,16 +209,20 @@ model LicenseOwner {
 }
 
 model NotificationLog {
-  id        Int      @id @default(autoincrement())
-  licenseId Int
-  channel   String
-  recipient String
-  status    String
-  errorMsg  String?
-  sentAt    DateTime @default(now())
-  license   License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  id         Int      @id @default(autoincrement())
+  licenseId  Int?
+  assetId    Int?
+  entityType String?                                // LICENSE | ASSET
+  channel    String
+  recipient  String
+  status     String
+  errorMsg   String?
+  sentAt     DateTime @default(now())
+  license    License? @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  asset      Asset?   @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
   @@index([licenseId])
+  @@index([assetId])
   @@index([sentAt])
 }
 
@@ -321,11 +325,12 @@ model Asset {
   createdBy       Int?                                // userId
 
   // 관계
-  company         OrgCompany?  @relation(fields: [companyId], references: [id])
-  orgUnit         OrgUnit?     @relation(fields: [orgUnitId], references: [id])
-  assignee        Employee?    @relation(fields: [assigneeId], references: [id])
-  hardwareDetail  HardwareDetail?
-  cloudDetail     CloudDetail?
+  company           OrgCompany?       @relation(fields: [companyId], references: [id])
+  orgUnit           OrgUnit?          @relation(fields: [orgUnitId], references: [id])
+  assignee          Employee?         @relation(fields: [assigneeId], references: [id])
+  hardwareDetail    HardwareDetail?
+  cloudDetail       CloudDetail?
+  notificationLogs  NotificationLog[]
 
   @@index([type])
   @@index([status])
