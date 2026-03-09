@@ -43,9 +43,10 @@ export async function POST(request: NextRequest) {
       await prisma.auditLog.create({
         data: {
           entityType: "USER",
-          entityId: 0,
+          entityId: -1,
           action: "LOGIN_FAILED",
-          details: JSON.stringify({ username, ip }),
+          actor: username,
+          details: JSON.stringify({ ip }),
         },
       }).catch(() => {});
 
@@ -68,7 +69,8 @@ export async function POST(request: NextRequest) {
           entityType: "USER",
           entityId: user.id,
           action: "LOGIN_FAILED",
-          details: JSON.stringify({ username, ip, reason: "inactive" }),
+          actor: user.username,
+          details: JSON.stringify({ ip, reason: "inactive" }),
         },
       }).catch(() => {});
       return NextResponse.json(
@@ -94,8 +96,7 @@ export async function POST(request: NextRequest) {
     }).catch(() => {});
 
     const response = NextResponse.json({
-      message: "로그인 성공",
-      user: { id: user.id, username: user.username },
+      user: { id: user.id, username: user.username, role: user.role },
     });
 
     response.cookies.set(SESSION_COOKIE, sessionId, {

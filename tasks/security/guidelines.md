@@ -48,13 +48,21 @@
 
 ### 인증/인가 (ISO 27001 A.9.4 / ISMS-P 2.5 / Zero Trust)
 - 모든 API 라우트에 인증 확인을 적용한다 (getCurrentUser 또는 requireAdmin)
+- **모든 데이터 변경 API(POST/PUT/PATCH/DELETE)에는 역할 검증(RBAC)을 필수로 포함한다**
+  - `if (user.role !== "ADMIN") return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 })`
+  - GET 엔드포인트: 인증만 확인 가능 (역할 검증 선택)
+  - POST/PUT/DELETE: 역할 검증 **필수**
 - 모든 "use server" Server Action 최상단에서 인증을 확인한다 — 미인증 시 throw 또는 에러 반환
 - 요청마다 세션을 재검증한다 (캐시된 인증 상태에 의존하지 않음)
 - 비밀번호는 bcryptjs로 해싱한다 (cost factor 10 이상)
-- **비밀번호 최소 8자 이상** (ISMS-P 2.5.3 — 기존 4자 정책 위반)
+- **비밀번호 최소 8자 이상** (ISMS-P 2.5.3)
 - 세션 쿠키: HttpOnly=true, SameSite=Lax 필수
-- **로그인 성공/실패, 로그아웃을 AuditLog에 기록한다** (username, timestamp, IP)
-- 로그인 실패 시 실패 횟수 제한 및 로깅 (5회 실패 → 일정 시간 잠금 권장)
+- **인증 이벤트 감사 로깅**:
+  - 로그인 성공: `actor: user.username`
+  - **로그인 실패: `actor: attemptedUsername` (시도한 username)**
+  - 로그아웃: `actor: user.username`
+- 로그인 실패 시 실패 횟수 제한 (5회 실패 → 15분 잠금) ✅ Rate Limiter 구현됨
+- 로그아웃 시 `deleteSession()` 호출로 서버 측 세션 무효화
 
 ### 접근 통제 (ISO 27001 A.9.1 / ISMS-P 2.6 / Zero Trust: Least Privilege)
 - 권한이 필요한 작업은 소유권/역할을 반드시 확인한다 (IDOR 방지)
@@ -115,3 +123,4 @@
 |------|-----------|-----------|-----------|
 | (초기) | 초안 작성 | ISO 27001, 27701, ISMS-P, Zero Trust | 프로젝트 보안 기본 규칙 수립 |
 | 2026-03-04 | API RBAC 필수화, Server Action 인증 필수화, 비밀번호 최소 8자, AuditLog actor 필수, 인증 이벤트 로깅, dockerfile 비root, 미사용 패키지 제거, 라이선스 키 로그 마스킹 | ISO 27001 A.9.1/9.4/12.4, ISMS-P 2.5/2.6/2.11, ISO 27701 8.2.5 | review-2026-03-04.md |
+| 2026-03-05 | 데이터 변경 API(POST/PUT/DELETE) RBAC 검증 명시적 필수화, 로그인 실패 감사 로그 actor 필드 강조, 로그인/로그아웃 역할 검증 규칙 보강 | ISO 27001 A.9.1, ISMS-P 2.6 | review-2026-03-05.md |
