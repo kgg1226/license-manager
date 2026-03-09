@@ -501,7 +501,154 @@
 - ✅ 자산 할당 & 이력 관리
 - ✅ 자산 검색·필터링·정렬
 - ✅ 자산 만료 알림
-- ✅ Phase 3 (월별 보고서) 진행 가능
+- ✅ Phase 3-1 (라이선스 계층) 진행 가능
+
+---
+
+## 🎨 PHASE 3-1: 라이선스 계층 구조 (License Hierarchy)
+
+> **개요**: 라이선스 계층화 (부모-자식 관계)
+> - Open VPN (상위) → Domain1, Domain2 (하위)
+> - Figma (상위) → Full, Dev, Figjam (하위)
+>
+> **상태**: 🔴 오픈 (2026-03-09)
+> **목표 완료일**: 2026-03-21 (2주)
+> **스펙**: `tasks/features/license-hierarchy.md`
+
+---
+
+### [BE-040] Prisma Schema — License `parentId` 추가 & API 수정
+
+**담당**: Backend Role
+**우선순위**: 🔴 Critical (Phase 3-1 블로커)
+**난이도**: 🟡 중간 (2-3일)
+**상태**: 🔴 오픈
+
+#### 배경
+- 라이선스를 계층화하여 관리
+- 예: Open VPN (상위) 아래 Domain1, Domain2 (하위)
+- CSV 임포트도 `parentLicenseName` 필드 지원
+
+#### 요구사항
+
+**[1] Prisma Schema 수정**
+- [ ] License 모델에 `parentId` 필드 추가
+  ```prisma
+  model License {
+    ...
+    parentId  Int?
+    parent    License? @relation("LicenseHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+    children  License[] @relation("LicenseHierarchy")
+  }
+  ```
+
+- [ ] 마이그레이션 생성: `prisma migrate dev --name add_license_hierarchy`
+- [ ] `prisma generate` 실행
+
+**[2] GET /api/licenses API 수정**
+- [ ] 계층 구조로 정렬 (부모 먼저, 하위는 들여쓰기)
+- [ ] 응답에 `depth`, `parentId`, `children` 포함
+  ```json
+  {
+    "id": 1,
+    "name": "Open VPN",
+    "parentId": null,
+    "children": [{ "id": 2, "name": "Domain1" }, { "id": 3, "name": "Domain2" }]
+  }
+  ```
+
+**[3] PUT /api/licenses/[id] API 수정**
+- [ ] `parentId` 필드 수정 허용
+- [ ] 순환 참조 검증 (A→B→A 불가)
+  ```
+  if (parentId) {
+    // Check: parent of parentId should not be this license
+  }
+  ```
+- [ ] 자신을 부모로 설정 불가
+
+**[4] CSV Import 수정**
+- [ ] `app/settings/import/templates.ts`: license 헤더에 `parentLicenseName` 추가
+- [ ] `app/settings/import/actions.ts`: `importLicenses` 함수 수정
+  - `parentLicenseName` 파싱
+  - 존재 여부 검증
+  - `parentId` 설정
+
+#### 완료 조건
+- [ ] 마이그레이션 생성 및 실행
+- [ ] GET API: 계층 구조 정렬 정상 작동
+- [ ] PUT API: parentId 업데이트 정상 작동
+- [ ] 순환 참조 테스트 (에러 발생 확인)
+- [ ] CSV import: parentLicenseName 정상 파싱
+- [ ] 테스트 완료
+
+#### 기술 사항
+- **파일**:
+  - `prisma/schema.prisma`
+  - `prisma/migrations/` (자동 생성)
+  - `app/api/licenses/route.ts`
+  - `app/settings/import/templates.ts`
+  - `app/settings/import/actions.ts`
+
+#### 종속성
+- 없음 (License 기능만 영향)
+
+---
+
+### [FE-040] License UI — 계층 구조 표시 및 편집
+
+**담당**: Frontend Role
+**우선순위**: 🔴 Critical
+**난이도**: 🟡 중간 (3-4일)
+**상태**: 🔴 오픈
+
+#### 요구사항
+
+**[1] 라이선스 목록 페이지 (GET /licenses)**
+- [ ] 계층 구조 시각화
+  - 상위 라이선스: 루트 레벨
+  - 하위 라이선스: 들여쓰기 + 아이콘 (└─)
+  - 예시:
+    ```
+    Open VPN
+    └─ Domain1.com
+    └─ Domain2.com
+    Figma
+    └─ Full
+    └─ Dev
+    ```
+
+**[2] 라이선스 편집 페이지 (/licenses/[id]/edit)**
+- [ ] "상위 라이선스" 드롭다운 추가
+  - 선택 가능한 상위 라이선스 목록
+  - "없음" 옵션 (루트)
+  - 자신을 부모로 선택 불가 (비활성화)
+
+**[3] 라이선스 상세 페이지 (/licenses/[id])**
+- [ ] 하위 라이선스 섹션
+  - 있으면: "관련 라이선스" 섹션에 테이블로 표시
+  - 없으면: 숨김
+
+**[4] CSV 템플릿 다운로드**
+- [ ] 라이선스 CSV 헤더: `parentLicenseName` 컬럼 추가
+- [ ] 샘플 행: 계층 구조 예시 포함
+
+#### 완료 조건
+- [ ] 목록: 계층 구조 정상 렌더링
+- [ ] 편집: parentId 드롭다운 정상 작동
+- [ ] 상세: 하위 라이선스 표시
+- [ ] CSV 템플릿: parentLicenseName 컬럼 추가
+- [ ] 스타일: Tailwind 일관성 유지
+
+#### 기술 사항
+- **파일**:
+  - `app/licenses/page.tsx`
+  - `app/licenses/[id]/page.tsx`
+  - `app/licenses/[id]/edit/page.tsx`
+  - 트리 렌더링 유틸 (필요 시 신규)
+
+#### 종속성
+- BE-040 (API 수정 완료)
 
 ---
 
@@ -509,8 +656,9 @@
 
 - `tasks/VISION.md` — 최종 목표 및 Phase별 로드맵
 - `tasks/features/asset-management.md` — 자산 관리 상세 스펙
+- `tasks/features/license-hierarchy.md` — 라이선스 계층 구조 스펙
 - `tasks/current-state.md` — 현재 프로젝트 상태
 
 ---
 
-**Phase 2가 완료되면 Phase 3 (월별 보고서)으로 진행합니다.** 🚀
+**Phase 3-1 (라이선스 계층)이 완료되면 Phase 3-2 (월별 보고서)로 진행합니다.** 🚀
