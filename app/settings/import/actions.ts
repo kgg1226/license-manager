@@ -290,10 +290,9 @@ async function importEmployees(rows: Record<string, string>[], actor: string): P
     const email = row.email?.trim() || null;
     const title = row.title?.trim() || null;
     const companyName = row.companyName?.trim() || null;
-    const orgName = row.orgName?.trim() || null;
-    const subOrgName = row.subOrgName?.trim() || null;
+    const orgUnitName = row.orgUnitName?.trim() || null;
     const groupName = row.groupName?.trim() || null;
-    return { name, department, email, title, companyName, orgName, subOrgName, groupName, rowNum };
+    return { name, department, email, title, companyName, orgUnitName, groupName, rowNum };
   });
 
   if (errors.length > 0) return { success: false, created: 0, updated: 0, errors };
@@ -314,16 +313,16 @@ async function importEmployees(rows: Record<string, string>[], actor: string): P
     if (errors.length > 0) return { success: false, created: 0, updated: 0, errors };
   }
 
-  const uniqueOrgNames = [...new Set(validated.map((r) => r.orgName).filter(Boolean))] as string[];
-  if (uniqueOrgNames.length > 0) {
-    const existingOrgs = await prisma.orgUnit.findMany({
-      where: { name: { in: uniqueOrgNames }, parentId: null },
+  const uniqueOrgUnitNames = [...new Set(validated.map((r) => r.orgUnitName).filter(Boolean))] as string[];
+  if (uniqueOrgUnitNames.length > 0) {
+    const existingOrgUnits = await prisma.orgUnit.findMany({
+      where: { name: { in: uniqueOrgUnitNames } },
       select: { name: true },
     });
-    const existingOrgSet = new Set(existingOrgs.map((o) => o.name));
+    const existingOrgUnitSet = new Set(existingOrgUnits.map((o) => o.name));
     for (const row of validated) {
-      if (row.orgName && !existingOrgSet.has(row.orgName)) {
-        errors.push({ row: row.rowNum, column: "orgName", message: `존재하지 않는 조직입니다: "${row.orgName}"` });
+      if (row.orgUnitName && !existingOrgUnitSet.has(row.orgUnitName)) {
+        errors.push({ row: row.rowNum, column: "orgUnitName", message: `존재하지 않는 조직입니다: "${row.orgUnitName}"` });
       }
     }
     if (errors.length > 0) return { success: false, created: 0, updated: 0, errors };
@@ -352,20 +351,20 @@ async function importEmployees(rows: Record<string, string>[], actor: string): P
     for (const row of validated) {
       // 조직 ID 조회 (이름 기준)
       let companyId: number | null = null;
-      let orgId: number | null = null;
-      let subOrgId: number | null = null;
+      let orgUnitId: number | null = null;
 
       if (row.companyName) {
         const company = await tx.orgCompany.findUnique({ where: { name: row.companyName } });
         companyId = company?.id ?? null;
       }
-      if (row.orgName && companyId) {
-        const org = await tx.orgUnit.findFirst({ where: { name: row.orgName, companyId, parentId: null } });
-        orgId = org?.id ?? null;
-      }
-      if (row.subOrgName && orgId) {
-        const subOrg = await tx.orgUnit.findFirst({ where: { name: row.subOrgName, parentId: orgId } });
-        subOrgId = subOrg?.id ?? null;
+      if (row.orgUnitName) {
+        const orgUnit = await tx.orgUnit.findFirst({
+          where: {
+            name: row.orgUnitName,
+            ...(companyId ? { companyId } : {}),
+          },
+        });
+        orgUnitId = orgUnit?.id ?? null;
       }
 
       const employeeData = {
@@ -374,8 +373,7 @@ async function importEmployees(rows: Record<string, string>[], actor: string): P
         email: row.email || null,
         title: row.title || null,
         companyId,
-        orgId,
-        subOrgId,
+        orgUnitId,
       };
 
       let employee;
