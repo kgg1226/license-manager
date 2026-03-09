@@ -1,15 +1,45 @@
-import { prisma } from "@/lib/prisma";
+"use client";
+
+import { useState, useEffect } from "react";
 import OrgTree from "./org-tree";
 
-export const dynamic = "force-dynamic";
+type OrgUnit = { id: number; name: string; parentId: number | null };
+type Company = { id: number; name: string; orgs: OrgUnit[] };
 
-export default async function OrgPage() {
-  const companies = await prisma.orgCompany.findMany({
-    include: {
-      orgs: { orderBy: { name: "asc" } },
-    },
-    orderBy: { name: "asc" },
-  });
+export default function OrgPage() {
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchCompanies = async () => {
+    try {
+      const res = await fetch("/api/org/companies");
+      if (!res.ok) throw new Error("Failed to fetch companies");
+      const data = await res.json();
+      setCompanies(data);
+    } catch (error) {
+      console.error("Failed to fetch companies:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCompanies();
+  }, []);
+
+  const handleRefresh = async () => {
+    await fetchCompanies();
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-10">
+        <div className="mx-auto max-w-3xl px-4">
+          <p className="text-center text-gray-500">로딩 중...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-10">
@@ -22,7 +52,7 @@ export default async function OrgPage() {
             <p className="text-sm text-gray-500">등록된 조직이 없습니다.</p>
           </div>
         ) : (
-          <OrgTree companies={companies} />
+          <OrgTree companies={companies} onRefresh={handleRefresh} />
         )}
       </div>
     </div>

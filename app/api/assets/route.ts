@@ -1,0 +1,237 @@
+// BE-021: GET — 자산 목록 조회 (필터/검색/페이지네이션)
+// BE-021: POST — 자산 등록
+
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { writeAuditLog } from "@/lib/audit-log";
+import {
+  ValidationError,
+  handleValidationError,
+  handlePrismaError,
+  vStrReq,
+  vStr,
+  vNum,
+  vEnum,
+  vDate,
+} from "@/lib/validation";
+import type { Prisma } from "@/generated/prisma/client";
+
+const ASSET_TYPES = ["SOFTWARE", "CLOUD", "HARDWARE", "DOMAIN_SSL", "OTHER"] as const;
+const ASSET_STATUSES = ["ACTIVE", "INACTIVE", "DISPOSED"] as const;
+const BILLING_CYCLES = ["MONTHLY", "ANNUAL", "ONE_TIME"] as const;
+const SORT_FIELDS = ["name", "cost", "monthlyCost", "expiryDate", "createdAt"] as const;
+
+// ── GET /api/assets — 자산 목록 조회 ──
+
+export async function GET(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user)
+    return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+
+  try {
+    const url = request.nextUrl;
+    const type = vEnum(url.searchParams.get("type"), ASSET_TYPES);
+    const status = vEnum(url.searchParams.get("status"), ASSET_STATUSES);
+    const search = vStr(url.searchParams.get("search"), 200);
+    const companyId = vNum(url.searchParams.get("companyId"), { min: 1, integer: true });
+    const orgUnitId = vNum(url.searchParams.get("orgUnitId"), { min: 1, integer: true });
+    const assigneeId = vNum(url.searchParams.get("assigneeId"), { min: 1, integer: true });
+
+    const page = vNum(url.searchParams.get("page"), { min: 1, integer: true }) ?? 1;
+    const limit = vNum(url.searchParams.get("limit"), { min: 1, max: 100, integer: true }) ?? 20;
+    const sortBy = vEnum(url.searchParams.get("sortBy"), SORT_FIELDS) ?? "createdAt";
+    const sortOrder = vEnum(url.searchParams.get("sortOrder"), ["asc", "desc"] as const) ?? "desc";
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = {};
+    if (type) where.type = type;
+    if (status) where.status = status;
+    if (companyId) where.companyId = companyId;
+    if (orgUnitId) where.orgUnitId = orgUnitId;
+    if (assigneeId) where.assigneeId = assigneeId;
+    if (search) {
+      where.name = { contains: search, mode: "insensitive" };
+    }
+
+    const [assets, total] = await Promise.all([
+      prisma.asset.findMany({
+        where,
+        include: {
+          assignee: { select: { id: true, name: true } },
+          orgUnit: { select: { id: true, name: true } },
+          company: { select: { id: true, name: true } },
+          hardwareDetail: true,
+          cloudDetail: true,
+        },
+        orderBy: { [sortBy]: sortOrder },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.asset.count({ where }),
+    ]);
+
+    return NextResponse.json({
+      assets,
+      total,
+      page,
+      limit,
+    });
+  } catch (error) {
+    const vErr = handleValidationError(error);
+    if (vErr) return vErr;
+    console.error("Failed to fetch assets:", error);
+    return NextResponse.json(
+      { error: "자산 목록 조회에 실패했습니다." },
+      { status: 500 },
+    );
+  }
+}
+
+// ── POST /api/assets — 자산 등록 ──
+
+export async function POST(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user)
+    return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+  if (user.role !== "ADMIN")
+    return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
+
+  try {
+    const body = await request.json();
+
+    // ── 필수 필드 검증 ──
+    const nameVal = vStrReq(body.name, "자산명", 255);
+    const typeVal = vEnum(body.type, ASSET_TYPES);
+    if (!typeVal) throw new ValidationError("자산 유형은 필수입니다. 허용값: " + ASSET_TYPES.join(", "));
+
+    // ── 선택 필드 검증 ──
+    const vendorVal = vStr(body.vendor, 255);
+    const descriptionVal = vStr(body.description, 2000);
+    const costVal = vNum(body.cost, { min: 0 });
+    const currencyVal = vStr(body.currency, 10);
+    const billingCycleVal = body.billingCycle ? vEnum(body.billingCycle, BILLING_CYCLES) : null;
+    const purchaseDateVal = vDate(body.purchaseDate);
+    const expiryDateVal = vDate(body.expiryDate);
+    const renewalDateVal = vDate(body.renewalDate);
+    const companyIdVal = vNum(body.companyId, { min: 1, integer: true });
+    const orgUnitIdVal = vNum(body.orgUnitId, { min: 1, integer: true });
+    const assigneeIdVal = vNum(body.assigneeId, { min: 1, integer: true });
+
+    // monthlyCost: 직접 입력 또는 자동 계산
+    let monthlyCostVal = vNum(body.monthlyCost, { min: 0 });
+    if (monthlyCostVal == null && costVal != null && billingCycleVal) {
+      switch (billingCycleVal) {
+        case "MONTHLY":
+          monthlyCostVal = costVal;
+          break;
+        case "ANNUAL":
+          monthlyCostVal = Math.round((costVal / 12) * 100) / 100;
+          break;
+        case "ONE_TIME":
+          monthlyCostVal = 0;
+          break;
+      }
+    }
+
+    const asset = await prisma.$transaction(async (tx) => {
+      // FK 존재 검증
+      if (companyIdVal) {
+        const company = await tx.orgCompany.findUnique({ where: { id: companyIdVal }, select: { id: true } });
+        if (!company) throw new ValidationError("존재하지 않는 회사입니다.");
+      }
+      if (orgUnitIdVal) {
+        const unit = await tx.orgUnit.findUnique({ where: { id: orgUnitIdVal }, select: { id: true } });
+        if (!unit) throw new ValidationError("존재하지 않는 조직입니다.");
+      }
+      if (assigneeIdVal) {
+        const emp = await tx.employee.findUnique({ where: { id: assigneeIdVal }, select: { id: true } });
+        if (!emp) throw new ValidationError("존재하지 않는 조직원입니다.");
+      }
+
+      // ── Asset 생성 ──
+      const assetData: Prisma.AssetCreateInput = {
+        name: nameVal,
+        type: typeVal,
+        vendor: vendorVal,
+        description: descriptionVal,
+        cost: costVal,
+        monthlyCost: monthlyCostVal,
+        currency: currencyVal ?? "KRW",
+        billingCycle: billingCycleVal,
+        purchaseDate: purchaseDateVal,
+        expiryDate: expiryDateVal,
+        renewalDate: renewalDateVal,
+        createdBy: user.id,
+        ...(companyIdVal && { company: { connect: { id: companyIdVal } } }),
+        ...(orgUnitIdVal && { orgUnit: { connect: { id: orgUnitIdVal } } }),
+        ...(assigneeIdVal && { assignee: { connect: { id: assigneeIdVal } } }),
+      };
+
+      const created = await tx.asset.create({ data: assetData });
+
+      // ── 유형별 상세 생성 ──
+      if (typeVal === "HARDWARE" && body.hardwareDetail) {
+        const hd = body.hardwareDetail;
+        await tx.hardwareDetail.create({
+          data: {
+            assetId: created.id,
+            manufacturer: vStr(hd.manufacturer, 255),
+            model: vStr(hd.model, 255),
+            serialNumber: vStr(hd.serialNumber, 255),
+            location: vStr(hd.location, 500),
+            specs: hd.specs ?? null,
+          },
+        });
+      }
+
+      if (typeVal === "CLOUD" && body.cloudDetail) {
+        const cd = body.cloudDetail;
+        await tx.cloudDetail.create({
+          data: {
+            assetId: created.id,
+            platform: vStr(cd.platform, 100),
+            accountId: vStr(cd.accountId, 255),
+            region: vStr(cd.region, 100),
+            seatCount: vNum(cd.seatCount, { min: 0, integer: true }),
+          },
+        });
+      }
+
+      // ── AuditLog ──
+      await writeAuditLog(tx, {
+        entityType: "ASSET",
+        entityId: created.id,
+        action: "CREATED",
+        actor: user.username,
+        actorType: "USER",
+        actorId: user.id,
+        details: { name: nameVal, type: typeVal, cost: costVal },
+      });
+
+      // 전체 데이터 반환
+      return tx.asset.findUnique({
+        where: { id: created.id },
+        include: {
+          assignee: { select: { id: true, name: true } },
+          orgUnit: { select: { id: true, name: true } },
+          company: { select: { id: true, name: true } },
+          hardwareDetail: true,
+          cloudDetail: true,
+        },
+      });
+    });
+
+    return NextResponse.json(asset, { status: 201 });
+  } catch (error) {
+    const vErr = handleValidationError(error);
+    if (vErr) return vErr;
+    const pErr = handlePrismaError(error);
+    if (pErr) return pErr;
+    console.error("Failed to create asset:", error);
+    return NextResponse.json(
+      { error: "자산 등록에 실패했습니다." },
+      { status: 500 },
+    );
+  }
+}

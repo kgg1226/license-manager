@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Package, History } from "lucide-react";
 import ManageLicenses from "./manage-licenses";
 import OrgEditForm from "./org-edit-form";
+import { getEmployeeDisplayName } from "@/lib/employee-display";
 import OffboardButton from "./offboard-button";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
   const { id } = await params;
   const employeeId = Number(id);
 
-  const [employee, companies] = await Promise.all([
+  const [employee, companies, sameName] = await Promise.all([
     prisma.employee.findUnique({
       where: { id: employeeId },
       include: {
@@ -31,9 +32,19 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
       },
       orderBy: { name: "asc" },
     }),
+    prisma.employee.findMany({
+      where: {}, // 중복 이름 검사용으로 모든 구성원 조회 (간단함)
+      select: { id: true, name: true, email: true },
+    }),
   ]);
 
   if (!employee) notFound();
+
+  // 중복 이름 구분을 위한 표시명 계산
+  const displayName = getEmployeeDisplayName(
+    { id: employee.id, name: employee.name, email: employee.email },
+    sameName
+  );
 
   const assignmentHistory = await prisma.assignmentHistory.findMany({
     where: { employeeId: employee.id },
@@ -135,7 +146,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
     <div className="min-h-screen bg-gray-50 py-10">
       <div className="mx-auto max-w-5xl px-4">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">{employee.name}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{displayName}</h1>
           <div className="flex items-center gap-3">
             <OffboardButton
               employeeId={employee.id}

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hashPassword } from "@/lib/auth";
+import { writeAuditLog } from "@/lib/audit-log";
+import { handleValidationError, handlePrismaError, vStrReq, vEnumReq } from "@/lib/validation";
+
+const VALID_ROLES = ["ADMIN", "USER"] as const;
 
 // GET /api/admin/users — 사용자 목록
 export async function GET() {
@@ -28,31 +32,54 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { username, password, role } = body;
 
-    if (!username?.trim() || !password) {
-      return NextResponse.json({ error: "사용자명과 비밀번호는 필수입니다." }, { status: 400 });
+    // ── 입력 검증 ──
+    const usernameVal = vStrReq(body.username, "사용자명", 50);
+    if (usernameVal.length < 2) {
+      return NextResponse.json({ error: "사용자명은 2자 이상이어야 합니다." }, { status: 400 });
     }
-    if (password.length < 8) {
-      return NextResponse.json({ error: "비밀번호는 8자 이상이어야 합니다." }, { status: 400 });
+    if (!/^[a-zA-Z0-9._-]+$/.test(usernameVal)) {
+      return NextResponse.json({ error: "사용자명은 영문, 숫자, ., _, - 만 사용 가능합니다." }, { status: 400 });
     }
+    if (!body.password || typeof body.password !== "string") {
+      return NextResponse.json({ error: "비밀번호는 필수입니다." }, { status: 400 });
+    }
+    if (body.password.length < 8 || body.password.length > 128) {
+      return NextResponse.json({ error: "비밀번호는 8자 이상 128자 이하여야 합니다." }, { status: 400 });
+    }
+    const roleVal = vEnumReq(body.role, "role", VALID_ROLES);
 
-    const hash = await hashPassword(password);
-    const created = await prisma.user.create({
-      data: {
-        username: username.trim(),
-        password: hash,
-        role: role === "ADMIN" ? "ADMIN" : "USER",
-      },
-      select: { id: true, username: true, role: true, isActive: true, createdAt: true },
+    const hash = await hashPassword(body.password);
+    const created = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          username: usernameVal,
+          password: hash,
+          role: roleVal,
+        },
+        select: { id: true, username: true, role: true, isActive: true, createdAt: true },
+      });
+
+      await writeAuditLog(tx, {
+        entityType: "USER",
+        entityId: newUser.id,
+        action: "CREATED",
+        actor: user.username,
+        actorType: "USER",
+        actorId: user.id,
+        details: { targetUsername: newUser.username, role: newUser.role },
+      });
+
+      return newUser;
     });
 
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
+    const vErr = handleValidationError(error);
+    if (vErr) return vErr;
+    const pErr = handlePrismaError(error, { uniqueMessage: "이미 사용 중인 사용자명입니다." });
+    if (pErr) return pErr;
     console.error("Failed to create user:", error);
-    if (error instanceof Error && error.message.includes("Unique constraint")) {
-      return NextResponse.json({ error: "이미 사용 중인 사용자명입니다." }, { status: 409 });
-    }
     return NextResponse.json({ error: "사용자 생성에 실패했습니다." }, { status: 500 });
   }
 }

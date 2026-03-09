@@ -52,45 +52,54 @@ const badgeColors = {
   green: "bg-green-100 text-green-700",
 };
 
+const ITEMS_PER_PAGE = 50;
+
 export default async function LicensesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string; order?: string }>;
+  searchParams: Promise<{ sort?: string; order?: string; page?: string }>;
 }) {
   const params = await searchParams;
   const sortField = (["name", "totalQuantity", "assigned", "expiryDate"].includes(params.sort ?? "")
     ? params.sort
     : "expiryDate") as SortField;
   const sortOrder = (params.order === "asc" || params.order === "desc" ? params.order : "asc") as SortOrder;
+  const currentPage = Math.max(1, parseInt(params.page ?? "1", 10));
+  const skip = (currentPage - 1) * ITEMS_PER_PAGE;
 
-  const licenses = await prisma.license.findMany({
-    select: {
-      id: true,
-      name: true,
-      licenseType: true,
-      totalQuantity: true,
-      totalAmountKRW: true,
-      paymentCycle: true,
-      purchaseDate: true,
-      expiryDate: true,
-      noticePeriodDays: true,
-      adminName: true,
-      assignments: {
-        where: { returnedDate: null },
-        select: {
-          id: true,
-          employeeId: true,
-          employee: { select: { name: true, department: true } },
+  const [licenses, totalCount] = await Promise.all([
+    prisma.license.findMany({
+      skip,
+      take: ITEMS_PER_PAGE,
+      select: {
+        id: true,
+        name: true,
+        licenseType: true,
+        totalQuantity: true,
+        totalAmountKRW: true,
+        paymentCycle: true,
+        purchaseDate: true,
+        expiryDate: true,
+        noticePeriodDays: true,
+        adminName: true,
+        assignments: {
+          where: { returnedDate: null },
+          select: {
+            id: true,
+            employeeId: true,
+            employee: { select: { name: true, department: true } },
+          },
+        },
+        seats: {
+          select: {
+            id: true,
+            key: true,
+          },
         },
       },
-      seats: {
-        select: {
-          id: true,
-          key: true,
-        },
-      },
-    },
-  });
+    }),
+    prisma.license.count(),
+  ]);
 
   const enriched = licenses.map((license) => {
     const assignedCount = license.assignments.length;
@@ -177,115 +186,194 @@ export default async function LicensesPage({
             </Link>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  {SORTABLE_COLUMNS.map((col) => (
-                    <th key={col.key} className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                      <Link
-                        href={sortUrl(col.key)}
-                        className="inline-flex items-center gap-1 hover:text-gray-900"
-                      >
-                        {col.label}
-                        <span className="text-blue-500">{sortIndicator(col.key)}</span>
-                      </Link>
-                    </th>
-                  ))}
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">연간 비용</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">담당자</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">해지 통보</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium uppercase text-gray-500">관리</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {enriched.map((license) => {
-                  const badge = getNoticeBadge(license.expiryDate, license.noticePeriodDays);
-                  const pct = license.maxCapacity > 0
-                    ? Math.round((license.assignedCount / license.maxCapacity) * 100)
-                    : 0;
-                  const barColor =
-                    pct >= 100 ? "bg-red-500" : pct >= 80 ? "bg-yellow-500" : "bg-blue-500";
+          <>
+            <div className="overflow-x-auto rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {SORTABLE_COLUMNS.map((col) => (
+                      <th key={col.key} className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                        <Link
+                          href={sortUrl(col.key)}
+                          className="inline-flex items-center gap-1 hover:text-gray-900"
+                        >
+                          {col.label}
+                          <span className="text-blue-500">{sortIndicator(col.key)}</span>
+                        </Link>
+                      </th>
+                    ))}
+                    <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">연간 비용</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">담당자</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">해지 통보</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium uppercase text-gray-500">관리</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {enriched.map((license) => {
+                    const badge = getNoticeBadge(license.expiryDate, license.noticePeriodDays);
+                    const pct = license.maxCapacity > 0
+                      ? Math.round((license.assignedCount / license.maxCapacity) * 100)
+                      : 0;
+                    const barColor =
+                      pct >= 100 ? "bg-red-500" : pct >= 80 ? "bg-yellow-500" : "bg-blue-500";
 
-                  return (
-                    <LicenseRow key={license.id} id={license.id}>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                        <span className="inline-flex items-center gap-1.5">
-                          {license.name}
-                          {license.licenseType === "VOLUME" && (
-                            <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700">
-                              Volume
+                    return (
+                      <LicenseRow key={license.id} id={license.id}>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                          <span className="inline-flex items-center gap-1.5">
+                            {license.name}
+                            {license.licenseType === "VOLUME" && (
+                              <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700">
+                                Volume
+                              </span>
+                            )}
+                            {license.licenseType === "NO_KEY" && (
+                              <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600">
+                                No Key
+                              </span>
+                            )}
+                            {license.licenseType === "KEY_BASED" && license.missingKeyCount > 0 && (
+                              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                                키 미등록 {license.missingKeyCount}
+                              </span>
+                            )}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600 tabular-nums">
+                          {license.maxCapacity}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-20 rounded-full bg-gray-200">
+                              <div
+                                className={`h-2 rounded-full ${barColor}`}
+                                style={{ width: `${Math.min(pct, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-sm tabular-nums text-gray-600">
+                              {license.assignedCount} / {license.maxCapacity}
                             </span>
-                          )}
-                          {license.licenseType === "NO_KEY" && (
-                            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600">
-                              No Key
-                            </span>
-                          )}
-                          {license.licenseType === "KEY_BASED" && license.missingKeyCount > 0 && (
-                            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
-                              키 미등록 {license.missingKeyCount}
-                            </span>
-                          )}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 tabular-nums">
-                        {license.maxCapacity}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-20 rounded-full bg-gray-200">
-                            <div
-                              className={`h-2 rounded-full ${barColor}`}
-                              style={{ width: `${Math.min(pct, 100)}%` }}
-                            />
                           </div>
-                          <span className="text-sm tabular-nums text-gray-600">
-                            {license.assignedCount} / {license.maxCapacity}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {license.expiryDate?.toLocaleDateString("ko-KR") ?? "—"}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 text-right tabular-nums">
-                        {formatAnnualCost(license.totalAmountKRW, license.paymentCycle)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {license.adminName ?? "—"}
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        {badge ? (
-                          <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${badgeColors[badge.variant]}`}>
-                            {badge.label}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <AssignButton
-                            licenseId={license.id}
-                            licenseName={license.name}
-                            remaining={license.remainingCount}
-                            employees={employees}
-                            assignedEmployeeIds={license.assignedEmployeeIds}
-                            licenseType={license.licenseType}
-                          />
-                          <UnassignButton
-                            licenseName={license.name}
-                            assignedEmployees={license.assignedEmployees}
-                          />
-                          <DeleteButton id={license.id} name={license.name} />
-                        </div>
-                      </td>
-                    </LicenseRow>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {license.expiryDate?.toLocaleDateString("ko-KR") ?? "—"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600 text-right tabular-nums">
+                          {formatAnnualCost(license.totalAmountKRW, license.paymentCycle)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {license.adminName ?? "—"}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          {badge ? (
+                            <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${badgeColors[badge.variant]}`}>
+                              {badge.label}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <AssignButton
+                              licenseId={license.id}
+                              licenseName={license.name}
+                              remaining={license.remainingCount}
+                              employees={employees}
+                              assignedEmployeeIds={license.assignedEmployeeIds}
+                              licenseType={license.licenseType}
+                            />
+                            <UnassignButton
+                              licenseName={license.name}
+                              assignedEmployees={license.assignedEmployees}
+                            />
+                            <DeleteButton id={license.id} name={license.name} />
+                          </div>
+                        </td>
+                      </LicenseRow>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {totalCount > ITEMS_PER_PAGE && (
+              <div className="mt-6 flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  총 <span className="font-medium">{totalCount}</span>개 라이선스
+                  <span className="ml-2">
+                    ({(currentPage - 1) * ITEMS_PER_PAGE + 1}-
+                    {Math.min(currentPage * ITEMS_PER_PAGE, totalCount)})
+                  </span>
+                </div>
+
+                <div className="flex gap-1">
+                  {currentPage > 1 && (
+                    <Link
+                      href={`/licenses?sort=${sortField}&order=${sortOrder}&page=1`}
+                      className="inline-flex items-center gap-1 rounded px-2 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
+                    >
+                      ← 처음
+                    </Link>
+                  )}
+
+                  {currentPage > 1 && (
+                    <Link
+                      href={`/licenses?sort=${sortField}&order=${sortOrder}&page=${currentPage - 1}`}
+                      className="inline-flex items-center gap-1 rounded px-2 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
+                    >
+                      ‹ 이전
+                    </Link>
+                  )}
+
+                  <div className="flex items-center gap-0.5">
+                    {Array.from({ length: Math.min(5, Math.ceil(totalCount / ITEMS_PER_PAGE)) }).map(
+                      (_, i) => {
+                        const pageNum =
+                          currentPage <= 3
+                            ? i + 1
+                            : i + currentPage - 2;
+                        const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+                        if (pageNum > totalPages) return null;
+                        return (
+                          <Link
+                            key={pageNum}
+                            href={`/licenses?sort=${sortField}&order=${sortOrder}&page=${pageNum}`}
+                            className={`inline-flex items-center justify-center rounded px-2 py-1.5 text-sm ${
+                              currentPage === pageNum
+                                ? "bg-blue-600 text-white font-medium"
+                                : "text-gray-600 hover:bg-gray-100"
+                            }`}
+                          >
+                            {pageNum}
+                          </Link>
+                        );
+                      }
+                    )}
+                  </div>
+
+                  {currentPage < Math.ceil(totalCount / ITEMS_PER_PAGE) && (
+                    <Link
+                      href={`/licenses?sort=${sortField}&order=${sortOrder}&page=${currentPage + 1}`}
+                      className="inline-flex items-center gap-1 rounded px-2 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
+                    >
+                      다음 ›
+                    </Link>
+                  )}
+
+                  {currentPage < Math.ceil(totalCount / ITEMS_PER_PAGE) && (
+                    <Link
+                      href={`/licenses?sort=${sortField}&order=${sortOrder}&page=${Math.ceil(totalCount / ITEMS_PER_PAGE)}`}
+                      className="inline-flex items-center gap-1 rounded px-2 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
+                    >
+                      끝 →
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

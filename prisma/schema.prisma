@@ -1,3 +1,4 @@
+// [2026-03-08] Asset, HardwareDetail, CloudDetail 모델 추가 (Phase 2 자산 유형 확장)
 // [2026-03-05] SQLite → PostgreSQL(Supabase) 전환
 // [2026-03-04] MemberStatus/RenewalStatus enum 추가, OrgUnit sortOrder/updatedAt, Employee orgUnitId/status/offboardingUntil 통합,
 //              License renewal 필드, LicenseRenewalHistory/LicenseOwner/NotificationLog 신규, AuditLog actorType/actorId, User mustChangePassword
@@ -79,6 +80,7 @@ model Employee {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   assignments      Assignment[]
+  assets           Asset[]
   company          OrgCompany?   @relation(fields: [companyId], references: [id])
   orgUnit          OrgUnit?      @relation("OrgMembers", fields: [orgUnitId], references: [id])
 
@@ -93,6 +95,7 @@ model OrgCompany {
   createdAt DateTime   @default(now())
   orgs      OrgUnit[]
   employees Employee[]
+  assets    Asset[]
 }
 
 // 조직/하위조직 단위 (self-relation으로 계층 표현)
@@ -108,6 +111,7 @@ model OrgUnit {
   parent    OrgUnit?   @relation("OrgHierarchy", fields: [parentId], references: [id])
   children  OrgUnit[]  @relation("OrgHierarchy")
   members   Employee[] @relation("OrgMembers")
+  assets    Asset[]
 
   @@unique([name, companyId])
 }
@@ -205,16 +209,20 @@ model LicenseOwner {
 }
 
 model NotificationLog {
-  id        Int      @id @default(autoincrement())
-  licenseId Int
-  channel   String
-  recipient String
-  status    String
-  errorMsg  String?
-  sentAt    DateTime @default(now())
-  license   License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  id         Int      @id @default(autoincrement())
+  licenseId  Int?
+  assetId    Int?
+  entityType String?                                // LICENSE | ASSET
+  channel    String
+  recipient  String
+  status     String
+  errorMsg   String?
+  sentAt     DateTime @default(now())
+  license    License? @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  asset      Asset?   @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
   @@index([licenseId])
+  @@index([assetId])
   @@index([sentAt])
 }
 
@@ -269,4 +277,84 @@ enum RenewalStatus {
   IN_PROGRESS
   NOT_RENEWING
   RENEWED
+}
+
+// ── Phase 2: 자산 유형 확장 ──
+
+enum AssetType {
+  SOFTWARE    // 소프트웨어 라이선스
+  CLOUD       // 클라우드·SaaS 구독
+  HARDWARE    // 실물 자산
+  DOMAIN_SSL  // 도메인·SSL 인증서
+  OTHER       // 기타
+}
+
+enum AssetStatus {
+  ACTIVE      // 사용 중
+  INACTIVE    // 미사용·대기
+  DISPOSED    // 폐기
+}
+
+model Asset {
+  id              Int          @id @default(autoincrement())
+  type            AssetType
+  status          AssetStatus  @default(ACTIVE)
+  name            String                              // 자산명
+  vendor          String?                             // 공급업체
+  description     String?
+
+  // 비용
+  monthlyCost     Decimal?     @db.Decimal(12, 2)     // 월 환산 비용 (집계 기준)
+  cost            Decimal?     @db.Decimal(12, 2)     // 실제 청구 금액
+  currency        String?      @default("KRW")
+  billingCycle    String?                             // MONTHLY | ANNUAL | ONE_TIME
+
+  // 일정
+  purchaseDate    DateTime?
+  expiryDate      DateTime?
+  renewalDate     DateTime?
+
+  // 소유·배정
+  companyId       Int?
+  orgUnitId       Int?                                // 배정 부서
+  assigneeId      Int?                                // 배정 조직원
+
+  // 메타
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  createdBy       Int?                                // userId
+
+  // 관계
+  company           OrgCompany?       @relation(fields: [companyId], references: [id])
+  orgUnit           OrgUnit?          @relation(fields: [orgUnitId], references: [id])
+  assignee          Employee?         @relation(fields: [assigneeId], references: [id])
+  hardwareDetail    HardwareDetail?
+  cloudDetail       CloudDetail?
+  notificationLogs  NotificationLog[]
+
+  @@index([type])
+  @@index([status])
+  @@index([expiryDate])
+  @@index([companyId])
+}
+
+model HardwareDetail {
+  id           Int     @id @default(autoincrement())
+  assetId      Int     @unique
+  manufacturer String?                               // 제조사
+  model        String?                               // 모델명
+  serialNumber String?                               // 시리얼 넘버
+  location     String?                               // 보관 위치
+  specs        Json?                                  // { cpu, ram, storage, ... }
+  asset        Asset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+model CloudDetail {
+  id          Int     @id @default(autoincrement())
+  assetId     Int     @unique
+  platform    String?                                // AWS, GCP, Azure, Slack 등
+  accountId   String?                                // 계정 ID / 이메일
+  region      String?                                // 리전
+  seatCount   Int?                                   // 라이선스 수량
+  asset       Asset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
 }

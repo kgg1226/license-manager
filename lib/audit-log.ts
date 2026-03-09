@@ -5,7 +5,7 @@ type Tx = Omit<
   "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends"
 >;
 
-export type AuditEntityType = "LICENSE" | "EMPLOYEE" | "ASSIGNMENT" | "SEAT" | "ORG_UNIT" | "USER";
+export type AuditEntityType = "LICENSE" | "EMPLOYEE" | "ASSIGNMENT" | "SEAT" | "ORG_UNIT" | "ORG_COMPANY" | "GROUP" | "USER" | "ASSET";
 
 export type AuditAction =
   | "CREATED"
@@ -13,11 +13,17 @@ export type AuditAction =
   | "DELETED"
   | "ASSIGNED"
   | "UNASSIGNED"
+  | "RETURNED"
   | "REVOKED"
   | "IMPORTED"
   | "MEMBER_OFFBOARD"
   | "MEMBER_MOVED"
+  | "MEMBER_ADDED"
+  | "MEMBER_REMOVED"
+  | "OWNER_ADDED"
+  | "OWNER_REMOVED"
   | "RENEWAL_STATUS_CHANGED"
+  | "RENEWAL_DATE_SET"
   | "PASSWORD_RESET";
 
 export async function writeAuditLog(
