@@ -50,6 +50,10 @@ WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1
 
+# 비root 사용자 생성 (보안: ISO 27001 A.12.6)
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
 # 프로덕션 의존성 (devDeps 제거 후, better-sqlite3 네이티브 바이너리 포함)
 COPY --from=builder /app/node_modules ./node_modules
 
@@ -69,6 +73,12 @@ COPY --from=builder /app/next.config.ts ./next.config.ts
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 
 EXPOSE 3000
+
+# 소유권 변경 (비root 사용자)
+RUN chown -R nodejs:nodejs /app
+
+# 비root 사용자로 전환
+USER nodejs
 
 # DATABASE_URL 등 필수 환경 변수는 docker-compose 또는 docker run -e 로 주입
 CMD ["npm", "start"]

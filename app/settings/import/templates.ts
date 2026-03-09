@@ -64,10 +64,10 @@ export const templates: Record<ImportType, TemplateDefinition> = {
   },
   employees: {
     label: "조직원",
-    headers: ["name", "department", "email", "title", "companyName", "orgName", "subOrgName", "groupName"],
+    headers: ["name", "department", "email", "title", "companyName", "orgUnitName", "groupName"],
     sampleRows: [
-      ["홍길동", "개발팀", "hong@example.com", "선임연구원", "본사", "개발본부", "백엔드팀", "기본 그룹"],
-      ["김철수", "마케팅팀", "kim@example.com", "", "", "", "", ""],
+      ["홍길동", "개발팀", "hong@example.com", "선임연구원", "본사", "백엔드팀", "기본 그룹"],
+      ["김철수", "마케팅팀", "kim@example.com", "", "", "", ""],
     ],
   },
   groups: {

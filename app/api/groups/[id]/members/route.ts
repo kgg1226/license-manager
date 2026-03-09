@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { writeAuditLog } from "@/lib/audit-log";
+import { ValidationError, handleValidationError, handlePrismaError, vNumArr } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -13,15 +15,23 @@ export async function POST(request: NextRequest, { params }: Params) {
   try {
     const { id } = await params;
     const groupId = Number(id);
-    const { licenseIds } = await request.json();
+    const body = await request.json();
 
-    if (!Array.isArray(licenseIds) || licenseIds.length === 0) {
-      return NextResponse.json({ error: "추가할 라이선스를 선택하세요." }, { status: 400 });
-    }
+    // ── 입력 검증 ──
+    const licenseIds = vNumArr(body.licenseIds, "licenseIds");
 
     const group = await prisma.licenseGroup.findUnique({ where: { id: groupId } });
     if (!group) {
       return NextResponse.json({ error: "그룹을 찾을 수 없습니다." }, { status: 404 });
+    }
+
+    // FK 존재 검증: licenseIds 배치 확인
+    const existingLicenseCount = await prisma.license.count({ where: { id: { in: licenseIds } } });
+    if (existingLicenseCount !== licenseIds.length) {
+      return NextResponse.json(
+        { error: "존재하지 않는 라이선스가 포함되어 있습니다." },
+        { status: 400 },
+      );
     }
 
     // Get existing members to skip duplicates
@@ -30,14 +40,26 @@ export async function POST(request: NextRequest, { params }: Params) {
       select: { licenseId: true },
     });
     const existingSet = new Set(existing.map((e) => e.licenseId));
-    const newIds = (licenseIds as number[]).filter((id) => !existingSet.has(id));
+    const newIds = licenseIds.filter((lid) => !existingSet.has(lid));
 
     if (newIds.length > 0) {
-      await prisma.licenseGroupMember.createMany({
-        data: newIds.map((licenseId) => ({
-          licenseGroupId: groupId,
-          licenseId,
-        })),
+      await prisma.$transaction(async (tx) => {
+        await tx.licenseGroupMember.createMany({
+          data: newIds.map((licenseId) => ({
+            licenseGroupId: groupId,
+            licenseId,
+          })),
+        });
+
+        await writeAuditLog(tx, {
+          entityType: "GROUP",
+          entityId: groupId,
+          action: "MEMBER_ADDED",
+          actor: user.username,
+          actorType: "USER",
+          actorId: user.id,
+          details: { addedLicenseIds: newIds, groupName: group.name },
+        });
       });
     }
 
@@ -48,6 +70,10 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     return NextResponse.json(updated);
   } catch (error) {
+    const vErr = handleValidationError(error);
+    if (vErr) return vErr;
+    const pErr = handlePrismaError(error);
+    if (pErr) return pErr;
     console.error("Failed to add members:", error);
     return NextResponse.json({ error: "라이선스 추가에 실패했습니다." }, { status: 500 });
   }
@@ -62,17 +88,28 @@ export async function DELETE(request: NextRequest, { params }: Params) {
   try {
     const { id } = await params;
     const groupId = Number(id);
-    const { licenseIds } = await request.json();
+    const body = await request.json();
 
-    if (!Array.isArray(licenseIds) || licenseIds.length === 0) {
-      return NextResponse.json({ error: "제거할 라이선스를 선택하세요." }, { status: 400 });
-    }
+    // ── 입력 검증 ──
+    const licenseIds = vNumArr(body.licenseIds, "licenseIds");
 
-    await prisma.licenseGroupMember.deleteMany({
-      where: {
-        licenseGroupId: groupId,
-        licenseId: { in: licenseIds },
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.licenseGroupMember.deleteMany({
+        where: {
+          licenseGroupId: groupId,
+          licenseId: { in: licenseIds },
+        },
+      });
+
+      await writeAuditLog(tx, {
+        entityType: "GROUP",
+        entityId: groupId,
+        action: "MEMBER_REMOVED",
+        actor: user.username,
+        actorType: "USER",
+        actorId: user.id,
+        details: { removedLicenseIds: licenseIds },
+      });
     });
 
     const updated = await prisma.licenseGroup.findUnique({
@@ -82,6 +119,8 @@ export async function DELETE(request: NextRequest, { params }: Params) {
 
     return NextResponse.json(updated);
   } catch (error) {
+    const vErr = handleValidationError(error);
+    if (vErr) return vErr;
     console.error("Failed to remove members:", error);
     return NextResponse.json({ error: "라이선스 제거에 실패했습니다." }, { status: 500 });
   }
