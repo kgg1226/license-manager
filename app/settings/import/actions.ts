@@ -120,10 +120,11 @@ async function importLicenses(rows: Record<string, string>[], actor: string): Pr
     const noticePeriodDays = parseNumber(row.noticePeriodDays, rowNum, "noticePeriodDays", errors);
     const adminName = row.adminName?.trim() || null;
     const description = row.description?.trim() || null;
+    const parentLicenseName = row.parentLicenseName?.trim() || null;
 
     return {
       rowNum, name, totalQuantity, purchaseDate, key, licenseType,
-      price, expiryDate, noticePeriodDays, adminName, description,
+      price, expiryDate, noticePeriodDays, adminName, description, parentLicenseName,
     };
   });
 
@@ -160,6 +161,55 @@ async function importLicenses(rows: Record<string, string>[], actor: string): Pr
             message: `키 "${dbLicense.key}"이(가) 이미 다른 라이선스 "${dbLicense.name}"에 등록되어 있습니다.`,
           });
         }
+      }
+    }
+  }
+
+  // Phase 1.5: parentLicenseName 검증
+  {
+    const csvLicenseNames = new Set(validated.map((r) => r.name).filter(Boolean) as string[]);
+
+    // 자기 참조 검사
+    for (const row of validated) {
+      if (row.parentLicenseName && row.parentLicenseName === row.name) {
+        errors.push({ row: row.rowNum, column: "parentLicenseName", message: "자신을 상위 라이선스로 설정할 수 없습니다." });
+      }
+    }
+
+    // CSV에도 없고 DB에도 없는 상위 라이선스명 검사
+    const parentNames = [...new Set(validated.map((r) => r.parentLicenseName).filter(Boolean))] as string[];
+    const externalParentNames = parentNames.filter((n) => !csvLicenseNames.has(n));
+    if (externalParentNames.length > 0) {
+      const dbParents = await prisma.license.findMany({
+        where: { name: { in: externalParentNames } },
+        select: { name: true },
+      });
+      const dbParentSet = new Set(dbParents.map((p) => p.name));
+      for (const row of validated) {
+        if (row.parentLicenseName && !csvLicenseNames.has(row.parentLicenseName) && !dbParentSet.has(row.parentLicenseName)) {
+          errors.push({ row: row.rowNum, column: "parentLicenseName", message: `상위 라이선스 "${row.parentLicenseName}"을(를) 찾을 수 없습니다.` });
+        }
+      }
+    }
+
+    // CSV 내 순환 참조 검사
+    const parentMap = new Map<string, string>(); // childName → parentName
+    for (const row of validated) {
+      if (row.name && row.parentLicenseName) {
+        parentMap.set(row.name, row.parentLicenseName);
+      }
+    }
+    for (const row of validated) {
+      if (!row.name || !row.parentLicenseName) continue;
+      const visited = new Set<string>([row.name]);
+      let cursor: string | undefined = row.parentLicenseName;
+      while (cursor && parentMap.has(cursor)) {
+        if (visited.has(cursor)) {
+          errors.push({ row: row.rowNum, column: "parentLicenseName", message: "CSV 내 순환 참조가 발생합니다." });
+          break;
+        }
+        visited.add(cursor);
+        cursor = parentMap.get(cursor);
       }
     }
   }
@@ -223,13 +273,43 @@ async function importLicenses(rows: Record<string, string>[], actor: string): Pr
 
   if (errors.length > 0) return { success: false, created: 0, updated: 0, errors };
 
-  // Phase 2: 트랜잭션 실행
+  // Phase 2: 부모→자식 순서로 정렬 (위상 정렬)
+  const nameToRow = new Map(validated.map((r) => [r.name, r]));
+  const sorted: typeof validated = [];
+  const visitedNames = new Set<string>();
+
+  function visit(row: (typeof validated)[0]) {
+    if (!row.name || visitedNames.has(row.name)) return;
+    if (row.parentLicenseName && nameToRow.has(row.parentLicenseName)) {
+      visit(nameToRow.get(row.parentLicenseName)!);
+    }
+    visitedNames.add(row.name);
+    sorted.push(row);
+  }
+  for (const row of validated) visit(row);
+
+  // Phase 3: 트랜잭션 실행
   let created = 0;
   let updated = 0;
 
   await prisma.$transaction(async (tx) => {
-    for (const row of validated) {
+    const createdLicenseIds = new Map<string, number>(); // name → id
+
+    for (const row of sorted) {
       const licenseType = row.licenseType;
+
+      // parentId 결정
+      let parentId: number | null = null;
+      if (row.parentLicenseName) {
+        const txId = createdLicenseIds.get(row.parentLicenseName);
+        if (txId) {
+          parentId = txId;
+        } else {
+          const dbParent = await tx.license.findFirst({ where: { name: row.parentLicenseName } });
+          if (dbParent) parentId = dbParent.id;
+        }
+      }
+
       const data = {
         name: row.name!,
         totalQuantity: row.totalQuantity!,
@@ -241,6 +321,7 @@ async function importLicenses(rows: Record<string, string>[], actor: string): Pr
         noticePeriodDays: row.noticePeriodDays ? Math.round(row.noticePeriodDays) : null,
         adminName: row.adminName,
         description: row.description,
+        parentId,
       };
 
       const existing = await tx.license.findFirst({ where: { name: row.name! } });
@@ -249,12 +330,14 @@ async function importLicenses(rows: Record<string, string>[], actor: string): Pr
         if (licenseType === "KEY_BASED") {
           await syncSeats(tx, existing.id, data.totalQuantity);
         }
+        createdLicenseIds.set(row.name!, existing.id);
         updated++;
       } else {
         const license = await tx.license.create({ data });
         if (licenseType === "KEY_BASED") {
           await syncSeats(tx, license.id, data.totalQuantity);
         }
+        createdLicenseIds.set(row.name!, license.id);
         created++;
       }
     }

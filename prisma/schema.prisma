@@ -57,14 +57,19 @@ model License {
   renewalDate        DateTime?
   renewalDateManual  DateTime?
   renewalStatus      RenewalStatus          @default(BEFORE_RENEWAL)
+  parentId           Int?
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
+  parent             License?               @relation("LicenseHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children           License[]              @relation("LicenseHierarchy")
   assignments        Assignment[]
   groupMembers       LicenseGroupMember[]
   seats              LicenseSeat[]
   renewalHistories   LicenseRenewalHistory[]
   owners             LicenseOwner[]
   notificationLogs   NotificationLog[]
+
+  @@index([parentId])
 }
 
 model Employee {

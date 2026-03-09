@@ -18,7 +18,7 @@ import {
 const VALID_LICENSE_TYPES = ["NO_KEY", "KEY_BASED", "VOLUME"] as const;
 type LicenseType = (typeof VALID_LICENSE_TYPES)[number];
 
-// GET /api/licenses — 라이선스 목록 조회
+// GET /api/licenses — 라이선스 목록 조회 (계층 구조 지원)
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
@@ -31,21 +31,50 @@ export async function GET() {
         seats: {
           select: { id: true, key: true },
         },
+        children: {
+          select: { id: true, name: true },
+          orderBy: { name: "asc" },
+        },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { name: "asc" },
     });
 
-    const result = licenses.map((license) => ({
-      ...license,
-      assignedQuantity: license.assignments.length,
-      remainingQuantity: license.totalQuantity - license.assignments.length,
-      missingKeyCount: license.licenseType === "KEY_BASED"
-        ? license.seats.filter((s) => s.key === null).length
-        : 0,
-      assignments: undefined,
-    }));
+    // 계층 정렬: 부모 먼저, 바로 뒤에 하위 라이선스 (depth 포함)
+    const childMap = new Map<number, typeof licenses>();
+    const roots: typeof licenses = [];
+    for (const lic of licenses) {
+      if (lic.parentId == null) {
+        roots.push(lic);
+      } else {
+        const siblings = childMap.get(lic.parentId) ?? [];
+        siblings.push(lic);
+        childMap.set(lic.parentId, siblings);
+      }
+    }
 
-    return NextResponse.json(result);
+    function mapLicense(license: (typeof licenses)[number]) {
+      return {
+        ...license,
+        assignedQuantity: license.assignments.length,
+        remainingQuantity: license.totalQuantity - license.assignments.length,
+        missingKeyCount: license.licenseType === "KEY_BASED"
+          ? license.seats.filter((s) => s.key === null).length
+          : 0,
+        assignments: undefined,
+      };
+    }
+
+    const sorted: (ReturnType<typeof mapLicense> & { depth: number })[] = [];
+    function walk(items: typeof licenses, depth: number) {
+      for (const lic of items) {
+        sorted.push({ ...mapLicense(lic), depth });
+        const kids = childMap.get(lic.id);
+        if (kids) walk(kids, depth + 1);
+      }
+    }
+    walk(roots, 0);
+
+    return NextResponse.json(sorted);
   } catch (error) {
     console.error("Failed to fetch licenses:", error);
     return NextResponse.json(
@@ -74,6 +103,13 @@ export async function POST(request: NextRequest) {
     const keyVal = vStr(body.key, 500);
     const adminNameVal = vStr(body.adminName, 200);
     const descriptionVal = vStr(body.description, 2000);
+    const parentIdVal = body.parentId != null ? vNum(body.parentId, { min: 1, integer: true }) : null;
+
+    // parentId 존재 검증
+    if (parentIdVal) {
+      const parentExists = await prisma.license.findUnique({ where: { id: parentIdVal }, select: { id: true } });
+      if (!parentExists) throw new ValidationError("상위 라이선스를 찾을 수 없습니다.");
+    }
 
     // 날짜 순서 검증
     if (expiryDateVal && expiryDateVal < purchaseDateVal) {
@@ -123,6 +159,7 @@ export async function POST(request: NextRequest) {
           isVatIncluded: vBool(body.isVatIncluded),
           totalAmountForeign,
           totalAmountKRW,
+          parentId: parentIdVal,
         },
       });
 
