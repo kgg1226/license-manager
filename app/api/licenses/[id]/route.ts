@@ -42,6 +42,8 @@ export async function GET(request: NextRequest, { params }: Params) {
           },
           orderBy: { id: "asc" },
         },
+        parent: { select: { id: true, name: true } },
+        children: { select: { id: true, name: true }, orderBy: { name: "asc" } },
       },
     });
 
@@ -95,6 +97,33 @@ export async function PUT(request: NextRequest, { params }: Params) {
     const keyVal = body.key !== undefined ? vStr(body.key, 500) : undefined;
     const adminNameVal = body.adminName !== undefined ? vStr(body.adminName, 200) : undefined;
     const descriptionVal = body.description !== undefined ? vStr(body.description, 2000) : undefined;
+
+    // parentId 검증 (undefined면 수정 안 함, null이면 해제)
+    const parentIdProvided = body.parentId !== undefined;
+    const parentIdVal = parentIdProvided
+      ? (body.parentId === null ? null : vNum(body.parentId, { min: 1, integer: true }))
+      : undefined;
+
+    // 순환 참조 + 자기 참조 검증
+    if (parentIdVal != null) {
+      if (parentIdVal === licenseId) {
+        throw new ValidationError("자신을 상위 라이선스로 설정할 수 없습니다.");
+      }
+      // 상위 체인을 따라가며 순환 검사 (최대 10depth)
+      let cursor = parentIdVal;
+      for (let i = 0; i < 10; i++) {
+        const ancestor = await prisma.license.findUnique({
+          where: { id: cursor },
+          select: { id: true, parentId: true },
+        });
+        if (!ancestor) throw new ValidationError("상위 라이선스를 찾을 수 없습니다.");
+        if (ancestor.parentId === null) break; // 루트 도달 → 순환 없음
+        if (ancestor.parentId === licenseId) {
+          throw new ValidationError("순환 참조가 발생합니다. 하위 라이선스를 상위로 설정할 수 없습니다.");
+        }
+        cursor = ancestor.parentId;
+      }
+    }
 
     // 날짜 순서 검증 (둘 다 전달된 경우)
     if (purchaseDateVal && expiryDateVal && expiryDateVal < purchaseDateVal) {
@@ -172,6 +201,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
           ...(body.isVatIncluded !== undefined && { isVatIncluded: vBool(body.isVatIncluded) }),
           ...(totalAmountForeign !== undefined && { totalAmountForeign }),
           ...(totalAmountKRW !== undefined && { totalAmountKRW }),
+          ...(parentIdVal !== undefined && { parentId: parentIdVal }),
         },
       });
 
