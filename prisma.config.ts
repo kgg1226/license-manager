@@ -1,10 +1,7 @@
-import path from "path";
-import dotenv from "dotenv";
 import { defineConfig } from "prisma/config";
 
-// Prisma config 파일은 실행 위치가 달라질 수 있으므로 절대 경로로 .env 로딩
-dotenv.config({ path: path.resolve(process.cwd(), ".env") });
-
+// Docker 환경: DATABASE_URL은 docker-compose의 environment 블록에서 주입됨
+// 로컬 개발: .env 파일은 Prisma CLI가 schema.prisma의 env() 함수로 자동 로딩
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
