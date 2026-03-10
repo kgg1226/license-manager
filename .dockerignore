@@ -25,13 +25,19 @@ generated/
 .env
 .env.*
 
+# Archive files (배포 패키지)
+*.zip
+*.tar.gz
+*.backup
+
 # Logs & OS
 *.log
 .DS_Store
 Thumbs.db
 
-# CI / docs
+# CI / docs / tasks
 README.md
+tasks/
 
 # 개발용 일회성 테스트 스크립트 — 프로덕션 이미지 불필요
 verify_api.mjs

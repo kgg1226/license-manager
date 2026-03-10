@@ -63,11 +63,16 @@ COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 
 EXPOSE 3000
 
+# entrypoint 스크립트 복사 및 실행 권한 부여
+COPY entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
+
 # 소유권 변경 (비root 사용자)
-RUN chown -R nodejs:nodejs /app
+RUN chown -R node:node /app
 
 # 비root 사용자로 전환
-USER nodejs
+USER node
 
 # DATABASE_URL 등 필수 환경 변수는 docker-compose 또는 docker run -e 로 주입
-CMD ["npm", "start"]
+# entrypoint: prisma db push → npm start 순서로 실행 (DB 스키마 자동 적용)
+CMD ["./entrypoint.sh"]

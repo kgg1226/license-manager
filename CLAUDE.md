@@ -1,7 +1,7 @@
 # License Manager
 
 ## 프로젝트 개요
-사내 **정보자산 통합 관리** 웹 앱 — 소프트웨어 라이선스·클라우드 구독·하드웨어·도메인 등 회사의 모든 자산을 등록·배정·회수하고, 월별 비용 보고서를 내보낸다.
+사내 **정보자산 통합 관리** 웹 앱 — 소프트웨어 라이선스·클라우드 구독·하드웨어·도메인 등 회사의 모든 자산을 등록·배정·회수하고, 월별 비용 및 자산 추가/변경/삭제 이력 보고서를 내보낸다.
 - 스택: Next.js 15 App Router + Prisma 7 + PostgreSQL(자체 호스팅/Docker) + Tailwind CSS 4
 - 인증: 자체 구현 (세션 쿠키 + bcryptjs), 역할: ADMIN / USER
 - DB: PostgreSQL (Docker 컨테이너 또는 EC2 호스팅), Prisma 클라이언트 출력 경로 → `generated/prisma/`
