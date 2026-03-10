@@ -17,6 +17,11 @@ node_modules/
 # ── Prisma generated client ──────────────────────────────────────────────────
 /generated/
 
+# ── SQLite (legacy, dev only) ────────────────────────────────────────────────
+*.db
+*.db.backup
+*.db-journal
+
 # ── Testing ──────────────────────────────────────────────────────────────────
 /coverage
 
