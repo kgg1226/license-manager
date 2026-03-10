@@ -52,6 +52,8 @@ Desktop.ini
 .idea/
 .cursor/
 .claude/
+.claude/worktrees/
+.claude/settings.local.json
 
 # ── Vercel ───────────────────────────────────────────────────────────────────
 .vercel
@@ -75,10 +77,6 @@ deploy.ps1
 .tmp-*
 *.tar*
 .env.infra
-.claude/settings.local.json
 
 !.env.infra.example
-!.claude/
-!.claude/commands/
-!.claude/commands/*.md
 .claire/

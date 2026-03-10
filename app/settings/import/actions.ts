@@ -120,10 +120,11 @@ async function importLicenses(rows: Record<string, string>[], actor: string): Pr
     const noticePeriodDays = parseNumber(row.noticePeriodDays, rowNum, "noticePeriodDays", errors);
     const adminName = row.adminName?.trim() || null;
     const description = row.description?.trim() || null;
+    const parentLicenseName = row.parentLicenseName?.trim() || null;
 
     return {
       rowNum, name, totalQuantity, purchaseDate, key, licenseType,
-      price, expiryDate, noticePeriodDays, adminName, description,
+      price, expiryDate, noticePeriodDays, adminName, description, parentLicenseName,
     };
   });
 
@@ -160,6 +161,55 @@ async function importLicenses(rows: Record<string, string>[], actor: string): Pr
             message: `키 "${dbLicense.key}"이(가) 이미 다른 라이선스 "${dbLicense.name}"에 등록되어 있습니다.`,
           });
         }
+      }
+    }
+  }
+
+  // Phase 1.5: parentLicenseName 검증
+  {
+    const csvLicenseNames = new Set(validated.map((r) => r.name).filter(Boolean) as string[]);
+
+    // 자기 참조 검사
+    for (const row of validated) {
+      if (row.parentLicenseName && row.parentLicenseName === row.name) {
+        errors.push({ row: row.rowNum, column: "parentLicenseName", message: "자신을 상위 라이선스로 설정할 수 없습니다." });
+      }
+    }
+
+    // CSV에도 없고 DB에도 없는 상위 라이선스명 검사
+    const parentNames = [...new Set(validated.map((r) => r.parentLicenseName).filter(Boolean))] as string[];
+    const externalParentNames = parentNames.filter((n) => !csvLicenseNames.has(n));
+    if (externalParentNames.length > 0) {
+      const dbParents = await prisma.license.findMany({
+        where: { name: { in: externalParentNames } },
+        select: { name: true },
+      });
+      const dbParentSet = new Set(dbParents.map((p) => p.name));
+      for (const row of validated) {
+        if (row.parentLicenseName && !csvLicenseNames.has(row.parentLicenseName) && !dbParentSet.has(row.parentLicenseName)) {
+          errors.push({ row: row.rowNum, column: "parentLicenseName", message: `상위 라이선스 "${row.parentLicenseName}"을(를) 찾을 수 없습니다.` });
+        }
+      }
+    }
+
+    // CSV 내 순환 참조 검사
+    const parentMap = new Map<string, string>(); // childName → parentName
+    for (const row of validated) {
+      if (row.name && row.parentLicenseName) {
+        parentMap.set(row.name, row.parentLicenseName);
+      }
+    }
+    for (const row of validated) {
+      if (!row.name || !row.parentLicenseName) continue;
+      const visited = new Set<string>([row.name]);
+      let cursor: string | undefined = row.parentLicenseName;
+      while (cursor && parentMap.has(cursor)) {
+        if (visited.has(cursor)) {
+          errors.push({ row: row.rowNum, column: "parentLicenseName", message: "CSV 내 순환 참조가 발생합니다." });
+          break;
+        }
+        visited.add(cursor);
+        cursor = parentMap.get(cursor);
       }
     }
   }
@@ -223,13 +273,43 @@ async function importLicenses(rows: Record<string, string>[], actor: string): Pr
 
   if (errors.length > 0) return { success: false, created: 0, updated: 0, errors };
 
-  // Phase 2: 트랜잭션 실행
+  // Phase 2: 부모→자식 순서로 정렬 (위상 정렬)
+  const nameToRow = new Map(validated.map((r) => [r.name, r]));
+  const sorted: typeof validated = [];
+  const visitedNames = new Set<string>();
+
+  function visit(row: (typeof validated)[0]) {
+    if (!row.name || visitedNames.has(row.name)) return;
+    if (row.parentLicenseName && nameToRow.has(row.parentLicenseName)) {
+      visit(nameToRow.get(row.parentLicenseName)!);
+    }
+    visitedNames.add(row.name);
+    sorted.push(row);
+  }
+  for (const row of validated) visit(row);
+
+  // Phase 3: 트랜잭션 실행
   let created = 0;
   let updated = 0;
 
   await prisma.$transaction(async (tx) => {
-    for (const row of validated) {
+    const createdLicenseIds = new Map<string, number>(); // name → id
+
+    for (const row of sorted) {
       const licenseType = row.licenseType;
+
+      // parentId 결정
+      let parentId: number | null = null;
+      if (row.parentLicenseName) {
+        const txId = createdLicenseIds.get(row.parentLicenseName);
+        if (txId) {
+          parentId = txId;
+        } else {
+          const dbParent = await tx.license.findFirst({ where: { name: row.parentLicenseName } });
+          if (dbParent) parentId = dbParent.id;
+        }
+      }
+
       const data = {
         name: row.name!,
         totalQuantity: row.totalQuantity!,
@@ -241,6 +321,7 @@ async function importLicenses(rows: Record<string, string>[], actor: string): Pr
         noticePeriodDays: row.noticePeriodDays ? Math.round(row.noticePeriodDays) : null,
         adminName: row.adminName,
         description: row.description,
+        parentId,
       };
 
       const existing = await tx.license.findFirst({ where: { name: row.name! } });
@@ -249,12 +330,14 @@ async function importLicenses(rows: Record<string, string>[], actor: string): Pr
         if (licenseType === "KEY_BASED") {
           await syncSeats(tx, existing.id, data.totalQuantity);
         }
+        createdLicenseIds.set(row.name!, existing.id);
         updated++;
       } else {
         const license = await tx.license.create({ data });
         if (licenseType === "KEY_BASED") {
           await syncSeats(tx, license.id, data.totalQuantity);
         }
+        createdLicenseIds.set(row.name!, license.id);
         created++;
       }
     }
@@ -290,10 +373,9 @@ async function importEmployees(rows: Record<string, string>[], actor: string): P
     const email = row.email?.trim() || null;
     const title = row.title?.trim() || null;
     const companyName = row.companyName?.trim() || null;
-    const orgName = row.orgName?.trim() || null;
-    const subOrgName = row.subOrgName?.trim() || null;
+    const orgUnitName = row.orgUnitName?.trim() || null;
     const groupName = row.groupName?.trim() || null;
-    return { name, department, email, title, companyName, orgName, subOrgName, groupName, rowNum };
+    return { name, department, email, title, companyName, orgUnitName, groupName, rowNum };
   });
 
   if (errors.length > 0) return { success: false, created: 0, updated: 0, errors };
@@ -314,16 +396,16 @@ async function importEmployees(rows: Record<string, string>[], actor: string): P
     if (errors.length > 0) return { success: false, created: 0, updated: 0, errors };
   }
 
-  const uniqueOrgNames = [...new Set(validated.map((r) => r.orgName).filter(Boolean))] as string[];
-  if (uniqueOrgNames.length > 0) {
-    const existingOrgs = await prisma.orgUnit.findMany({
-      where: { name: { in: uniqueOrgNames }, parentId: null },
+  const uniqueOrgUnitNames = [...new Set(validated.map((r) => r.orgUnitName).filter(Boolean))] as string[];
+  if (uniqueOrgUnitNames.length > 0) {
+    const existingOrgUnits = await prisma.orgUnit.findMany({
+      where: { name: { in: uniqueOrgUnitNames } },
       select: { name: true },
     });
-    const existingOrgSet = new Set(existingOrgs.map((o) => o.name));
+    const existingOrgUnitSet = new Set(existingOrgUnits.map((o) => o.name));
     for (const row of validated) {
-      if (row.orgName && !existingOrgSet.has(row.orgName)) {
-        errors.push({ row: row.rowNum, column: "orgName", message: `존재하지 않는 조직입니다: "${row.orgName}"` });
+      if (row.orgUnitName && !existingOrgUnitSet.has(row.orgUnitName)) {
+        errors.push({ row: row.rowNum, column: "orgUnitName", message: `존재하지 않는 조직입니다: "${row.orgUnitName}"` });
       }
     }
     if (errors.length > 0) return { success: false, created: 0, updated: 0, errors };
@@ -352,20 +434,20 @@ async function importEmployees(rows: Record<string, string>[], actor: string): P
     for (const row of validated) {
       // 조직 ID 조회 (이름 기준)
       let companyId: number | null = null;
-      let orgId: number | null = null;
-      let subOrgId: number | null = null;
+      let orgUnitId: number | null = null;
 
       if (row.companyName) {
         const company = await tx.orgCompany.findUnique({ where: { name: row.companyName } });
         companyId = company?.id ?? null;
       }
-      if (row.orgName && companyId) {
-        const org = await tx.orgUnit.findFirst({ where: { name: row.orgName, companyId, parentId: null } });
-        orgId = org?.id ?? null;
-      }
-      if (row.subOrgName && orgId) {
-        const subOrg = await tx.orgUnit.findFirst({ where: { name: row.subOrgName, parentId: orgId } });
-        subOrgId = subOrg?.id ?? null;
+      if (row.orgUnitName) {
+        const orgUnit = await tx.orgUnit.findFirst({
+          where: {
+            name: row.orgUnitName,
+            ...(companyId ? { companyId } : {}),
+          },
+        });
+        orgUnitId = orgUnit?.id ?? null;
       }
 
       const employeeData = {
@@ -374,8 +456,7 @@ async function importEmployees(rows: Record<string, string>[], actor: string): P
         email: row.email || null,
         title: row.title || null,
         companyId,
-        orgId,
-        subOrgId,
+        orgUnitId,
       };
 
       let employee;

@@ -1,7 +1,10 @@
-# 현재 프로젝트 상태
+# 📍 현재 프로젝트 상태
 
-> 🎯 기획 세션이 관리한다. 다른 세션은 **작업 시작 전 반드시 읽는다.**
-> 최종 업데이트: 2026-03-05
+> 🎯 **Planning Role**이 관리합니다. 다른 모든 Role은 **작업 시작 전 반드시 읽으세요.**
+>
+> **📚 먼저 읽어야 할 문서**: [`tasks/README.md`](README.md) → [`tasks/VISION.md`](VISION.md) → [`tasks/TICKETS.md`](TICKETS.md)
+>
+> 최종 업데이트: 2026-03-06 🚀
 
 ---
 
@@ -80,13 +83,91 @@
 
 ---
 
-## 남은 작업
+## 🎯 현재 상태 요약
 
-| 항목 | 담당 브랜치 | 비고 |
+| Phase | 상태 | 비고 |
 |---|---|---|
-| 모바일 반응형 | `role/frontend` | 낮은 우선순위 |
-| EC2 DB 마이그레이션 SQL 실행 | **사람** | VPN 접속 필요, `tasks/db-changes.md` 참조 |
-| PR 머지 → EC2 배포 | **사람** | VPN 접속 필요 |
+| **Phase 1** — 라이선스 관리 | ✅ 완료 | |
+| **Phase 2** — Supabase + 자산 확장 | ✅ 완료 | `8f0cebc`, `2453e3e`, `11ec94d` |
+| **배포 전 마무리** (BE-ORG, FE-001, OPS) | ✅ 완료 | |
+| **EC2 배포** | ⏳ 대기 | **사람이 직접 실행** |
+| **Phase 3** — 월별 보고서 | 📋 착수 대기 | 배포 완료 후 |
+
+---
+
+## Phase 2 완료 내용 (master 반영됨)
+
+### 인프라 전환
+- SQLite → Supabase PostgreSQL 완료
+- `lib/prisma.ts`: 표준 PrismaClient (어댑터 제거)
+- Supabase 마이그레이션 초기화 완료
+
+### 신규 DB 모델
+- `Asset` (type: SOFTWARE/CLOUD/HARDWARE/DOMAIN_SSL/OTHER)
+- `AssetType`, `AssetStatus` enum
+- 유형별 상세 모델
+
+### 신규 API
+- `GET|POST /api/assets`
+- `GET|PUT|DELETE /api/assets/[id]`
+- `PATCH /api/assets/[id]/status`
+- `GET /api/assets/expiring`
+- `PUT|DELETE /api/org/companies/[id]` (BE-ORG-001/002)
+- `POST /api/cron/renewal-notify` — Asset 만료 알림 통합
+
+### 신규 UI
+- `/assets` 목록 / `/assets/new` 등록 / `/assets/[id]` 상세
+- `/org` — Company CRUD UI
+- `mustChangePassword` 강제 변경 UI (FE-001)
+
+### 보안
+- ISMS-P 입력 검증 강화 (전체 API)
+- AuditLog 전수 커버리지
+- `.dockerignore` 정리
+
+---
+
+## 현재 가장 중요한 다음 작업 — EC2 배포
+
+> `deploy.ps1` 실행 (Windows PowerShell, `hyeongunk` 프로필 필요)
+
+1. [ ] **`deploy.ps1` 실행** → git push + S3 업로드 자동 진행
+2. [ ] **EC2 SSM 접속 후 아래 명령 실행**
+   ```bash
+   cd /home/ssm-user/app
+   aws s3 cp s3://triplecomma-releases/triplecomma-backoffice/license-manager.zip .
+   sudo rm -rf license-manager
+   sudo mkdir -p license-manager && sudo chown -R ssm-user:ssm-user license-manager
+   unzip -q license-manager.zip -d license-manager && rm license-manager.zip
+   cd license-manager
+   sudo docker build -t license-manager:latest .
+   sudo docker restart license-app
+   ```
+3. [ ] **Supabase `DATABASE_URL` EC2 환경변수 설정 확인**
+4. [ ] **배포 후 동작 확인** (로그인, 자산 목록, 대시보드)
+
+---
+
+## 배포 후 다음 — Phase 3 착수
+
+> 상세 티켓: `tasks/PHASE3-TICKETS.md`
+
+- BE-030: 월별 보고서 집계 API
+- BE-031: Excel 내보내기 (`exceljs`)
+- BE-032: PDF 내보내기 (`@react-pdf/renderer`)
+- FE-020: `/reports` 보고서 페이지
+
+---
+
+## 📚 문서 가이드
+
+| Role | 참고 문서 |
+|---|---|
+| **Planning** | `tasks/VISION.md`, `tasks/TICKETS.md` |
+| **Backend** | `tasks/TICKETS.md`, `tasks/PHASE3-TICKETS.md`, `tasks/api-spec.md` |
+| **Frontend** | `tasks/TICKETS.md`, `tasks/PHASE3-TICKETS.md` |
+| **DevOps** | `CLAUDE.md`, `tasks/TICKETS.md` |
+| **Security** | `tasks/security/guidelines.md` |
 
 ---
 

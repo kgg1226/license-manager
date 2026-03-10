@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { writeAuditLog } from "@/lib/audit-log";
+import { ValidationError, handleValidationError, handlePrismaError, vNum } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -38,9 +40,12 @@ export async function POST(request: NextRequest, { params }: Params) {
     const { id } = await params;
     const licenseId = Number(id);
     const body = await request.json();
-    const { userId, orgUnitId } = body;
 
-    if ((userId == null) === (orgUnitId == null)) {
+    // ── 입력 검증 ──
+    const userIdVal = vNum(body.userId, { min: 1, integer: true });
+    const orgUnitIdVal = vNum(body.orgUnitId, { min: 1, integer: true });
+
+    if ((userIdVal == null) === (orgUnitIdVal == null)) {
       return NextResponse.json(
         { error: "userId 또는 orgUnitId 중 하나만 지정해야 합니다." },
         { status: 400 }
@@ -50,16 +55,44 @@ export async function POST(request: NextRequest, { params }: Params) {
     const exists = await prisma.license.findUnique({ where: { id: licenseId }, select: { id: true } });
     if (!exists) return NextResponse.json({ error: "라이선스를 찾을 수 없습니다." }, { status: 404 });
 
-    const owner = await prisma.licenseOwner.create({
-      data: {
-        licenseId,
-        userId: userId ? Number(userId) : null,
-        orgUnitId: orgUnitId ? Number(orgUnitId) : null,
-      },
+    const owner = await prisma.$transaction(async (tx) => {
+      // FK 존재 검증
+      if (userIdVal) {
+        const userExists = await tx.user.findUnique({ where: { id: userIdVal }, select: { id: true } });
+        if (!userExists) throw new ValidationError("존재하지 않는 사용자입니다.");
+      }
+      if (orgUnitIdVal) {
+        const orgExists = await tx.orgUnit.findUnique({ where: { id: orgUnitIdVal }, select: { id: true } });
+        if (!orgExists) throw new ValidationError("존재하지 않는 조직입니다.");
+      }
+
+      const created = await tx.licenseOwner.create({
+        data: {
+          licenseId,
+          userId: userIdVal,
+          orgUnitId: orgUnitIdVal,
+        },
+      });
+
+      await writeAuditLog(tx, {
+        entityType: "LICENSE",
+        entityId: licenseId,
+        action: "OWNER_ADDED",
+        actor: user.username,
+        actorType: "USER",
+        actorId: user.id,
+        details: { ownerId: created.id, userId: created.userId, orgUnitId: created.orgUnitId },
+      });
+
+      return created;
     });
 
     return NextResponse.json(owner, { status: 201 });
   } catch (error) {
+    const vErr = handleValidationError(error);
+    if (vErr) return vErr;
+    const pErr = handlePrismaError(error);
+    if (pErr) return pErr;
     console.error("Failed to add owner:", error);
     return NextResponse.json({ error: "담당자 추가에 실패했습니다." }, { status: 500 });
   }

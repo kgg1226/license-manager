@@ -106,13 +106,18 @@
 - **상태**: 🟡 기본 구현됨 (Rate Limiting 미적용)
 
 ### T-009: RBAC 미적용 — API 접근 통제 부재 (신규)
-- **대상**: app/api/ 전체 변경 엔드포인트
+- **대상**: app/api/ 변경 엔드포인트 (특히 POST)
 - **위협**: 일반 사용자(ROLE=USER)가 API 직접 호출로 관리자 전용 데이터 변경
-- **현재 대응**: UI에서 관리자 기능 숨김 (서버 측 역할 검증 없음)
-- **잔여 위험**: API 직접 POST/PUT/DELETE 호출 시 역할 검증 없음 (F-001, F-002)
+- **현재 대응**:
+  - ✅ PUT/DELETE 엔드포인트: 역할 검증 적용 (licenses, employees, org/*)
+  - ✅ POST (org/companies, groups 등): 역할 검증 적용
+  - ❌ POST /api/employees: 역할 검증 누락 (S-001)
+- **잔여 위험**:
+  - POST /api/employees에서 인증만 확인하고 역할 미검증 (일반 사용자도 조직원 등록 가능)
+  - assignments POST는 Server Action으로 이동 (API 라우트 제거)
 - **근거**: ISO 27001 A.9.1.2, A.9.4.1, ISMS-P 2.6.1, 2.6.2
 - **Zero Trust 위반**: Least Privilege, Verify Explicitly
-- **상태**: 🔴 미수정
+- **상태**: 🟡 부분 수정 (85%) — S-001 해결 필요
 
 ---
 

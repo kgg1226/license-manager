@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { writeAuditLog } from "@/lib/audit-log";
+import { ValidationError, handleValidationError, handlePrismaError, vStrReq, vStr, vBool, vNumArr } from "@/lib/validation";
 
 // GET /api/groups — 그룹 목록 조회
 export async function GET() {
@@ -35,32 +37,58 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, description, isDefault, licenseIds } = body;
 
-    if (!name?.trim()) {
-      return NextResponse.json({ error: "그룹명은 필수입니다." }, { status: 400 });
-    }
+    // ── 입력 검증 ──
+    const nameVal = vStrReq(body.name, "그룹명", 200);
+    const descriptionVal = vStr(body.description, 2000);
+    const isDefaultVal = vBool(body.isDefault);
+    const licenseIdsVal = body.licenseIds?.length
+      ? vNumArr(body.licenseIds, "licenseIds")
+      : [];
 
-    const group = await prisma.licenseGroup.create({
-      data: {
-        name: name.trim(),
-        description: description?.trim() || null,
-        isDefault: isDefault ?? false,
-        ...(licenseIds?.length && {
-          members: {
-            create: licenseIds.map((licenseId: number) => ({ licenseId })),
-          },
-        }),
-      },
-      include: { members: { include: { license: true } } },
+    const group = await prisma.$transaction(async (tx) => {
+      // FK 존재 검증: licenseIds 배치 확인
+      if (licenseIdsVal.length > 0) {
+        const existingCount = await tx.license.count({ where: { id: { in: licenseIdsVal } } });
+        if (existingCount !== licenseIdsVal.length) {
+          throw new ValidationError("존재하지 않는 라이선스가 포함되어 있습니다.");
+        }
+      }
+
+      const created = await tx.licenseGroup.create({
+        data: {
+          name: nameVal,
+          description: descriptionVal,
+          isDefault: isDefaultVal,
+          ...(licenseIdsVal.length > 0 && {
+            members: {
+              create: licenseIdsVal.map((licenseId) => ({ licenseId })),
+            },
+          }),
+        },
+        include: { members: { include: { license: true } } },
+      });
+
+      await writeAuditLog(tx, {
+        entityType: "GROUP",
+        entityId: created.id,
+        action: "CREATED",
+        actor: user.username,
+        actorType: "USER",
+        actorId: user.id,
+        details: { name: created.name, isDefault: created.isDefault },
+      });
+
+      return created;
     });
 
     return NextResponse.json(group, { status: 201 });
   } catch (error: unknown) {
+    const vErr = handleValidationError(error);
+    if (vErr) return vErr;
+    const pErr = handlePrismaError(error, { uniqueMessage: "이미 존재하는 그룹명입니다." });
+    if (pErr) return pErr;
     console.error("Failed to create group:", error);
-    if (error instanceof Error && error.message.includes("Unique constraint")) {
-      return NextResponse.json({ error: "이미 존재하는 그룹명입니다." }, { status: 409 });
-    }
     return NextResponse.json({ error: "그룹 생성에 실패했습니다." }, { status: 500 });
   }
 }

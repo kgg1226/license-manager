@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit-log";
+import { handleValidationError, handlePrismaError, vEnumReq, vStr } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -18,14 +19,10 @@ export async function PUT(request: NextRequest, { params }: Params) {
     const { id } = await params;
     const licenseId = Number(id);
     const body = await request.json();
-    const { status, memo } = body;
 
-    if (!VALID_RENEWAL_STATUSES.includes(status)) {
-      return NextResponse.json(
-        { error: `유효하지 않은 상태입니다. 허용값: ${VALID_RENEWAL_STATUSES.join(", ")}` },
-        { status: 400 }
-      );
-    }
+    // ── 입력 검증 ──
+    const toStatus = vEnumReq<RenewalStatus>(body.status, "status", VALID_RENEWAL_STATUSES);
+    const memoVal = vStr(body.memo, 2000);
 
     const license = await prisma.license.findUnique({
       where: { id: licenseId },
@@ -37,7 +34,6 @@ export async function PUT(request: NextRequest, { params }: Params) {
     }
 
     const fromStatus = license.renewalStatus as RenewalStatus;
-    const toStatus = status as RenewalStatus;
 
     await prisma.$transaction(async (tx) => {
       await tx.license.update({
@@ -52,7 +48,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
           toStatus,
           actorType: "USER",
           actorId: user.id,
-          memo: memo ?? null,
+          memo: memoVal,
         },
       });
 
@@ -63,12 +59,16 @@ export async function PUT(request: NextRequest, { params }: Params) {
         actor: user.username,
         actorType: "USER",
         actorId: user.id,
-        details: { fromStatus, toStatus, memo },
+        details: { fromStatus, toStatus, memo: memoVal },
       });
     });
 
     return NextResponse.json({ success: true, renewalStatus: toStatus });
   } catch (error) {
+    const vErr = handleValidationError(error);
+    if (vErr) return vErr;
+    const pErr = handlePrismaError(error);
+    if (pErr) return pErr;
     console.error("Failed to update renewal status:", error);
     return NextResponse.json({ error: "갱신 상태 변경에 실패했습니다." }, { status: 500 });
   }

@@ -73,6 +73,7 @@ export async function getCurrentUser() {
     id: session.user.id,
     username: session.user.username,
     role: session.user.role,
+    mustChangePassword: session.user.mustChangePassword,
   };
 }
 
