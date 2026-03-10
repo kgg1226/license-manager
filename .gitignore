@@ -20,16 +20,6 @@ node_modules/
 # ── Testing ──────────────────────────────────────────────────────────────────
 /coverage
 
-# ── Database files ───────────────────────────────────────────────────────────
-*.db
-*.db-shm
-*.db-wal
-*.db-backup
-*.db.backup
-*.sqlite
-*.sqlite3
-/prisma/*.db
-
 # ── Environment / Secrets ────────────────────────────────────────────────────
 .env
 .env.*

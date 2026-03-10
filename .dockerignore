@@ -21,12 +21,6 @@ generated/
 .cursor/
 .claude/
 
-# Database files (런타임에 볼륨으로 마운트)
-*.db
-*.db-shm
-*.db-wal
-dev.db*
-
 # Environment (런타임에 주입)
 .env
 .env.*

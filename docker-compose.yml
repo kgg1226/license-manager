@@ -1,6 +1,29 @@
-# 변경: environment 블록 추가 — DATABASE_URL, SECURE_COOKIE 환경변수 주입
+# 변경: PostgreSQL 추가, DATABASE_URL을 PostgreSQL 연결 문자열로 변경
+# 두 서비스가 같은 네트워크에서 통신하도록 설정
+
+version: '3.8'
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: license_manager
+      POSTGRES_PASSWORD: license_manager_pass
+      POSTGRES_DB: license_manager
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U license_manager"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - license-network
+
   app:
     build:
       context: .
@@ -8,16 +31,26 @@ services:
     image: license-manager:latest
     container_name: license-app
     ports:
-      - "80:3000"
+      - "8080:3000"
     environment:
       NODE_ENV: production
-      DATABASE_URL: "file:/app/dev.db"
+      DATABASE_URL: "postgresql://license_manager:license_manager_pass@postgres:5432/license_manager"
       SECURE_COOKIE: "false"
-    volumes:
-      - /home/ssm-user/app/data/dev.db:/app/dev.db
-    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - license-network
+
+networks:
+  license-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
