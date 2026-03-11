@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 type AssetType = "SOFTWARE" | "CLOUD" | "HARDWARE" | "DOMAIN_SSL" | "OTHER";
 
@@ -36,6 +37,14 @@ const BILLING_CYCLES = [
 
 export default function AssetNewPage() {
   const router = useRouter();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push("/login");
+    }
+  }, [user, loading, router]);
+
   const [formData, setFormData] = useState<FormData>({
     name: "",
     type: "",
@@ -96,6 +105,16 @@ export default function AssetNewPage() {
       });
     }
   };
+
+  if (loading || !user) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="mx-auto max-w-2xl">
+          <p className="text-center text-gray-500">{loading ? "로딩 중..." : "로그인이 필요합니다."}</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -6,10 +6,12 @@ import ManageLicenses from "./manage-licenses";
 import OrgEditForm from "./org-edit-form";
 import { getEmployeeDisplayName } from "@/lib/employee-display";
 import OffboardButton from "./offboard-button";
+import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const user = await getCurrentUser().catch(() => null);
   const { id } = await params;
   const employeeId = Number(id);
 
@@ -148,11 +150,13 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">{displayName}</h1>
           <div className="flex items-center gap-3">
-            <OffboardButton
-              employeeId={employee.id}
-              employeeName={employee.name}
-              currentStatus={(employee as { status?: string }).status ?? "ACTIVE"}
-            />
+            {user && (
+              <OffboardButton
+                employeeId={employee.id}
+                employeeName={employee.name}
+                currentStatus={(employee as { status?: string }).status ?? "ACTIVE"}
+              />
+            )}
             <Link href="/employees" className="text-sm text-gray-500 hover:text-gray-700">
               &larr; 목록으로
             </Link>
@@ -200,16 +204,19 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
               initialCompanyId={employee.companyId ?? null}
               initialOrgUnitId={employee.orgUnitId ?? null}
               companies={companies}
+              readOnly={!user}
             />
           </div>
         </div>
 
-        {/* Manage Licenses - bulk assign/unassign */}
-        <ManageLicenses
-          employeeId={employee.id}
-          assigned={assignedForManage}
-          availableLicenses={availableLicenses}
-        />
+        {/* Manage Licenses - bulk assign/unassign (auth required) */}
+        {user && (
+          <ManageLicenses
+            employeeId={employee.id}
+            assigned={assignedForManage}
+            availableLicenses={availableLicenses}
+          />
+        )}
 
         {/* Past Assignments */}
         {pastAssignments.length > 0 && (

@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Send, Plus, X, Settings } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 function getCurrentYearMonth(): string {
   const now = new Date();
@@ -11,7 +13,13 @@ function getCurrentYearMonth(): string {
 }
 
 export default function ReportSettingsPage() {
+  const router = useRouter();
+  const { user, loading } = useAuth();
   const [recipients, setRecipients] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!loading && !user) router.push("/login");
+  }, [user, loading, router]);
   const [newEmail, setNewEmail] = useState("");
   const [testYearMonth, setTestYearMonth] = useState(getCurrentYearMonth());
   const [sending, setSending] = useState(false);

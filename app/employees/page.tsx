@@ -3,6 +3,7 @@ import Link from "next/link";
 import DeleteEmployeeButton from "./delete-button";
 import EmployeeSearch from "./employee-search";
 import { getEmployeeDisplayNames } from "@/lib/employee-display";
+import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,7 @@ export default async function EmployeesPage({
 }: {
   searchParams: Promise<{ q?: string; status?: string; unassigned?: string }>;
 }) {
+  const user = await getCurrentUser().catch(() => null);
   const params = await searchParams;
   const query = (params.q ?? "").trim();
   const status = (["ACTIVE", "OFFBOARDING"].includes(params.status ?? "")
@@ -53,12 +55,14 @@ export default async function EmployeesPage({
       <div className="mx-auto max-w-5xl px-4">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">조직원 목록</h1>
-          <Link
-            href="/employees/new"
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            + 새 조직원
-          </Link>
+          {user && (
+            <Link
+              href="/employees/new"
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              + 새 조직원
+            </Link>
+          )}
         </div>
 
         {/* 검색·필터 */}
@@ -70,7 +74,7 @@ export default async function EmployeesPage({
             <p className="text-gray-500">
               {employees.length === 0 ? "등록된 조직원이 없습니다." : "검색 결과가 없습니다."}
             </p>
-            {employees.length === 0 && (
+            {employees.length === 0 && user && (
               <Link
                 href="/employees/new"
                 className="mt-3 inline-block text-sm text-blue-600 hover:underline"
@@ -89,7 +93,7 @@ export default async function EmployeesPage({
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">이메일</th>
                   <th className="px-4 py-3 text-center text-xs font-medium uppercase text-gray-500">배정 라이선스</th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">상태</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium uppercase text-gray-500">관리</th>
+                  {user && <th className="px-4 py-3 text-center text-xs font-medium uppercase text-gray-500">관리</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -114,17 +118,19 @@ export default async function EmployeesPage({
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <Link
-                          href={`/employees/${emp.id}`}
-                          className="rounded px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50"
-                        >
-                          상세
-                        </Link>
-                        <DeleteEmployeeButton id={emp.id} name={emp.name} />
-                      </div>
-                    </td>
+                    {user && (
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <Link
+                            href={`/employees/${emp.id}`}
+                            className="rounded px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50"
+                          >
+                            상세
+                          </Link>
+                          <DeleteEmployeeButton id={emp.id} name={emp.name} />
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

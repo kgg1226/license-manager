@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { getCurrentUser } from "@/lib/auth";
 import {
   KeyRound,
   Users,
@@ -38,6 +39,7 @@ export default async function LicenseDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const user = await getCurrentUser().catch(() => null);
   const { id } = await params;
   const licenseId = Number(id);
 
@@ -66,6 +68,23 @@ export default async function LicenseDetailPage({
           seat: { select: { key: true } },
         },
         orderBy: { assignedDate: "desc" },
+      },
+      parent: {
+        select: { id: true, name: true },
+      },
+      children: {
+        select: {
+          id: true,
+          name: true,
+          licenseType: true,
+          totalQuantity: true,
+          expiryDate: true,
+          assignments: {
+            where: { returnedDate: null },
+            select: { id: true },
+          },
+        },
+        orderBy: { name: "asc" },
       },
     },
   });
@@ -248,6 +267,17 @@ export default async function LicenseDetailPage({
   return (
     <div className="min-h-screen bg-gray-50 py-10">
       <div className="mx-auto max-w-6xl px-4">
+        {/* Parent breadcrumb */}
+        {license.parent && (
+          <div className="mb-2 text-sm text-gray-500">
+            <Link href={`/licenses/${license.parent.id}`} className="text-blue-600 hover:underline">
+              {license.parent.name}
+            </Link>
+            <span className="mx-1">/</span>
+            <span className="text-gray-700">{license.name}</span>
+          </div>
+        )}
+
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -263,12 +293,14 @@ export default async function LicenseDetailPage({
             )}
           </div>
           <div className="flex items-center gap-3">
-            <Link
-              href={`/licenses/${licenseId}/edit`}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              수정
-            </Link>
+            {user && (
+              <Link
+                href={`/licenses/${licenseId}/edit`}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                수정
+              </Link>
+            )}
             <Link
               href="/licenses"
               className="text-sm text-gray-500 hover:text-gray-700"
@@ -487,8 +519,8 @@ export default async function LicenseDetailPage({
           </div>
         )}
 
-        {/* Renewal Management */}
-        <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Renewal Management — 로그인 사용자만 */}
+        {user && <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
           <RenewalStatusPanel
             licenseId={licenseId}
             currentStatus={(license as { renewalStatus?: string }).renewalStatus as Parameters<typeof RenewalStatusPanel>[0]["currentStatus"] ?? null}
@@ -500,10 +532,58 @@ export default async function LicenseDetailPage({
             users={users}
             orgUnits={orgUnits}
           />
-        </div>
+        </div>}
         <div className="mb-6">
           <RenewalHistoryPanel licenseId={licenseId} />
         </div>
+
+        {/* Children Licenses */}
+        {license.children.length > 0 && (
+          <div className="mb-6">
+            <h2 className="mb-3 text-lg font-semibold text-gray-900">
+              관련 라이선스 (하위) — {license.children.length}개
+            </h2>
+            <div className="overflow-x-auto rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">이름</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">유형</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">배정</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">갱신일</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {license.children.map((child) => {
+                    const childTypeLabel =
+                      child.licenseType === "VOLUME" ? "Volume"
+                        : child.licenseType === "NO_KEY" ? "No Key"
+                        : "Key Based";
+                    return (
+                      <tr key={child.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm">
+                          <Link
+                            href={`/licenses/${child.id}`}
+                            className="font-medium text-blue-600 hover:underline"
+                          >
+                            {child.name}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{childTypeLabel}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 tabular-nums">
+                          {child.assignments.length} / {child.totalQuantity}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {child.expiryDate ? new Date(child.expiryDate).toLocaleDateString("ko-KR") : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Active Assignments */}
         <LicenseAssignments

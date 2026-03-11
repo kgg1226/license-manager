@@ -20,12 +20,14 @@ function OrgUnitNode({
   companyId,
   allOrgs,
   onRefresh,
+  isAuthenticated,
 }: {
   unit: OrgUnit;
   subUnits: OrgUnit[];
   companyId: number;
   allOrgs: OrgUnit[];
   onRefresh: () => Promise<void>;
+  isAuthenticated: boolean;
 }) {
   const [open, setOpen] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -212,34 +214,38 @@ function OrgUnitNode({
         ) : (
           <>
             <span className="text-sm text-gray-700 flex-1">{unit.name}</span>
-            <button
-              onClick={startEdit}
-              className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50"
-              title="수정"
-            >
-              <Edit2 className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={handleDeleteClick}
-              disabled={isLoading}
-              className="text-gray-400 hover:text-red-600 p-1 rounded hover:bg-red-50 disabled:opacity-50"
-              title="삭제"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => setShowAddChild(true)}
-              className="text-gray-400 hover:text-green-600 p-1 rounded hover:bg-green-50"
-              title="하위 부서 추가"
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </button>
+            {isAuthenticated && (
+              <>
+                <button
+                  onClick={startEdit}
+                  className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50"
+                  title="수정"
+                >
+                  <Edit2 className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={handleDeleteClick}
+                  disabled={isLoading}
+                  className="text-gray-400 hover:text-red-600 p-1 rounded hover:bg-red-50 disabled:opacity-50"
+                  title="삭제"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => setShowAddChild(true)}
+                  className="text-gray-400 hover:text-green-600 p-1 rounded hover:bg-green-50"
+                  title="하위 부서 추가"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </>
+            )}
           </>
         )}
       </div>
 
-      {/* 하위 부서 추가 입력 */}
-      {showAddChild && (
+      {/* 하위 부서 추가 입력 (인증 사용자만) */}
+      {isAuthenticated && showAddChild && (
         <div className="ml-4 flex gap-1.5 py-2">
           <input
             autoFocus
@@ -286,6 +292,7 @@ function OrgUnitNode({
               companyId={companyId}
               allOrgs={allOrgs}
               onRefresh={onRefresh}
+              isAuthenticated={isAuthenticated}
             />
           ))}
         </div>
@@ -366,9 +373,11 @@ function OrgUnitNode({
 function CompanyNode({
   company,
   onRefresh,
+  isAuthenticated,
 }: {
   company: Company;
   onRefresh: () => Promise<void>;
+  isAuthenticated: boolean;
 }) {
   const [open, setOpen] = useState(true);
   const [showAddRoot, setShowAddRoot] = useState(false);
@@ -585,14 +594,15 @@ function CompanyNode({
                     companyId={company.id}
                     allOrgs={company.orgs}
                     onRefresh={onRefresh}
+                    isAuthenticated={isAuthenticated}
                   />
                 );
               })}
             </div>
           )}
 
-          {/* 최상위 부서 추가 */}
-          {showAddRoot ? (
+          {/* 최상위 부서 추가 (인증 사용자만) */}
+          {isAuthenticated && showAddRoot ? (
             <div className="flex gap-1.5 py-2">
               <input
                 autoFocus
@@ -626,7 +636,7 @@ function CompanyNode({
                 취소
               </button>
             </div>
-          ) : (
+          ) : isAuthenticated ? (
             <button
               onClick={() => setShowAddRoot(true)}
               className="text-xs px-3 py-1.5 bg-green-50 text-green-700 rounded border border-green-200 hover:bg-green-100"
@@ -634,7 +644,7 @@ function CompanyNode({
               <Plus className="h-3.5 w-3.5 inline mr-1" />
               부서 추가
             </button>
-          )}
+          ) : null}
 
           {topOrgs.length === 0 && !showAddRoot && (
             <p className="text-xs text-gray-400">등록된 조직이 없습니다.</p>
@@ -648,14 +658,16 @@ function CompanyNode({
 export default function OrgTree({
   companies: initialCompanies,
   onRefresh,
+  isAuthenticated,
 }: {
   companies: Company[];
   onRefresh: () => Promise<void>;
+  isAuthenticated: boolean;
 }) {
   return (
     <div>
       {initialCompanies.map((c) => (
-        <CompanyNode key={c.id} company={c} onRefresh={onRefresh} />
+        <CompanyNode key={c.id} company={c} onRefresh={onRefresh} isAuthenticated={isAuthenticated} />
       ))}
     </div>
   );

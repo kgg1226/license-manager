@@ -4,11 +4,13 @@ import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import OrgTree from "./org-tree";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 type OrgUnit = { id: number; name: string; parentId: number | null };
 type Company = { id: number; name: string; orgs: OrgUnit[] };
 
 export default function OrgPage() {
+  const { user } = useAuth();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateCompany, setShowCreateCompany] = useState(false);
@@ -79,13 +81,15 @@ export default function OrgPage() {
       <div className="mx-auto max-w-3xl px-4">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">조직도</h1>
-          <button
-            onClick={() => { setShowCreateCompany(true); setNewCompanyName(""); }}
-            className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4" />
-            새 회사 생성
-          </button>
+          {user && (
+            <button
+              onClick={() => { setShowCreateCompany(true); setNewCompanyName(""); }}
+              className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4" />
+              새 회사 생성
+            </button>
+          )}
         </div>
 
         {/* 회사 생성 모달 */}
@@ -128,7 +132,7 @@ export default function OrgPage() {
             <p className="text-sm text-gray-500">등록된 조직이 없습니다.</p>
           </div>
         ) : (
-          <OrgTree companies={companies} onRefresh={handleRefresh} />
+          <OrgTree companies={companies} onRefresh={handleRefresh} isAuthenticated={!!user} />
         )}
       </div>
     </div>

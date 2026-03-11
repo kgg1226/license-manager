@@ -34,11 +34,6 @@ export default async function RootLayout({
   const pathname = h.get("x-pathname") ?? "";
   const user = await getCurrentUser().catch(() => null);
 
-  // 세션 쿠키는 있지만 DB 세션이 만료/삭제된 경우 로그인으로 리다이렉트
-  if (!user && pathname !== "/login") {
-    redirect("/login");
-  }
-
   // 비밀번호 변경 필수인 경우 비밀번호 변경 페이지로 리다이렉트
   // (change-password 페이지에서는 리다이렉트 방지)
   if (
@@ -54,7 +49,7 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-[family-name:var(--font-geist-sans)] bg-gray-50 text-gray-900 antialiased`}
       >
-        {user && (
+        {pathname !== "/login" && (
           <nav className="border-b border-gray-200 bg-white">
             <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
               <Link href="/licenses" className="text-sm font-bold text-gray-900">
@@ -76,9 +71,11 @@ export default async function RootLayout({
                 <Link href="/settings/groups" className="text-sm text-gray-600 hover:text-gray-900">
                   그룹 설정
                 </Link>
-                <Link href="/settings/import" className="text-sm text-gray-600 hover:text-gray-900">
-                  데이터 가져오기
-                </Link>
+                {user && (
+                  <Link href="/settings/import" className="text-sm text-gray-600 hover:text-gray-900">
+                    데이터 가져오기
+                  </Link>
+                )}
                 <Link href="/assets" className="text-sm text-gray-600 hover:text-gray-900">
                   자산
                 </Link>
@@ -88,7 +85,7 @@ export default async function RootLayout({
                 <Link href="/history" className="text-sm text-gray-600 hover:text-gray-900">
                   이력
                 </Link>
-                {user.role === "ADMIN" && (
+                {user?.role === "ADMIN" && (
                   <>
                     <Link href="/admin/users" className="text-sm text-purple-600 hover:text-purple-800">
                       사용자 관리
@@ -105,10 +102,16 @@ export default async function RootLayout({
                   </>
                 )}
               </div>
-              <div className="flex items-center gap-3 border-l border-gray-200 pl-4">
-                <span className="text-xs text-gray-400">{user.username}</span>
-                <LogoutButton />
-              </div>
+              {user ? (
+                <div className="flex items-center gap-3 border-l border-gray-200 pl-4">
+                  <span className="text-xs text-gray-400">{user.username}</span>
+                  <LogoutButton />
+                </div>
+              ) : (
+                <Link href="/login" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                  로그인
+                </Link>
+              )}
             </div>
           </nav>
         )}

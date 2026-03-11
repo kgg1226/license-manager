@@ -28,14 +28,16 @@ export function proxy(request: NextRequest) {
 
   const sessionToken = request.cookies.get("session_token")?.value;
 
-  if (!sessionToken) {
-    if (pathname.startsWith("/api/")) {
+  // API 변경 요청(POST/PUT/PATCH/DELETE)만 인증 요구
+  // GET 요청 및 모든 페이지는 비로그인 접근 허용
+  if (!sessionToken && pathname.startsWith("/api/")) {
+    const method = request.method;
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
       return NextResponse.json(
         { error: "인증이 필요합니다." },
         { status: 401 }
       );
     }
-    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   return passthrough();

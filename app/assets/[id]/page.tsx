@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Edit, Trash2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 type AssetType = "SOFTWARE" | "CLOUD" | "HARDWARE" | "DOMAIN_SSL" | "OTHER";
 type AssetStatus = "ACTIVE" | "INACTIVE" | "DISPOSED";
@@ -53,6 +54,7 @@ export default function AssetDetailPage() {
   const router = useRouter();
   const params = useParams();
   const assetId = params.id as string;
+  const { user } = useAuth();
 
   const [asset, setAsset] = useState<Asset | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -291,29 +293,31 @@ export default function AssetDetailPage() {
           </div>
         </div>
 
-        {/* 액션 버튼 */}
-        <div className="flex gap-3">
-          <Link
-            href={`/assets/${asset.id}/edit`}
-            className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            <Edit className="h-4 w-4" />
-            수정
-          </Link>
-          <button
-            onClick={() => setShowStatusModal(true)}
-            className="flex-1 rounded-md border border-blue-300 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
-          >
-            상태 변경
-          </button>
-          <button
-            onClick={() => setShowDeleteModal(true)}
-            className="flex items-center gap-2 rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-          >
-            <Trash2 className="h-4 w-4" />
-            삭제
-          </button>
-        </div>
+        {/* 액션 버튼 (인증 사용자만) */}
+        {user && (
+          <div className="flex gap-3">
+            <Link
+              href={`/assets/${asset.id}/edit`}
+              className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              <Edit className="h-4 w-4" />
+              수정
+            </Link>
+            <button
+              onClick={() => setShowStatusModal(true)}
+              className="flex-1 rounded-md border border-blue-300 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
+            >
+              상태 변경
+            </button>
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="flex items-center gap-2 rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+            >
+              <Trash2 className="h-4 w-4" />
+              삭제
+            </button>
+          </div>
+        )}
 
         {/* 상태 변경 모달 */}
         {showStatusModal && (

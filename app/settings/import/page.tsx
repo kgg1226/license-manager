@@ -1,6 +1,10 @@
 import ImportForm from "./import-form";
+import { getCurrentUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
-export default function ImportPage() {
+export default async function ImportPage() {
+  const user = await getCurrentUser().catch(() => null);
+  if (!user) redirect("/login");
   return (
     <div className="min-h-screen bg-gray-50 py-10">
       <div className="mx-auto max-w-4xl px-4">

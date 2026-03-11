@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 type AssetType = "SOFTWARE" | "CLOUD" | "HARDWARE" | "DOMAIN_SSL" | "OTHER";
 
@@ -37,6 +38,13 @@ export default function AssetEditPage() {
   const router = useRouter();
   const params = useParams();
   const assetId = params.id as string;
+  const { user, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/login");
+    }
+  }, [user, authLoading, router]);
 
   const [formData, setFormData] = useState<FormState>({
     name: "",
@@ -148,6 +156,16 @@ export default function AssetEditPage() {
       setIsLoading(false);
     }
   };
+
+  if (authLoading || !user) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="mx-auto max-w-2xl">
+          <p className="text-center text-gray-500">{authLoading ? "로딩 중..." : "로그인이 필요합니다."}</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoadingData) {
     return (

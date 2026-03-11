@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Plus, Eye, Edit, Trash2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 type AssetType = "SOFTWARE" | "CLOUD" | "HARDWARE" | "DOMAIN_SSL" | "OTHER";
 type AssetStatus = "ACTIVE" | "INACTIVE" | "DISPOSED";
@@ -61,6 +62,7 @@ function formatDate(dateStr: string | null | undefined): string {
 
 export default function AssetsPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -124,13 +126,15 @@ export default function AssetsPage() {
             >
               <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
             </button>
-            <Link
-              href="/assets/new"
-              className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              <Plus className="h-4 w-4" />
-              새 자산 등록
-            </Link>
+            {user && (
+              <Link
+                href="/assets/new"
+                className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                <Plus className="h-4 w-4" />
+                새 자산 등록
+              </Link>
+            )}
           </div>
         </div>
 
@@ -236,20 +240,24 @@ export default function AssetsPage() {
                         >
                           <Eye className="h-4 w-4" />
                         </button>
-                        <button
-                          onClick={() => router.push(`/assets/${asset.id}/edit`)}
-                          className="rounded p-1 hover:bg-gray-200"
-                          title="수정"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(asset.id, asset.name)}
-                          className="rounded p-1 hover:bg-gray-200"
-                          title="삭제"
-                        >
-                          <Trash2 className="h-4 w-4 text-red-600" />
-                        </button>
+                        {user && (
+                          <>
+                            <button
+                              onClick={() => router.push(`/assets/${asset.id}/edit`)}
+                              className="rounded p-1 hover:bg-gray-200"
+                              title="수정"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(asset.id, asset.name)}
+                              className="rounded p-1 hover:bg-gray-200"
+                              title="삭제"
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

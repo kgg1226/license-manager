@@ -1,10 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import NewGroupForm from "./new-form";
 import Link from "next/link";
+import { getCurrentUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewGroupPage() {
+  const user = await getCurrentUser().catch(() => null);
+  if (!user) redirect("/login");
   const licenses = await prisma.license.findMany({
     select: { id: true, name: true },
     orderBy: { name: "asc" },

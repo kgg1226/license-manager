@@ -1,11 +1,14 @@
 import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import EditGroupForm from "./edit-form";
 import Link from "next/link";
+import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditGroupPage({ params }: { params: Promise<{ id: string }> }) {
+  const user = await getCurrentUser().catch(() => null);
+  if (!user) redirect("/login");
   const { id } = await params;
   const group = await prisma.licenseGroup.findUnique({
     where: { id: Number(id) },

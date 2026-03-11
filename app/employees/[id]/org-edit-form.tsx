@@ -14,12 +14,14 @@ export default function OrgEditForm({
   initialCompanyId,
   initialOrgUnitId,
   companies,
+  readOnly = false,
 }: {
   employeeId: number;
   initialTitle: string | null;
   initialCompanyId: number | null;
   initialOrgUnitId: number | null;
   companies: Company[];
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
@@ -71,12 +73,14 @@ export default function OrgEditForm({
       <div>
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-medium text-gray-500">조직 정보</h3>
-          <button
-            onClick={() => setIsEditing(true)}
-            className="rounded px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50"
-          >
-            수정
-          </button>
+          {!readOnly && (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="rounded px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50"
+            >
+              수정
+            </button>
+          )}
         </div>
         <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
