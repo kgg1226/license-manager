@@ -1,57 +1,24 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, Eye, Edit, Trash2 } from "lucide-react";
+import { Plus, Eye, Edit, Trash2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 type AssetType = "SOFTWARE" | "CLOUD" | "HARDWARE" | "DOMAIN_SSL" | "OTHER";
 type AssetStatus = "ACTIVE" | "INACTIVE" | "DISPOSED";
 
 interface Asset {
-  id: string;
+  id: number;
   name: string;
   type: AssetType;
   status: AssetStatus;
-  cost: number;
+  cost?: number | null;
   currency: string;
-  expiryDate: string | null;
-  assignedTo: { id: string; name: string } | null;
+  expiryDate?: string | null;
+  assignee?: { id: number; name: string } | null;
 }
-
-const mockAssets: Asset[] = [
-  {
-    id: "ast-001",
-    name: "Microsoft 365",
-    type: "SOFTWARE",
-    status: "ACTIVE",
-    cost: 1200,
-    currency: "USD",
-    expiryDate: "2026-12-31",
-    assignedTo: { id: "emp-001", name: "이순신" },
-  },
-  {
-    id: "ast-002",
-    name: "AWS EC2",
-    type: "CLOUD",
-    status: "ACTIVE",
-    cost: 500,
-    currency: "USD",
-    expiryDate: null,
-    assignedTo: { id: "emp-002", name: "장보고" },
-  },
-  {
-    id: "ast-003",
-    name: "MacBook Pro",
-    type: "HARDWARE",
-    status: "ACTIVE",
-    cost: 2500,
-    currency: "USD",
-    expiryDate: "2029-01-01",
-    assignedTo: { id: "emp-003", name: "김유신" },
-  },
-];
 
 const ASSET_TYPE_LABELS: Record<AssetType, string> = {
   SOFTWARE: "소프트웨어",
@@ -81,36 +48,66 @@ const STATUS_COLORS: Record<AssetStatus, string> = {
   DISPOSED: "bg-red-100 text-red-800",
 };
 
-function formatCost(cost: number, currency: string): string {
+function formatCost(cost: number | null | undefined, currency: string): string {
+  if (cost == null) return "—";
   if (currency === "KRW") return `${cost.toLocaleString("ko-KR")}원`;
-  return `$${cost.toFixed(2)}`;
+  return `${currency} ${cost.toLocaleString()}`;
 }
 
-function formatDate(dateStr: string | null): string {
+function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "—";
   return new Date(dateStr).toLocaleDateString("ko-KR");
 }
 
 export default function AssetsPage() {
   const router = useRouter();
-  const [assets, setAssets] = useState<Asset[]>(mockAssets);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [total, setTotal] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState<AssetType | "">("");
   const [selectedStatus, setSelectedStatus] = useState<AssetStatus | "">("");
 
-  const filteredAssets = useMemo(() => {
-    return assets.filter(
-      (asset) =>
-        asset.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-        (!selectedType || asset.type === selectedType) &&
-        (!selectedStatus || asset.status === selectedStatus)
-    );
-  }, [assets, searchQuery, selectedType, selectedStatus]);
+  const loadAssets = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (searchQuery) params.set("search", searchQuery);
+      if (selectedType) params.set("type", selectedType);
+      if (selectedStatus) params.set("status", selectedStatus);
+      params.set("limit", "50");
 
-  const handleDelete = (id: string) => {
-    if (confirm("이 자산을 정말 삭제하시겠습니까?")) {
-      setAssets(assets.filter((a) => a.id !== id));
+      const res = await fetch(`/api/assets?${params}`);
+      if (!res.ok) throw new Error("자산 목록 조회 실패");
+      const data = await res.json();
+      setAssets(data.assets ?? []);
+      setTotal(data.total ?? 0);
+    } catch (error) {
+      console.error("자산 로드 실패:", error);
+      toast.error("자산 목록을 불러올 수 없습니다");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [searchQuery, selectedType, selectedStatus]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => loadAssets(), 300);
+    return () => clearTimeout(timer);
+  }, [loadAssets]);
+
+  const handleDelete = async (id: number, name: string) => {
+    if (!confirm(`"${name}"을(를) 삭제하시겠습니까?`)) return;
+    try {
+      const res = await fetch(`/api/assets/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error || "자산 삭제에 실패했습니다");
+        return;
+      }
       toast.success("자산이 삭제되었습니다");
+      await loadAssets();
+    } catch {
+      toast.error("자산 삭제에 실패했습니다");
     }
   };
 
@@ -119,13 +116,22 @@ export default function AssetsPage() {
       <div className="mx-auto max-w-7xl">
         <div className="mb-8 flex items-center justify-between">
           <h1 className="text-3xl font-bold text-gray-900">자산 관리</h1>
-          <Link
-            href="/assets/new"
-            className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4" />
-            새 자산 등록
-          </Link>
+          <div className="flex gap-2">
+            <button
+              onClick={loadAssets}
+              disabled={isLoading}
+              className="flex items-center gap-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+            </button>
+            <Link
+              href="/assets/new"
+              className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4" />
+              새 자산 등록
+            </Link>
+          </div>
         </div>
 
         {/* 필터 */}
@@ -143,9 +149,7 @@ export default function AssetsPage() {
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setSelectedType("")}
-              className={`rounded-full px-3 py-1 text-sm ${
-                selectedType === "" ? "bg-blue-600 text-white" : "bg-gray-200"
-              }`}
+              className={`rounded-full px-3 py-1 text-sm ${selectedType === "" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
             >
               전체
             </button>
@@ -153,9 +157,7 @@ export default function AssetsPage() {
               <button
                 key={type}
                 onClick={() => setSelectedType(type)}
-                className={`rounded-full px-3 py-1 text-sm ${
-                  selectedType === type ? "bg-blue-600 text-white" : "bg-gray-200"
-                }`}
+                className={`rounded-full px-3 py-1 text-sm ${selectedType === type ? "bg-blue-600 text-white" : "bg-gray-200"}`}
               >
                 {ASSET_TYPE_LABELS[type]}
               </button>
@@ -165,9 +167,7 @@ export default function AssetsPage() {
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               onClick={() => setSelectedStatus("")}
-              className={`rounded-full px-3 py-1 text-sm ${
-                selectedStatus === "" ? "bg-blue-600 text-white" : "bg-gray-100"
-              }`}
+              className={`rounded-full px-3 py-1 text-sm ${selectedStatus === "" ? "bg-blue-600 text-white" : "bg-gray-100"}`}
             >
               모든 상태
             </button>
@@ -175,9 +175,7 @@ export default function AssetsPage() {
               <button
                 key={status}
                 onClick={() => setSelectedStatus(status)}
-                className={`rounded-full px-3 py-1 text-sm ${
-                  selectedStatus === status ? "bg-blue-600 text-white" : "bg-gray-100"
-                }`}
+                className={`rounded-full px-3 py-1 text-sm ${selectedStatus === status ? "bg-blue-600 text-white" : "bg-gray-100"}`}
               >
                 {STATUS_LABELS[status]}
               </button>
@@ -200,14 +198,16 @@ export default function AssetsPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredAssets.length === 0 ? (
+              {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
-                    자산을 찾을 수 없습니다
-                  </td>
+                  <td colSpan={7} className="px-6 py-8 text-center text-gray-400">로딩 중...</td>
+                </tr>
+              ) : assets.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">자산을 찾을 수 없습니다</td>
                 </tr>
               ) : (
-                filteredAssets.map((asset) => (
+                assets.map((asset) => (
                   <tr key={asset.id} className="border-b hover:bg-gray-50">
                     <td className="px-6 py-4 font-medium">
                       <Link href={`/assets/${asset.id}`} className="text-blue-600 hover:underline">
@@ -226,7 +226,7 @@ export default function AssetsPage() {
                     </td>
                     <td className="px-6 py-4 text-sm">{formatCost(asset.cost, asset.currency)}</td>
                     <td className="px-6 py-4 text-sm">{formatDate(asset.expiryDate)}</td>
-                    <td className="px-6 py-4 text-sm">{asset.assignedTo?.name || "—"}</td>
+                    <td className="px-6 py-4 text-sm">{asset.assignee?.name || "—"}</td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
@@ -244,7 +244,7 @@ export default function AssetsPage() {
                           <Edit className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(asset.id)}
+                          onClick={() => handleDelete(asset.id, asset.name)}
                           className="rounded p-1 hover:bg-gray-200"
                           title="삭제"
                         >
@@ -260,7 +260,7 @@ export default function AssetsPage() {
         </div>
 
         <div className="mt-4 text-sm text-gray-600">
-          총 {filteredAssets.length}개 자산 | Mock 데이터 사용 중 - BE-021 완료 후 API 연결 예정
+          총 {total}개 자산
         </div>
       </div>
     </div>
