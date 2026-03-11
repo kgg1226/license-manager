@@ -48,16 +48,20 @@ master             ← 배포 기준. PR 머지만 허용, 직접 커밋 금지
 ### 작업 흐름
 ```
 1. 역할 브랜치 체크아웃     git checkout role/<역할>
-2. master 최신 동기화       git merge master  ← rebase 절대 금지
+2. master 최신 동기화       git merge master  (또는 필요 시 git rebase master)
 3. 담당 파일만 수정·커밋
 4. PR 생성                  role/<역할> → master
 5. 머지 후 동기화           git merge master (다른 역할 브랜치에서)
 ```
 
 ### 절대 금지
-- `git rebase` 사용 금지 (반복 충돌의 원인)
 - `master`에 직접 커밋 금지
 - 다른 역할 소유 파일 수정 금지
+
+### rebase 사용 지침
+- 기본: `git merge master` 권장 (히스토리 보존)
+- rebase 허용: 커밋 정리·PR 전 히스토리 클린업 목적으로 필요 시 사용
+- rebase 후 force push 필요 시: `git push --force-with-lease` 사용 (`--force` 금지)
 
 ---
 
@@ -68,7 +72,7 @@ master             ← 배포 기준. PR 머지만 허용, 직접 커밋 금지
 ```bash
 git fetch origin
 git checkout role/<내역할>
-git merge master   # rebase 금지
+git merge master   # 또는 필요 시: git rebase master
 ```
 
 ### 2단계 — 필수 문서 확인 (순서대로)
