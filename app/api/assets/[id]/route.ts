@@ -17,7 +17,7 @@ import {
 } from "@/lib/validation";
 
 const ASSET_TYPES = ["SOFTWARE", "CLOUD", "HARDWARE", "DOMAIN_SSL", "OTHER"] as const;
-const BILLING_CYCLES = ["MONTHLY", "ANNUAL", "ONE_TIME"] as const;
+const BILLING_CYCLES = ["MONTHLY", "ANNUAL", "ONE_TIME", "USAGE_BASED"] as const;
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -104,6 +104,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
             case "MONTHLY": data.monthlyCost = finalCost; break;
             case "ANNUAL": data.monthlyCost = Math.round((finalCost / 12) * 100) / 100; break;
             case "ONE_TIME": data.monthlyCost = 0; break;
+            case "USAGE_BASED": data.monthlyCost = finalCost; break;
           }
         }
       }
@@ -140,23 +141,24 @@ export async function PUT(request: NextRequest, { params }: Params) {
       if (body.hardwareDetail !== undefined) {
         if (body.hardwareDetail) {
           const hd = body.hardwareDetail;
+          const hdFields = {
+            assetTag: vStr(hd.assetTag, 100),
+            deviceType: vStr(hd.deviceType, 50),
+            manufacturer: vStr(hd.manufacturer, 255),
+            model: vStr(hd.model, 255),
+            serialNumber: vStr(hd.serialNumber, 255),
+            hostname: vStr(hd.hostname, 255),
+            macAddress: vStr(hd.macAddress, 50),
+            ipAddress: vStr(hd.ipAddress, 50),
+            os: vStr(hd.os, 50),
+            osVersion: vStr(hd.osVersion, 100),
+            location: vStr(hd.location, 500),
+            usefulLifeYears: vNum(hd.usefulLifeYears, { min: 1, max: 50, integer: true }) ?? 5,
+          };
           await tx.hardwareDetail.upsert({
             where: { assetId },
-            create: {
-              assetId,
-              manufacturer: vStr(hd.manufacturer, 255),
-              model: vStr(hd.model, 255),
-              serialNumber: vStr(hd.serialNumber, 255),
-              location: vStr(hd.location, 500),
-              specs: hd.specs ?? null,
-            },
-            update: {
-              manufacturer: vStr(hd.manufacturer, 255),
-              model: vStr(hd.model, 255),
-              serialNumber: vStr(hd.serialNumber, 255),
-              location: vStr(hd.location, 500),
-              specs: hd.specs ?? null,
-            },
+            create: { assetId, ...hdFields },
+            update: hdFields,
           });
         } else {
           await tx.hardwareDetail.deleteMany({ where: { assetId } });
@@ -238,10 +240,10 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "자산을 찾을 수 없습니다." }, { status: 404 });
     }
 
-    // ACTIVE 상태 자산은 삭제 불가 — DISPOSED로 먼저 변경 필요
-    if (asset.status === "ACTIVE") {
+    // 사용 중이거나 재고 상태 자산은 삭제 불가 — DISPOSED로 먼저 변경 필요
+    if (asset.status === "IN_USE" || asset.status === "IN_STOCK") {
       return NextResponse.json(
-        { error: "사용 중인 자산은 삭제할 수 없습니다. 먼저 폐기(DISPOSED) 처리해주세요." },
+        { error: "사용 중이거나 재고 상태 자산은 삭제할 수 없습니다. 먼저 폐기(DISPOSED) 처리해주세요." },
         { status: 409 },
       );
     }

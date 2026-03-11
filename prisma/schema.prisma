@@ -293,15 +293,18 @@ enum AssetType {
 }
 
 enum AssetStatus {
-  ACTIVE      // 사용 중
-  INACTIVE    // 미사용·대기
-  DISPOSED    // 폐기
+  IN_STOCK           // 재고 (미할당)
+  IN_USE             // 사용 중
+  INACTIVE           // 미사용·대기
+  UNUSABLE           // 불용
+  PENDING_DISPOSAL   // 폐기 대상
+  DISPOSED           // 폐기 완료
 }
 
 model Asset {
   id              Int          @id @default(autoincrement())
   type            AssetType
-  status          AssetStatus  @default(ACTIVE)
+  status          AssetStatus  @default(IN_STOCK)
   name            String                              // 자산명
   vendor          String?                             // 공급업체
   description     String?
@@ -342,14 +345,21 @@ model Asset {
 }
 
 model HardwareDetail {
-  id           Int     @id @default(autoincrement())
-  assetId      Int     @unique
-  manufacturer String?                               // 제조사
-  model        String?                               // 모델명
-  serialNumber String?                               // 시리얼 넘버
-  location     String?                               // 보관 위치
-  specs        Json?                                  // { cpu, ram, storage, ... }
-  asset        Asset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  id              Int     @id @default(autoincrement())
+  assetId         Int     @unique
+  assetTag        String?                              // 내부 자산 식별번호
+  deviceType      String?                              // Laptop / Desktop / Server / Network / Mobile / Other
+  manufacturer    String?                              // 제조사 (Apple, Dell, Lenovo 등)
+  model           String?                              // 모델명 (MacBook Pro M4 등)
+  serialNumber    String?                              // 제조사 시리얼 넘버
+  hostname        String?                              // 장비 이름
+  macAddress      String?                              // MAC Address
+  ipAddress       String?                              // 내부 IP Address
+  os              String?                              // macOS / Windows / Linux
+  osVersion       String?                              // OS 버전
+  location        String?                              // 보관 위치
+  usefulLifeYears Int     @default(5)                  // 내용연수 (감가상각, 기본 5년)
+  asset           Asset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
 }
 
 model CloudDetail {

@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
     const assets = await prisma.asset.findMany({
       where: {
-        status: "ACTIVE",
+        status: { in: ["IN_STOCK", "IN_USE", "INACTIVE"] },
         expiryDate: {
           gte: now,
           lte: deadline,

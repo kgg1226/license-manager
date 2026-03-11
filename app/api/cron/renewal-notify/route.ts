@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
     const assets = await prisma.asset.findMany({
       where: {
         expiryDate: range,
-        status: "ACTIVE",
+        status: { in: ["IN_STOCK", "IN_USE", "INACTIVE"] },
       },
       include: {
         assignee: { select: { id: true, name: true, email: true } },

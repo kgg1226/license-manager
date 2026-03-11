@@ -18,8 +18,8 @@ import {
 import type { Prisma } from "@/generated/prisma/client";
 
 const ASSET_TYPES = ["SOFTWARE", "CLOUD", "HARDWARE", "DOMAIN_SSL", "OTHER"] as const;
-const ASSET_STATUSES = ["ACTIVE", "INACTIVE", "DISPOSED"] as const;
-const BILLING_CYCLES = ["MONTHLY", "ANNUAL", "ONE_TIME"] as const;
+const ASSET_STATUSES = ["IN_STOCK", "IN_USE", "INACTIVE", "UNUSABLE", "PENDING_DISPOSAL", "DISPOSED"] as const;
+const BILLING_CYCLES = ["MONTHLY", "ANNUAL", "ONE_TIME", "USAGE_BASED"] as const;
 const SORT_FIELDS = ["name", "cost", "monthlyCost", "expiryDate", "createdAt"] as const;
 
 // ── GET /api/assets — 자산 목록 조회 ──
@@ -128,6 +128,9 @@ export async function POST(request: NextRequest) {
         case "ONE_TIME":
           monthlyCostVal = 0;
           break;
+        case "USAGE_BASED":
+          monthlyCostVal = costVal;
+          break;
       }
     }
 
@@ -173,11 +176,18 @@ export async function POST(request: NextRequest) {
         await tx.hardwareDetail.create({
           data: {
             assetId: created.id,
+            assetTag: vStr(hd.assetTag, 100),
+            deviceType: vStr(hd.deviceType, 50),
             manufacturer: vStr(hd.manufacturer, 255),
             model: vStr(hd.model, 255),
             serialNumber: vStr(hd.serialNumber, 255),
+            hostname: vStr(hd.hostname, 255),
+            macAddress: vStr(hd.macAddress, 50),
+            ipAddress: vStr(hd.ipAddress, 50),
+            os: vStr(hd.os, 50),
+            osVersion: vStr(hd.osVersion, 100),
             location: vStr(hd.location, 500),
-            specs: hd.specs ?? null,
+            usefulLifeYears: vNum(hd.usefulLifeYears, { min: 1, max: 50, integer: true }) ?? 5,
           },
         });
       }

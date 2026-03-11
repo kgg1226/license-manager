@@ -44,7 +44,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
         <h1 className="mb-8 text-center text-2xl font-bold text-gray-900">
-          License Manager
+          Asset Manager
         </h1>
 
         <form

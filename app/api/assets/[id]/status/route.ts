@@ -11,7 +11,7 @@ import {
   vStr,
 } from "@/lib/validation";
 
-const ASSET_STATUSES = ["ACTIVE", "INACTIVE", "DISPOSED"] as const;
+const ASSET_STATUSES = ["IN_STOCK", "IN_USE", "INACTIVE", "UNUSABLE", "PENDING_DISPOSAL", "DISPOSED"] as const;
 
 type Params = { params: Promise<{ id: string }> };
 
