@@ -1,5 +1,3 @@
-// [2026-03-08] Asset, HardwareDetail, CloudDetail 모델 추가 (Phase 2 자산 유형 확장)
-// [2026-03-05] SQLite → PostgreSQL(Supabase) 전환
 // [2026-03-04] MemberStatus/RenewalStatus enum 추가, OrgUnit sortOrder/updatedAt, Employee orgUnitId/status/offboardingUntil 통합,
 //              License renewal 필드, LicenseRenewalHistory/LicenseOwner/NotificationLog 신규, AuditLog actorType/actorId, User mustChangePassword
 
@@ -57,14 +55,19 @@ model License {
   renewalDate        DateTime?
   renewalDateManual  DateTime?
   renewalStatus      RenewalStatus          @default(BEFORE_RENEWAL)
+  parentId           Int?
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
+  parent             License?               @relation("LicenseHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children           License[]              @relation("LicenseHierarchy")
   assignments        Assignment[]
   groupMembers       LicenseGroupMember[]
   seats              LicenseSeat[]
   renewalHistories   LicenseRenewalHistory[]
   owners             LicenseOwner[]
   notificationLogs   NotificationLog[]
+
+  @@index([parentId])
 }
 
 model Employee {

@@ -51,4 +51,19 @@
 
 ## DevOps
 
+### [2026-03-10] node:alpine 비root 사용자는 `node`
+
+`node:*-alpine` 이미지의 내장 비root 사용자는 `node` (UID 1000). `nodejs`는 존재하지 않음.
+→ dockerfile에서 항상 `USER node`, `chown node:node` 사용. (PM-D-002)
+
+### [2026-03-10] 반복 배포 표준: `down → up --build`
+
+컨테이너 이름 충돌 방지를 위해 배포 시 항상 `docker compose down` 선행 필수.
+`down -v`는 볼륨(DB 데이터) 삭제 → **절대 사용 금지**. (PM-D-003)
+
+### [2026-03-10] prisma.config.ts에 dotenv import 금지
+
+Docker 프로덕션 이미지는 devDependency 미포함 → dotenv 로딩 실패.
+환경변수는 docker-compose `environment` 블록으로만 주입. (PM-INF-003)
+
 ## 보안

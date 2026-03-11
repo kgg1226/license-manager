@@ -1,84 +1,30 @@
 # TODO (Legacy - See New System Below)
 
-> ⚠️ **IMPORTANT: This file has been superseded by a new documentation system. Please read below.**
+> 기획 세션(/planning)에서 관리한다.
+> 최종 업데이트: 2026-03-09
 
 ---
 
-## 🚨 새로운 문서 시스템 (2026-03-07 업데이트)
+## 🔴 우선순위 1 — 배포 완료 (PostgreSQL 전환 ✅)
 
-**현재 활성 작업을 확인하려면 다음 파일들을 참조하세요**:
+> PostgreSQL 자체 호스팅 완료. Docker Compose 설정 완료.
+> **EC2에서 docker-compose up -d 실행 후 테스트 진행 중.**
 
-| 문서 | 용도 |
-|------|------|
-| **`tasks/TICKETS.md`** ⭐ | **모든 활성 티켓 (우선순위 2: 배포 전 마무리)** |
-| **`tasks/VISION.md`** ⭐ | 프로젝트의 최종 목표 및 5단계 로드맵 |
-| **`tasks/README.md`** ⭐ | 역할별 문서 가이드 |
-| `BACKEND-START.md` | 백엔드 역할 빠른 시작 |
-| `FRONTEND-START.md` | 프론트엔드 역할 빠른 시작 |
-| `DEVOPS-START.md` | DevOps 역할 빠른 시작 |
-| `tasks/current-state.md` | 현재 프로젝트 상태 |
+### 진행 상황
+- [x] **[BE-010]** `prisma/schema.prisma` — PostgreSQL provider ✅ 완료
+- [x] **[BE-011]** `lib/prisma.ts` — PrismaClient 표준화 ✅ 완료
+- [x] **[BE-012]** SQLite 패키지 제거 ✅ 완료
+- [x] **[BE-013]** `npx prisma db push` ✅ 완료
+- [x] **[BE-014]** `npx prisma db seed` (admin 사용자) ✅ 완료
+- [x] **[OPS-010]** `docker-compose.yml` — PostgreSQL 서비스 추가 ✅ 완료
+- [x] **[OPS-011]** `.env.example` 생성 ✅ 완료
+- [x] **[OPS-001]** `dockerfile` — better-sqlite3 제거 ✅ 완료
+- [x] **[OPS-002]** `.dockerignore` — SQLite 파일 제거 ✅ 완료
 
-**각 역할별 시작하기**:
-- 🔵 **Backend**: `BACKEND-START.md` → `tasks/TICKETS.md` (BE-ORG-001, BE-ORG-002)
-- 🎨 **Frontend**: `FRONTEND-START.md` → `tasks/TICKETS.md` (FE-001, FE-ORG-001)
-- 🟢 **DevOps**: `DEVOPS-START.md` → `tasks/TICKETS.md` (OPS-010/011/001/002)
-- 🎯 **Planning**: `tasks/VISION.md` → `tasks/TICKETS.md` 관리
-
----
-
-## ⚙️ 이 파일에 대해
-
-이 `todo.md` 파일은 **역사적 기록용**으로 남겨져 있습니다:
-- ✅ **완료된 작업들의 이력** (Supabase 전환, 감사 로그 추가, 입력 검증 강화 등)
-- ✅ **완료된 기능** 목록
-- 📚 **Phase 2-5의 미래 계획** (참고용)
-
-**활성 작업은 `tasks/TICKETS.md`를 참조하세요.**
-
----
-
-## 🔴 우선순위 1 — Supabase(PostgreSQL) 전환 (배포 블로커) ✅ COMPLETED
-
-> ✅ **이 섹션은 완료된 작업의 역사입니다.** 자세한 내용은 `tasks/current-state.md` 참조.
->
-> SQLite → Supabase PostgreSQL 전환. 코드 전면 수정 필요.
-> **백엔드 + DevOps 동시 진행 가능. 완료 후 deploy.ps1 실행.**
-
-### 백엔드 (`role/backend`)
-
-- [x] **[BE-010]** `prisma/schema.prisma` — DB 프로바이더 변경 ✅ postgresql 전환 완료
-- [x] **[BE-011]** `lib/prisma.ts` — better-sqlite3 어댑터 제거 ✅ 표준 PrismaClient 전환 완료
-- [x] **[BE-012]** `package.json` — SQLite 관련 패키지 제거 ✅ 3개 패키지 제거 완료
-- [x] **[BE-013]** Supabase 마이그레이션 초기화 ✅ `prisma migrate dev --name supabase_init` 완료
-
-- [x] **[BE-001]** `PATCH /api/employees/[id]` — 조직 이동 시 AuditLog 기록 ✅ 이미 구현됨
-- [x] **[BE-002]** `DELETE /api/admin/users/[id]` — 자신의 계정 삭제 방지 ✅ 이미 구현됨
-- [x] **[BE-003]** 에러 응답 안전성 확인 ✅ 수정 완료 (30개 라우트 전수 검사, 1건 수정)
-
-### DevOps (`role/devops`)
-
-- [ ] **[OPS-010]** `deploy.sh` / `docker-compose.yml` — SQLite 볼륨 제거
-  - 제거: `-v /home/ssm-user/license-manager/data/dev.db:/app/dev.db`
-  - 제거: `DATABASE_URL=file:/app/dev.db`
-  - 추가: `DATABASE_URL` 환경변수를 EC2 SSM Parameter Store 또는 `.env` 파일로 주입
-    - 권장: SSM Parameter Store에 `DATABASE_URL` 저장 → deploy.sh에서 읽어서 `docker run -e` 전달
-
-- [ ] **[OPS-011]** `.env.example` 생성 (실제 값 없이 키 목록만)
-  ```
-  DATABASE_URL=postgresql://...
-  CRON_SECRET=
-  SLACK_WEBHOOK_URL=
-  SMTP_HOST=
-  SMTP_PORT=
-  SMTP_USER=
-  SMTP_PASS=
-  SMTP_FROM=
-  SMTP_SECURE=false
-  SECURE_COOKIE=true
-  ```
-
-- [ ] **[OPS-001]** `dockerfile` — 비root USER 지시문 추가
-- [ ] **[OPS-002]** `.dockerignore` 점검 (`.env`, `dev.db*`, `*.zip`, `.git` 제외)
+### 즉시 작업
+- [ ] EC2에서 `docker-compose up -d` 실행 및 로그인 테스트
+- [ ] 기본 CRUD 동작 확인 (라이선스 목록 조회, 등록, 삭제)
+- [ ] 감사 로그 정상 기록 확인
 
 ---
 

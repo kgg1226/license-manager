@@ -1,13 +1,9 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 1 — Builder
-#   - native 빌드 도구 포함 (better-sqlite3 컴파일)
 #   - 모든 의존성 설치 후 Next.js 빌드
 #   - 저사양(1 GB RAM) 환경을 위한 메모리 제한·검사 비활성화
 # ─────────────────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
-
-# better-sqlite3 네이티브 애드온 컴파일에 필요
-RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
@@ -42,15 +38,12 @@ RUN npm prune --omit=dev
 # ─────────────────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS runner
 
-# 네이티브 .node 바이너리(better-sqlite3) 실행에 필요한 musl 호환 라이브러리
-RUN apk add --no-cache libc6-compat
-
 WORKDIR /app
 
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1
 
-# 프로덕션 의존성 (devDeps 제거 후, better-sqlite3 네이티브 바이너리 포함)
+# 프로덕션 의존성
 COPY --from=builder /app/node_modules ./node_modules
 
 # Next.js 빌드 결과물
@@ -70,5 +63,16 @@ COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 
 EXPOSE 3000
 
+# entrypoint 스크립트 복사 및 실행 권한 부여
+COPY entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
+
+# 소유권 변경 (비root 사용자)
+RUN chown -R node:node /app
+
+# 비root 사용자로 전환
+USER node
+
 # DATABASE_URL 등 필수 환경 변수는 docker-compose 또는 docker run -e 로 주입
-CMD ["npm", "start"]
+# entrypoint: prisma db push → npm start 순서로 실행 (DB 스키마 자동 적용)
+CMD ["./entrypoint.sh"]

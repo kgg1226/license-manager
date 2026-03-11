@@ -11,73 +11,20 @@ $REMOTE_DIR = "/home/ssm-user/app"
 $APP_NAME = "license-manager"
 
 # --- [유틸리티 함수] ---
-function Log($msg) { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $msg" }
+function Log($msg)     { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $msg" }
 function Success($msg) { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $msg" -ForegroundColor Green }
-function Warn($msg) { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $msg" -ForegroundColor Yellow }
-function Fail($msg) { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $msg" -ForegroundColor Red }
+function Warn($msg)    { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $msg" -ForegroundColor Yellow }
+function Fail($msg)    { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $msg" -ForegroundColor Red }
 
 function Invoke-OrFail([scriptblock]$Script, [string]$ErrorMessage) {
     & $Script
     if ($LASTEXITCODE -ne 0) { Fail $ErrorMessage; exit 1 }
 }
 
-# SSM 명령 완료 대기 (최대 $MaxWaitSec 초, $IntervalSec 간격으로 폴링)
-function Wait-SSMCommand([string]$CommandId, [int]$MaxWaitSec = 600, [int]$IntervalSec = 15) {
-    $elapsed = 0
-    while ($elapsed -lt $MaxWaitSec) {
-        Start-Sleep -Seconds $IntervalSec
-        $elapsed += $IntervalSec
-
-        $status = aws ssm get-command-invocation `
-            --command-id $CommandId `
-            --instance-id $EC2_ID `
-            --query "Status" `
-            --output text `
-            --profile $PROFILE_NAME `
-            --region $REGION 2>$null
-
-        $mins = [math]::Floor($elapsed / 60)
-        $secs = $elapsed % 60
-        Log "  대기 중... ($($mins)m $($secs)s) 상태: $status"
-
-        if ($status -eq "Success") { return "Success" }
-        if ($status -in @("Failed", "TimedOut", "Cancelled", "DeliveryTimedOut")) { return $status }
-    }
-    return "Timeout"
-}
-
-# SSM 실행 결과 출력
-function Show-SSMOutput([string]$CommandId) {
-    $stdout = aws ssm get-command-invocation `
-        --command-id $CommandId `
-        --instance-id $EC2_ID `
-        --query "StandardOutputContent" `
-        --output text `
-        --profile $PROFILE_NAME `
-        --region $REGION 2>$null
-
-    $stderr = aws ssm get-command-invocation `
-        --command-id $CommandId `
-        --instance-id $EC2_ID `
-        --query "StandardErrorContent" `
-        --output text `
-        --profile $PROFILE_NAME `
-        --region $REGION 2>$null
-
-    if (-not [string]::IsNullOrWhiteSpace($stdout)) {
-        Write-Host "--- EC2 출력 ---" -ForegroundColor DarkGray
-        Write-Host $stdout -ForegroundColor Gray
-    }
-    if (-not [string]::IsNullOrWhiteSpace($stderr)) {
-        Write-Host "--- EC2 오류 ---" -ForegroundColor DarkRed
-        Write-Host $stderr -ForegroundColor Red
-    }
-}
-
 # ============================================================
-# [1/3] Git Push
+# [1/2] Git Push
 # ============================================================
-Log "=== [1/3] Git 작업 시작 ==="
+Log "=== [1/2] Git 작업 시작 ==="
 
 $lockFile = Join-Path (Get-Location) ".git/index.lock"
 if (Test-Path $lockFile) {
@@ -98,129 +45,67 @@ else {
     Warn "커밋할 변경사항 없음."
 }
 
+# master 브랜치 확인
+$currentBranch = (git branch --show-current)
+if ($currentBranch -ne "master") {
+    Fail "현재 브랜치가 '$currentBranch'입니다. master 브랜치에서 실행하세요: git checkout master"
+    exit 1
+}
+
 Invoke-OrFail { git fetch origin } "git fetch 실패"
-Invoke-OrFail { git pull --rebase origin master } "git pull 실패 (충돌 시 수동 해결 필요)"
+Invoke-OrFail { git pull origin master } "git pull 실패 (충돌 시 수동 해결 필요)"
 Invoke-OrFail { git push origin master } "git push 실패"
 Success "Git 동기화 완료"
 
 # ============================================================
-# [2/3] S3 업로드 (소스 패키지 + 배포 스크립트)
+# [2/2] S3 업로드 (소스 패키지)
 # ============================================================
-Log "=== [2/3] S3 업로드 준비 ==="
+Log "=== [2/2] S3 업로드 준비 ==="
 $zipPath = Join-Path $env:TEMP $ZIP_NAME
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 
-# git archive 사용: 포워드 슬래시(/) 경로로 생성 → Linux unzip 호환
-# .gitignore 적용되므로 node_modules, .next 등 자동 제외
 Log "압축 파일 생성 중 (git archive)..."
-Invoke-OrFail { git archive --format=zip HEAD -o $zipPath } "git archive 실패 (Git이 설치되어 있는지 확인하세요)"
+Invoke-OrFail { git archive --format=zip HEAD -o $zipPath } "git archive 실패"
 
-# EC2에서 실행할 배포 셸 스크립트를 로컬에서 생성 후 S3 업로드
-# → SSM에는 단순 명령 2줄만 전달하므로 JSON 이스케이프 문제 완전 회피
-$deployShPath = Join-Path $env:TEMP "deploy.sh"
-$deployShContent = @"
-#!/bin/bash
-set -e
-
-echo '=== [1/5] S3에서 소스 다운로드 ==='
-cd $REMOTE_DIR
-aws s3 cp $S3_BUCKET/$ZIP_NAME .
-
-echo '=== [2/5] 기존 소스 완전 삭제 후 재배치 ==='
-sudo rm -rf $APP_NAME
-mkdir -p $APP_NAME
-unzip -q $ZIP_NAME -d $APP_NAME
-rm -f $ZIP_NAME
-cd $APP_NAME
-
-echo '=== [3/5] 스왑 확인 ==='
-free -h
-if [ ! -f /swapfile ]; then
-    sudo dd if=/dev/zero of=/swapfile bs=128M count=16
-    sudo chmod 600 /swapfile
-    sudo mkswap /swapfile
-    sudo swapon /swapfile
-    echo '스왑 설정 완료'
-else
-    echo '스왑 이미 존재'
-fi
-
-echo '=== [4/5] Docker 이미지 빌드 ==='
-sudo docker build -t license-manager:new .
-
-echo '=== [5/5] 컨테이너 교체 ==='
-sudo docker tag license-manager:latest license-manager:backup 2>/dev/null || true
-sudo docker rm -f license-app || true
-sudo docker run -d --name license-app -p 8080:3000 \
-    -e DATABASE_URL=file:/app/dev.db \
-    -e NODE_ENV=production \
-    -e SECURE_COOKIE=false \
-    -v /home/ssm-user/license-manager/data/dev.db:/app/dev.db \
-    license-manager:new
-sudo docker tag license-manager:new license-manager:latest
-
-echo '=== 배포 완료 ==='
-sudo docker ps --filter name=license-app --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
-"@
-# LF 줄바꿈 강제 (Windows CRLF → Linux bash 호환)
-$deployShContent = $deployShContent -replace "`r`n", "`n"
-[System.IO.File]::WriteAllText($deployShPath, $deployShContent, [System.Text.UTF8Encoding]::new($false))
-
-Log "S3 업로드 중 (소스 패키지)..."
+Log "S3 업로드 중..."
 Invoke-OrFail {
     aws s3 cp $zipPath "$S3_BUCKET/$ZIP_NAME" --profile $PROFILE_NAME --region $REGION
-} "S3 업로드 실패 (zip)"
+} "S3 업로드 실패"
 
-Log "S3 업로드 중 (배포 스크립트)..."
-Invoke-OrFail {
-    aws s3 cp $deployShPath "$S3_BUCKET/deploy.sh" --profile $PROFILE_NAME --region $REGION
-} "S3 업로드 실패 (deploy.sh)"
-
-Remove-Item $zipPath, $deployShPath -ErrorAction SilentlyContinue
-Success "S3 업로드 완료: $S3_BUCKET/"
+Remove-Item $zipPath -ErrorAction SilentlyContinue
+Success "S3 업로드 완료: $S3_BUCKET/$ZIP_NAME"
 
 # ============================================================
-Log "=== [3/3] EC2 배포 시작 (SSM) ==="
+# EC2 배포 명령어 안내 (수동 실행)
 # ============================================================
-
-$commands = @(
-    "aws s3 cp $S3_BUCKET/deploy.sh /tmp/deploy.sh",
-    "chmod +x /tmp/deploy.sh",
-    "bash /tmp/deploy.sh"
-)
-
-$payload = @{
-    DocumentName   = "AWS-RunShellScript"
-    InstanceIds    = @($EC2_ID)
-    TimeoutSeconds = 600
-    Comment        = "deploy from deploy.ps1"
-    Parameters     = @{ commands = $commands }
-}
-
-$tmpJson = Join-Path $env:TEMP "ssm-send-command.json"
-
-# ✅ UTF-8 "No BOM"으로 저장 (AWS CLI 호환성 최우선)
-$jsonText = ($payload | ConvertTo-Json -Depth 10)
-[System.IO.File]::WriteAllText($tmpJson, $jsonText, [System.Text.UTF8Encoding]::new($false))
-
-# ✅ 로컬에서 JSON 자체 검증 (여기서 터지면 JSON 생성이 문제)
-try { $null = $jsonText | ConvertFrom-Json } catch { Fail "생성된 JSON이 PowerShell에서 파싱 불가: $($_.Exception.Message)"; exit 1 }
-
-# ✅ file://C:/... 형태로 경로 표준화 (Windows AWS CLI 안전)
-$fileUri = "file://" + ($tmpJson -replace "\\", "/")
-
-$COMMAND_ID = aws ssm send-command `
-    --cli-input-json $fileUri `
-    --query "Command.CommandId" `
-    --output text `
-    --profile $PROFILE_NAME `
-    --region $REGION
-
-Remove-Item $tmpJson -ErrorAction SilentlyContinue
-
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($COMMAND_ID)) {
-    Fail "SSM 명령 전송 실패"
-    exit 1
-}
-
-Log "SSM 명령 전송됨 (ID: $COMMAND_ID)"
+Write-Host ""
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host " EC2 배포는 수동으로 진행하세요. (docker-compose 방식)" -ForegroundColor Cyan
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "1) SSM 세션 접속 (로컬 PowerShell에서 실행):" -ForegroundColor Yellow
+Write-Host "   aws ssm start-session --target $EC2_ID --region $REGION --profile $PROFILE_NAME" -ForegroundColor White
+Write-Host ""
+Write-Host "2) EC2 접속 후 순서대로 실행:" -ForegroundColor Yellow
+Write-Host "   cd $REMOTE_DIR" -ForegroundColor White
+Write-Host "   aws s3 cp $S3_BUCKET/$ZIP_NAME ." -ForegroundColor White
+Write-Host "   sudo rm -rf $APP_NAME" -ForegroundColor White
+Write-Host "   sudo mkdir -p $APP_NAME && sudo chown -R ssm-user:ssm-user $APP_NAME" -ForegroundColor White
+Write-Host "   unzip -q $ZIP_NAME -d $APP_NAME && rm $ZIP_NAME" -ForegroundColor White
+Write-Host "   cd $APP_NAME" -ForegroundColor White
+Write-Host "" -ForegroundColor White
+Write-Host "   # 기존 컨테이너 정지 + 미사용 이미지·빌드캐시 정리 (볼륨은 유지 — DB 데이터 보존)" -ForegroundColor DarkGray
+Write-Host "   sudo docker-compose down" -ForegroundColor White
+Write-Host "   sudo docker image prune -a -f" -ForegroundColor White
+Write-Host "   sudo docker builder prune -f" -ForegroundColor White
+Write-Host "   sudo docker-compose build" -ForegroundColor White
+Write-Host "   sudo docker-compose up -d" -ForegroundColor White
+Write-Host "" -ForegroundColor White
+Write-Host "   # 최초 배포 시에만 — DB 초기화" -ForegroundColor DarkGray
+Write-Host "   sudo docker exec license-app sh -c 'npx prisma db push'" -ForegroundColor White
+Write-Host "   sudo docker exec license-app sh -c 'NODE_ENV=development SEED_ADMIN_USERNAME=admin SEED_ADMIN_PASSWORD=changeme123 npx prisma db seed'" -ForegroundColor White
+Write-Host ""
+Write-Host "3) 배포 확인:" -ForegroundColor Yellow
+Write-Host "   sudo docker-compose ps" -ForegroundColor White
+Write-Host "   sudo docker-compose logs -f app --tail 30" -ForegroundColor White
+Write-Host "============================================================" -ForegroundColor Cyan

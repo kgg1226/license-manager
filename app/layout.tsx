@@ -39,6 +39,16 @@ export default async function RootLayout({
     redirect("/login");
   }
 
+  // 비밀번호 변경 필수인 경우 비밀번호 변경 페이지로 리다이렉트
+  // (change-password 페이지에서는 리다이렉트 방지)
+  if (
+    user &&
+    user.mustChangePassword &&
+    pathname !== "/change-password"
+  ) {
+    redirect("/change-password");
+  }
+
   return (
     <html lang="ko">
       <body

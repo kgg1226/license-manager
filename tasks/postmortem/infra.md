@@ -56,7 +56,46 @@ Google API, 외부 CDN 등에 대한 fetch 요청이 타임아웃.
 
 ---
 
-## PM-INF-003: (템플릿)
+## PM-INF-003: prisma.config.ts에서 dotenv 모듈 미발견
+
+- **상태**: ✅ 해결
+- **날짜**: 2026-03-10
+- **세션**: DevOps
+
+### 증상
+Docker 컨테이너 기동 후 Prisma CLI 실행 시 실패:
+```
+Failed to load config file "/app/prisma.config.ts"
+Cannot find module 'dotenv'
+Require stack: - /app/prisma.config.ts
+```
+
+### 원인
+- `prisma.config.ts`가 `dotenv`를 import하여 `.env` 파일을 수동 로딩
+- Docker 이미지 빌드 시 `npm prune --omit=dev`로 devDependency 제거
+- `dotenv`가 devDependency이므로 프로덕션 이미지에 미포함
+
+### 해결
+`prisma.config.ts`에서 dotenv 관련 코드 전체 제거:
+```ts
+// 제거
+import path from "path";
+import dotenv from "dotenv";
+dotenv.config({ path: path.resolve(process.cwd(), ".env") });
+```
+Docker 환경에서는 `docker-compose`의 `environment` 블록이 `process.env`에 직접 주입하므로 dotenv 불필요.
+
+### 예방
+- **규칙**: `prisma.config.ts`에 dotenv import 금지
+- 로컬 개발 시 Prisma CLI는 `schema.prisma`의 `env()` 함수로 `.env` 자동 로딩
+- 프로덕션 환경변수는 무조건 컨테이너 실행 시 주입 방식으로만 처리
+
+### 관련 파일
+- `prisma.config.ts`
+
+---
+
+## PM-INF-004: (템플릿)
 
 - **상태**: ✅ 해결 / 🔧 미해결
 - **날짜**: YYYY-MM-DD
