@@ -94,8 +94,10 @@ Write-Host "   sudo mkdir -p $APP_NAME && sudo chown -R ssm-user:ssm-user $APP_N
 Write-Host "   unzip -q $ZIP_NAME -d $APP_NAME && rm $ZIP_NAME" -ForegroundColor White
 Write-Host "   cd $APP_NAME" -ForegroundColor White
 Write-Host "" -ForegroundColor White
-Write-Host "   # 기존 컨테이너 정리 후 재기동 (볼륨은 유지 — DB 데이터 보존)" -ForegroundColor DarkGray
+Write-Host "   # 기존 컨테이너 정지 + 미사용 이미지·빌드캐시 정리 (볼륨은 유지 — DB 데이터 보존)" -ForegroundColor DarkGray
 Write-Host "   sudo docker-compose down" -ForegroundColor White
+Write-Host "   sudo docker image prune -a -f" -ForegroundColor White
+Write-Host "   sudo docker builder prune -f" -ForegroundColor White
 Write-Host "   sudo docker-compose build" -ForegroundColor White
 Write-Host "   sudo docker-compose up -d" -ForegroundColor White
 Write-Host "" -ForegroundColor White
