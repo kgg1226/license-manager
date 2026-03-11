@@ -56,9 +56,6 @@ export default function ChangePasswordPage() {
 
       const userId = sessionData.user.id;
 
-      // 비밀번호 변경 (사용자 본인)
-      // TODO: 실제 비밀번호 변경 API 엔드포인트가 필요함
-      // 현재는 임시로 mustChangePassword 플래그 제거만 구현
       const res = await fetch(`/api/auth/change-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

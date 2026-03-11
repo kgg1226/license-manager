@@ -10,15 +10,21 @@ type AssetType = "SOFTWARE" | "CLOUD" | "HARDWARE" | "DOMAIN_SSL" | "OTHER";
 type AssetStatus = "ACTIVE" | "INACTIVE" | "DISPOSED";
 
 interface Asset {
-  id: string;
+  id: number;
   name: string;
   type: AssetType;
   status: AssetStatus;
-  description?: string;
-  cost: number;
+  description?: string | null;
+  vendor?: string | null;
+  cost?: number | null;
+  monthlyCost?: number | null;
   currency: string;
-  expiryDate?: string;
-  assignedTo?: { id: string; name: string };
+  billingCycle?: string | null;
+  expiryDate?: string | null;
+  purchaseDate?: string | null;
+  assignee?: { id: number; name: string } | null;
+  orgUnit?: { id: number; name: string } | null;
+  company?: { id: number; name: string } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -43,21 +49,6 @@ const STATUS_COLORS: Record<AssetStatus, string> = {
   DISPOSED: "bg-red-100 text-red-800",
 };
 
-// Mock 데이터 (BE-022 완료 후 API 호출로 교체)
-const mockAsset: Asset = {
-  id: "ast-001",
-  name: "Microsoft 365",
-  type: "SOFTWARE",
-  status: "ACTIVE",
-  description: "Office 365 구독",
-  cost: 1200,
-  currency: "USD",
-  expiryDate: "2026-12-31",
-  assignedTo: { id: "emp-001", name: "이순신" },
-  createdAt: "2026-01-15",
-  updatedAt: "2026-03-07",
-};
-
 export default function AssetDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -71,16 +62,17 @@ export default function AssetDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
-  // 자산 데이터 로드
   useEffect(() => {
     const loadAsset = async () => {
       try {
-        // TODO: Backend BE-022 완료 후 실제 API 호출로 교체
-        // const response = await fetch(`/api/assets/${assetId}`);
-        // const data = await response.json();
-
-        // Mock 데이터 사용
-        const data = mockAsset;
+        const response = await fetch(`/api/assets/${assetId}`);
+        if (!response.ok) {
+          if (response.status === 404) toast.error("자산을 찾을 수 없습니다");
+          else toast.error("자산을 로드할 수 없습니다");
+          router.push("/assets");
+          return;
+        }
+        const data = await response.json();
         setAsset(data);
         setNewStatus(data.status);
       } catch (error) {
@@ -98,12 +90,12 @@ export default function AssetDetailPage() {
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      // TODO: Backend BE-022 완료 후 실제 API 호출로 교체
-      // const response = await fetch(`/api/assets/${assetId}`, {
-      //   method: "DELETE",
-      // });
-
-      // Mock 삭제 성공
+      const response = await fetch(`/api/assets/${assetId}`, { method: "DELETE" });
+      if (!response.ok) {
+        const err = await response.json();
+        toast.error(err.error || "자산 삭제에 실패했습니다");
+        return;
+      }
       toast.success("자산이 삭제되었습니다");
       router.push("/assets");
     } catch (error) {
@@ -118,14 +110,16 @@ export default function AssetDetailPage() {
   const handleStatusChange = async () => {
     setIsUpdatingStatus(true);
     try {
-      // TODO: Backend BE-023 완료 후 실제 API 호출로 교체
-      // const response = await fetch(`/api/assets/${assetId}/status`, {
-      //   method: "PATCH",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ status: newStatus }),
-      // });
-
-      // Mock 상태 변경 성공
+      const response = await fetch(`/api/assets/${assetId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        toast.error(err.error || "자산 상태 변경에 실패했습니다");
+        return;
+      }
       setAsset((prev) => (prev ? { ...prev, status: newStatus } : null));
       toast.success("자산 상태가 변경되었습니다");
       setShowStatusModal(false);
@@ -167,11 +161,7 @@ export default function AssetDetailPage() {
       <div className="mx-auto max-w-4xl">
         {/* 헤더 */}
         <div className="mb-8 flex items-center gap-4">
-          <Link
-            href="/assets"
-            className="rounded-md p-2 hover:bg-gray-200"
-            title="돌아가기"
-          >
+          <Link href="/assets" className="rounded-md p-2 hover:bg-gray-200" title="돌아가기">
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div className="flex-1">
@@ -180,11 +170,7 @@ export default function AssetDetailPage() {
               {ASSET_TYPE_LABELS[asset.type]} • 등록일: {new Date(asset.createdAt).toLocaleDateString("ko-KR")}
             </p>
           </div>
-          <span
-            className={`inline-block rounded-full px-3 py-1 text-sm font-medium ${
-              STATUS_COLORS[asset.status]
-            }`}
-          >
+          <span className={`inline-block rounded-full px-3 py-1 text-sm font-medium ${STATUS_COLORS[asset.status]}`}>
             {STATUS_LABELS[asset.status]}
           </span>
         </div>
@@ -194,23 +180,21 @@ export default function AssetDetailPage() {
           <div className="rounded-lg bg-white p-6 shadow-sm">
             <p className="text-sm text-gray-600">비용</p>
             <p className="mt-2 text-2xl font-bold">
-              {asset.currency === "KRW"
-                ? `${asset.cost.toLocaleString("ko-KR")}원`
-                : `$${asset.cost.toFixed(2)}`}
+              {asset.cost != null
+                ? asset.currency === "KRW"
+                  ? `${asset.cost.toLocaleString("ko-KR")}원`
+                  : `${asset.currency} ${asset.cost.toLocaleString()}`
+                : "—"}
             </p>
           </div>
           <div className="rounded-lg bg-white p-6 shadow-sm">
             <p className="text-sm text-gray-600">유형</p>
-            <p className="mt-2 text-2xl font-bold text-gray-900">
-              {ASSET_TYPE_LABELS[asset.type]}
-            </p>
+            <p className="mt-2 text-2xl font-bold text-gray-900">{ASSET_TYPE_LABELS[asset.type]}</p>
           </div>
           <div className="rounded-lg bg-white p-6 shadow-sm">
             <p className="text-sm text-gray-600">만료일</p>
             <p className="mt-2 text-2xl font-bold text-gray-900">
-              {asset.expiryDate
-                ? new Date(asset.expiryDate).toLocaleDateString("ko-KR")
-                : "—"}
+              {asset.expiryDate ? new Date(asset.expiryDate).toLocaleDateString("ko-KR") : "—"}
             </p>
           </div>
         </div>
@@ -230,6 +214,13 @@ export default function AssetDetailPage() {
               </div>
             </div>
 
+            {asset.vendor && (
+              <div>
+                <p className="text-sm text-gray-600">공급업체</p>
+                <p className="mt-1 text-gray-900">{asset.vendor}</p>
+              </div>
+            )}
+
             {asset.description && (
               <div>
                 <p className="text-sm text-gray-600">설명</p>
@@ -241,37 +232,53 @@ export default function AssetDetailPage() {
               <div>
                 <p className="text-sm text-gray-600">비용</p>
                 <p className="mt-1 text-gray-900">
-                  {asset.currency === "KRW"
-                    ? `${asset.cost.toLocaleString("ko-KR")}원`
-                    : `$${asset.cost.toFixed(2)}`}
+                  {asset.cost != null
+                    ? asset.currency === "KRW"
+                      ? `${asset.cost.toLocaleString("ko-KR")}원`
+                      : `${asset.currency} ${asset.cost.toLocaleString()}`
+                    : "—"}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">통화</p>
-                <p className="mt-1 text-gray-900">{asset.currency}</p>
+                <p className="text-sm text-gray-600">월 비용</p>
+                <p className="mt-1 text-gray-900">
+                  {asset.monthlyCost != null ? `${asset.monthlyCost.toLocaleString()}원` : "—"}
+                </p>
               </div>
             </div>
 
             {asset.expiryDate && (
               <div>
                 <p className="text-sm text-gray-600">만료일</p>
+                <p className="mt-1 text-gray-900">{new Date(asset.expiryDate).toLocaleDateString("ko-KR")}</p>
+              </div>
+            )}
+
+            {asset.assignee && (
+              <div>
+                <p className="text-sm text-gray-600">담당자</p>
                 <p className="mt-1 text-gray-900">
-                  {new Date(asset.expiryDate).toLocaleDateString("ko-KR")}
+                  <Link href={`/employees/${asset.assignee.id}`} className="text-blue-600 hover:underline">
+                    {asset.assignee.name}
+                  </Link>
                 </p>
               </div>
             )}
 
-            {asset.assignedTo && (
-              <div>
-                <p className="text-sm text-gray-600">담당자</p>
-                <p className="mt-1 text-gray-900">
-                  <Link
-                    href={`/employees/${asset.assignedTo.id}`}
-                    className="text-blue-600 hover:underline"
-                  >
-                    {asset.assignedTo.name}
-                  </Link>
-                </p>
+            {(asset.company || asset.orgUnit) && (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {asset.company && (
+                  <div>
+                    <p className="text-sm text-gray-600">회사</p>
+                    <p className="mt-1 text-gray-900">{asset.company.name}</p>
+                  </div>
+                )}
+                {asset.orgUnit && (
+                  <div>
+                    <p className="text-sm text-gray-600">조직</p>
+                    <p className="mt-1 text-gray-900">{asset.orgUnit.name}</p>
+                  </div>
+                )}
               </div>
             )}
 

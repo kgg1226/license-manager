@@ -30,7 +30,7 @@ const ASSET_TYPES: Array<{ value: AssetType; label: string }> = [
 const CURRENCIES = ["USD", "KRW", "EUR", "JPY", "GBP", "CNY"];
 const BILLING_CYCLES = [
   { value: "MONTHLY", label: "월간" },
-  { value: "YEARLY", label: "연간" },
+  { value: "ANNUAL", label: "연간" },
   { value: "ONE_TIME", label: "일회성" },
 ];
 
@@ -107,30 +107,27 @@ export default function AssetNewPage() {
 
     setIsLoading(true);
     try {
-      // TODO: Backend BE-021 완료 후 실제 API 호출로 교체
-      // const response = await fetch("/api/assets", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({
-      //     name: formData.name,
-      //     type: formData.type,
-      //     description: formData.description || null,
-      //     cost: Number(formData.cost),
-      //     currency: formData.currency,
-      //     billingCycle: formData.billingCycle,
-      //     expiryDate: formData.expiryDate || null,
-      //     assignedToId: formData.assignedToId || null,
-      //   }),
-      // });
-
-      // Mock 성공 응답
-      const assetId = `ast-${Date.now()}`;
+      const response = await fetch("/api/assets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          type: formData.type,
+          description: formData.description || null,
+          cost: Number(formData.cost),
+          currency: formData.currency,
+          billingCycle: formData.billingCycle,
+          expiryDate: formData.expiryDate || null,
+        }),
+      });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || "자산 등록에 실패했습니다");
 
       toast.success("자산이 등록되었습니다");
-      router.push(`/assets/${assetId}`);
+      router.push(`/assets/${json.id}`);
     } catch (error) {
       console.error("자산 등록 실패:", error);
-      toast.error("자산 등록에 실패했습니다");
+      toast.error(error instanceof Error ? error.message : "자산 등록에 실패했습니다");
     } finally {
       setIsLoading(false);
     }
@@ -304,9 +301,7 @@ export default function AssetNewPage() {
                 placeholder="담당자를 선택해주세요 (선택)"
                 className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <p className="mt-1 text-xs text-gray-500">
-                TODO: Backend BE-021 완료 후 담당자 검색 기능 추가
-              </p>
+              <p className="mt-1 text-xs text-gray-500">담당자 ID (선택)</p>
             </div>
           </div>
 
@@ -327,12 +322,7 @@ export default function AssetNewPage() {
             </Link>
           </div>
 
-          {/* Mock 데이터 알림 */}
-          <div className="rounded-md bg-blue-50 p-4">
-            <p className="text-sm text-blue-800">
-              ℹ️ 현재 Mock 데이터로 작동 중입니다. Backend BE-021 API 완료 후 실제 API 호출로 변경됩니다.
-            </p>
-          </div>
+
         </form>
       </div>
     </div>

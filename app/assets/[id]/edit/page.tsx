@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 type AssetType = "SOFTWARE" | "CLOUD" | "HARDWARE" | "DOMAIN_SSL" | "OTHER";
 
-interface FormData {
+interface FormState {
   name: string;
   type: AssetType | "";
   description: string;
@@ -16,19 +16,6 @@ interface FormData {
   currency: string;
   billingCycle: string;
   expiryDate: string;
-  assignedToId: string;
-}
-
-interface Asset {
-  id: string;
-  name: string;
-  type: AssetType;
-  description?: string;
-  cost: number;
-  currency: string;
-  billingCycle?: string;
-  expiryDate?: string;
-  assignedToId?: string;
 }
 
 const ASSET_TYPES: Array<{ value: AssetType; label: string }> = [
@@ -42,29 +29,16 @@ const ASSET_TYPES: Array<{ value: AssetType; label: string }> = [
 const CURRENCIES = ["USD", "KRW", "EUR", "JPY", "GBP", "CNY"];
 const BILLING_CYCLES = [
   { value: "MONTHLY", label: "월간" },
-  { value: "YEARLY", label: "연간" },
+  { value: "ANNUAL", label: "연간" },
   { value: "ONE_TIME", label: "일회성" },
 ];
-
-// Mock 데이터 (BE-022 완료 후 API 호출로 교체)
-const mockAsset: Asset = {
-  id: "ast-001",
-  name: "Microsoft 365",
-  type: "SOFTWARE",
-  description: "Office 365 구독",
-  cost: 1200,
-  currency: "USD",
-  billingCycle: "MONTHLY",
-  expiryDate: "2026-12-31",
-  assignedToId: "emp-001",
-};
 
 export default function AssetEditPage() {
   const router = useRouter();
   const params = useParams();
   const assetId = params.id as string;
 
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<FormState>({
     name: "",
     type: "",
     description: "",
@@ -72,32 +46,29 @@ export default function AssetEditPage() {
     currency: "USD",
     billingCycle: "MONTHLY",
     expiryDate: "",
-    assignedToId: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // 자산 데이터 로드
   useEffect(() => {
     const loadAsset = async () => {
       try {
-        // TODO: Backend BE-022 완료 후 실제 API 호출로 교체
-        // const response = await fetch(`/api/assets/${assetId}`);
-        // const data = await response.json();
-
-        // Mock 데이터 사용
-        const data = mockAsset;
-
+        const response = await fetch(`/api/assets/${assetId}`);
+        if (!response.ok) {
+          toast.error("자산을 로드할 수 없습니다");
+          router.push("/assets");
+          return;
+        }
+        const data = await response.json();
         setFormData({
-          name: data.name,
-          type: data.type,
+          name: data.name || "",
+          type: data.type || "",
           description: data.description || "",
-          cost: String(data.cost),
-          currency: data.currency,
+          cost: data.cost != null ? String(data.cost) : "",
+          currency: data.currency || "USD",
           billingCycle: data.billingCycle || "MONTHLY",
-          expiryDate: data.expiryDate || "",
-          assignedToId: data.assignedToId || "",
+          expiryDate: data.expiryDate ? data.expiryDate.split("T")[0] : "",
         });
       } catch (error) {
         console.error("자산 로드 실패:", error);
@@ -124,17 +95,8 @@ export default function AssetEditPage() {
       newErrors.type = "자산 유형은 필수입니다";
     }
 
-    if (!formData.cost) {
-      newErrors.cost = "비용은 필수입니다";
-    } else if (isNaN(Number(formData.cost)) || Number(formData.cost) < 0) {
+    if (formData.cost && (isNaN(Number(formData.cost)) || Number(formData.cost) < 0)) {
       newErrors.cost = "유효한 비용을 입력해주세요";
-    }
-
-    if (formData.expiryDate) {
-      const date = new Date(formData.expiryDate);
-      if (isNaN(date.getTime())) {
-        newErrors.expiryDate = "유효한 날짜를 입력해주세요";
-      }
     }
 
     setErrors(newErrors);
@@ -145,17 +107,9 @@ export default function AssetEditPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-    // 입력 시 해당 필드의 에러 제거
+    setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) {
-      setErrors((prev) => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
+      setErrors((prev) => { const n = { ...prev }; delete n[name]; return n; });
     }
   };
 
@@ -169,28 +123,27 @@ export default function AssetEditPage() {
 
     setIsLoading(true);
     try {
-      // TODO: Backend BE-022 완료 후 실제 API 호출로 교체
-      // const response = await fetch(`/api/assets/${assetId}`, {
-      //   method: "PUT",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({
-      //     name: formData.name,
-      //     type: formData.type,
-      //     description: formData.description || null,
-      //     cost: Number(formData.cost),
-      //     currency: formData.currency,
-      //     billingCycle: formData.billingCycle,
-      //     expiryDate: formData.expiryDate || null,
-      //     assignedToId: formData.assignedToId || null,
-      //   }),
-      // });
+      const response = await fetch(`/api/assets/${assetId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          type: formData.type,
+          description: formData.description || null,
+          cost: formData.cost ? Number(formData.cost) : null,
+          currency: formData.currency,
+          billingCycle: formData.billingCycle,
+          expiryDate: formData.expiryDate || null,
+        }),
+      });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || "자산 수정에 실패했습니다");
 
-      // Mock 성공 응답
       toast.success("자산이 수정되었습니다");
       router.push(`/assets/${assetId}`);
     } catch (error) {
       console.error("자산 수정 실패:", error);
-      toast.error("자산 수정에 실패했습니다");
+      toast.error(error instanceof Error ? error.message : "자산 수정에 실패했습니다");
     } finally {
       setIsLoading(false);
     }
@@ -211,17 +164,12 @@ export default function AssetEditPage() {
       <div className="mx-auto max-w-2xl">
         {/* 헤더 */}
         <div className="mb-8 flex items-center gap-4">
-          <Link
-            href={`/assets/${assetId}`}
-            className="rounded-md p-2 hover:bg-gray-200"
-            title="돌아가기"
-          >
+          <Link href={`/assets/${assetId}`} className="rounded-md p-2 hover:bg-gray-200" title="돌아가기">
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <h1 className="text-3xl font-bold text-gray-900">자산 수정</h1>
         </div>
 
-        {/* 폼 */}
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="rounded-lg bg-white p-6 shadow-sm">
             {/* 자산명 */}
@@ -235,11 +183,7 @@ export default function AssetEditPage() {
                 value={formData.name}
                 onChange={handleChange}
                 placeholder="자산 이름을 입력해주세요"
-                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 ${
-                  errors.name
-                    ? "border-red-300 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
-                }`}
+                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 ${errors.name ? "border-red-300 focus:ring-red-500" : "border-gray-300 focus:ring-blue-500"}`}
               />
               {errors.name && <p className="mt-1 text-sm text-red-500">{errors.name}</p>}
             </div>
@@ -253,17 +197,11 @@ export default function AssetEditPage() {
                 name="type"
                 value={formData.type}
                 onChange={handleChange}
-                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 ${
-                  errors.type
-                    ? "border-red-300 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
-                }`}
+                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 ${errors.type ? "border-red-300 focus:ring-red-500" : "border-gray-300 focus:ring-blue-500"}`}
               >
                 <option value="">선택해주세요</option>
                 {ASSET_TYPES.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
+                  <option key={type.value} value={type.value}>{type.label}</option>
                 ))}
               </select>
               {errors.type && <p className="mt-1 text-sm text-red-500">{errors.type}</p>}
@@ -284,11 +222,8 @@ export default function AssetEditPage() {
 
             {/* 비용 행 */}
             <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-3">
-              {/* 비용 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  비용 <span className="text-red-500">*</span>
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">비용</label>
                 <input
                   type="number"
                   name="cost"
@@ -297,16 +232,11 @@ export default function AssetEditPage() {
                   placeholder="0"
                   min="0"
                   step="0.01"
-                  className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 ${
-                    errors.cost
-                      ? "border-red-300 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-blue-500"
-                  }`}
+                  className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 ${errors.cost ? "border-red-300 focus:ring-red-500" : "border-gray-300 focus:ring-blue-500"}`}
                 />
                 {errors.cost && <p className="mt-1 text-sm text-red-500">{errors.cost}</p>}
               </div>
 
-              {/* 통화 */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">통화</label>
                 <select
@@ -316,18 +246,13 @@ export default function AssetEditPage() {
                   className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {CURRENCIES.map((curr) => (
-                    <option key={curr} value={curr}>
-                      {curr}
-                    </option>
+                    <option key={curr} value={curr}>{curr}</option>
                   ))}
                 </select>
               </div>
 
-              {/* 비용 주기 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  비용 주기
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">비용 주기</label>
                 <select
                   name="billingCycle"
                   value={formData.billingCycle}
@@ -335,9 +260,7 @@ export default function AssetEditPage() {
                   className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {BILLING_CYCLES.map((cycle) => (
-                    <option key={cycle.value} value={cycle.value}>
-                      {cycle.label}
-                    </option>
+                    <option key={cycle.value} value={cycle.value}>{cycle.label}</option>
                   ))}
                 </select>
               </div>
@@ -351,32 +274,9 @@ export default function AssetEditPage() {
                 name="expiryDate"
                 value={formData.expiryDate}
                 onChange={handleChange}
-                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 ${
-                  errors.expiryDate
-                    ? "border-red-300 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
-                }`}
-              />
-              {errors.expiryDate && (
-                <p className="mt-1 text-sm text-red-500">{errors.expiryDate}</p>
-              )}
-              <p className="mt-1 text-xs text-gray-500">선택 사항입니다</p>
-            </div>
-
-            {/* 담당자 */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">담당자</label>
-              <input
-                type="text"
-                name="assignedToId"
-                value={formData.assignedToId}
-                onChange={handleChange}
-                placeholder="담당자를 선택해주세요 (선택)"
                 className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <p className="mt-1 text-xs text-gray-500">
-                TODO: Backend BE-021 완료 후 담당자 검색 기능 추가
-              </p>
+              <p className="mt-1 text-xs text-gray-500">선택 사항입니다</p>
             </div>
           </div>
 
@@ -395,13 +295,6 @@ export default function AssetEditPage() {
             >
               취소
             </Link>
-          </div>
-
-          {/* Mock 데이터 알림 */}
-          <div className="rounded-md bg-blue-50 p-4">
-            <p className="text-sm text-blue-800">
-              ℹ️ 현재 Mock 데이터로 작동 중입니다. Backend BE-022 API 완료 후 실제 API 호출로 변경됩니다.
-            </p>
           </div>
         </form>
       </div>
