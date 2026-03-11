@@ -1,7 +1,7 @@
 # 🎨 Frontend 다음 작업 지시서
 
 > **Planning Role이 작성** — Frontend Role은 이 파일을 작업 시작 전 반드시 읽으세요.
-> 최종 업데이트: 2026-03-10
+> 최종 업데이트: 2026-03-11
 
 ---
 
@@ -9,12 +9,126 @@
 
 | 순서 | 티켓 | 예상 소요 | 상태 |
 |---|---|---|---|
-| 1 | **FE-040** — 라이선스 계층 구조 UI | 3-4일 | 🔴 즉시 시작 |
+| **0** | **FE-050** — 공개 열람 모드 (proxy.ts + layout + 버튼) | **1일** | 🔴 **최우선** |
+| 1 | **FE-040** — 라이선스 계층 구조 UI | 3-4일 | 🟡 FE-050 후 |
 | 2 | **FE-020** — 보고서 목록 페이지 | 2-3일 | 🟡 FE-040 후 |
 | 3 | **FE-021** — 보고서 상세 페이지 | 1-2일 | 🟡 FE-020 후 |
 | 4 | **FE-022** — 예약 보고서 설정 | 1일 | 🟡 FE-021 후 |
 
+> ⚠️ **FE-050을 먼저 완료할 것** — BE-050과 병렬 진행 가능 (서로 독립적)
+
 > ⚠️ **전제 조건 모두 충족됨**: BE-040 (계층 API) + BE-030~034 (보고서 API) 완료
+
+---
+
+## 🔴 [FE-050] 공개 열람 모드 ← 최우선
+
+> BE-050과 병렬 진행 가능. 독립 작업.
+
+### 변경 파일 3개
+
+#### 1. `proxy.ts` — 핵심 변경
+
+```typescript
+// 현재 코드 (변경 전):
+const sessionToken = request.cookies.get("session_token")?.value;
+if (!sessionToken) {
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+  }
+  return NextResponse.redirect(new URL("/login", request.url));  // ← 이게 문제
+}
+return passthrough();
+
+// 변경 후:
+const sessionToken = request.cookies.get("session_token")?.value;
+// API 변경 요청(POST/PUT/PATCH/DELETE)만 인증 요구
+if (!sessionToken && pathname.startsWith("/api/")) {
+  const method = request.method;
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+    return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+  }
+}
+// 페이지 및 API GET → 항상 통과
+return passthrough();
+```
+
+#### 2. `app/layout.tsx` — 리다이렉트 제거 + 로그인 버튼 추가
+
+```typescript
+// 제거할 코드:
+if (!user && pathname !== "/login") {
+  redirect("/login");  // ← 이 블록 통째로 삭제
+}
+
+// nav 조건부 표시 → 항상 표시로 변경:
+// {user && <nav>...</nav>}  →  <nav>...</nav>
+
+// 우측 영역 변경:
+// 기존: user.username + 로그아웃
+// 변경: 로그인 상태면 username + 로그아웃, 미인증이면 "로그인" 링크
+{user ? (
+  <div className="flex items-center gap-3 border-l border-gray-200 pl-4">
+    <span className="text-xs text-gray-400">{user.username}</span>
+    <LogoutButton />
+  </div>
+) : (
+  <div className="border-l border-gray-200 pl-4">
+    <Link href="/login" className="text-sm text-blue-600 hover:text-blue-800">
+      로그인
+    </Link>
+  </div>
+)}
+```
+
+> `user.mustChangePassword` 강제 변경 로직은 유지 (로그인된 사용자 대상이므로 그대로)
+
+#### 3. 페이지 컴포넌트 — 쓰기 버튼 숨기기
+
+**원칙**: `user` 가 있을 때만 등록/수정/삭제 버튼 렌더링
+
+```tsx
+// 서버 컴포넌트에서 user 받아오기 (getCurrentUser는 이미 layout에서 호출됨)
+// 또는 각 페이지에서 직접 호출:
+const user = await getCurrentUser().catch(() => null);
+
+// 등록 버튼
+{user && <Link href="/licenses/new"><button>+ 등록</button></Link>}
+
+// 수정/삭제 버튼
+{user && <Link href={`/licenses/${id}/edit`}>수정</Link>}
+{user && <DeleteButton id={id} />}
+```
+
+**쓰기 전용 페이지** (`/new`, `/edit`)는 여전히 로그인 필수:
+```typescript
+// app/licenses/new/page.tsx, app/licenses/[id]/edit/page.tsx 상단
+const user = await getCurrentUser();
+if (!user) redirect("/login");
+```
+
+**변경이 필요한 파일**:
+- `app/layout.tsx` — 리다이렉트 제거 + nav 항상 표시 + 로그인 버튼
+- `proxy.ts` — 페이지 리다이렉트 제거
+- `app/licenses/page.tsx` — "등록" 버튼 `{user && ...}` 조건 추가
+- `app/licenses/[id]/page.tsx` — "수정", "삭제" 버튼 조건 추가
+- `app/employees/page.tsx` — "등록" 버튼 조건 추가
+- `app/employees/[id]/page.tsx` — "수정", "삭제" 버튼 조건 추가
+- `app/assets/page.tsx` — "등록" 버튼 조건 추가
+- `app/assets/[id]/page.tsx` — "수정", "삭제" 버튼 조건 추가
+- `app/org/page.tsx` — 편집 UI 조건 추가
+- `app/settings/groups/page.tsx` — 생성/삭제 버튼 조건 추가
+- `app/settings/import/page.tsx` — 로그인 필수 유지 (쓰기 전용)
+- `app/admin/users/page.tsx` — ADMIN 필수 유지 (기존과 동일)
+
+### 완료 조건
+
+- [ ] 비로그인으로 `/licenses`, `/employees`, `/dashboard`, `/org`, `/history` 열람 가능
+- [ ] nav가 비로그인에도 표시되며, 우측에 "로그인" 링크 노출
+- [ ] 비로그인 상태에서 등록/수정/삭제 버튼 미노출
+- [ ] `/licenses/new`, `/licenses/[id]/edit` 직접 URL 접근 시 `/login` 이동
+- [ ] 로그인 후 모든 기능 정상 작동
+- [ ] `/admin/users` ADMIN 전용 유지
 
 ---
 

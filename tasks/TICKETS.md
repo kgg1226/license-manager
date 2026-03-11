@@ -18,6 +18,231 @@
 
 ---
 
+## 🔓 공개 열람 모드 (2026-03-11 추가)
+
+> **목표**: 로그인 없이 모든 페이지 열람 가능. 생성·수정·삭제 등 쓰기 작업만 로그인 요구.
+>
+> **배경**: 사내 폐쇄망 환경에서 구성원 누구나 라이선스/자산 현황을 즉시 조회할 수 있어야 함.
+> 로그인 장벽 제거 → 조회는 자유, 변경은 인증 필요.
+>
+> **의존성**: BE-050 완료 후 FE-050 진행 (순서 무관하게 병렬 가능)
+
+---
+
+### [BE-050] GET API 공개 접근 — 인증 체크 제거
+
+**담당**: Backend Role
+**우선순위**: 🔴 즉시 (FE-050과 병렬)
+**난이도**: 🟢 쉬움 (반나절)
+**상태**: 🔴 오픈
+
+#### 변경 내용
+
+모든 `GET /api/*` 핸들러에서 `getCurrentUser()` 인증 체크를 제거한다.
+`POST / PUT / PATCH / DELETE` 핸들러는 그대로 유지.
+
+**예외 — 변경 금지 (여전히 인증 필요)**:
+- `GET /api/admin/*` — 사용자 목록 등 관리자 전용 데이터
+- `GET /api/auth/*` — 인증 관련 엔드포인트
+
+#### 변경할 파일 목록
+
+```
+app/api/licenses/route.ts         GET 핸들러 상단 auth 체크 제거
+app/api/licenses/[id]/route.ts    GET 핸들러 상단 auth 체크 제거
+app/api/licenses/[id]/seats/route.ts
+app/api/licenses/[id]/owners/route.ts
+app/api/licenses/[id]/renewal-history/route.ts
+app/api/licenses/[id]/assignments/route.ts
+app/api/employees/route.ts        GET 핸들러 상단 auth 체크 제거
+app/api/employees/[id]/route.ts   GET 핸들러 상단 auth 체크 제거
+app/api/assets/route.ts           GET 핸들러 상단 auth 체크 제거
+app/api/assets/[id]/route.ts      GET 핸들러 상단 auth 체크 제거
+app/api/assets/expiring/route.ts  GET 핸들러 상단 auth 체크 제거
+app/api/groups/route.ts
+app/api/org/units/route.ts
+app/api/org/units/[id]/route.ts
+app/api/org/companies/[id]/route.ts (GET 있으면)
+app/api/seats/route.ts
+app/api/history/route.ts
+app/api/dashboard/route.ts (있으면)
+app/api/reports/monthly/*/route.ts  GET 핸들러 auth 체크 제거
+```
+
+#### 변경 패턴
+
+```typescript
+// BEFORE
+export async function GET(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+  // ... 나머지 로직
+}
+
+// AFTER
+export async function GET(request: NextRequest) {
+  // auth 체크 없음 — 공개 접근 허용
+  try {
+    // ... 나머지 로직 (동일)
+  }
+}
+```
+
+#### 완료 조건
+
+- [ ] 모든 GET API가 `Authorization: Bearer` 없이 200 반환
+- [ ] POST/PUT/PATCH/DELETE는 여전히 401 반환 (미인증 시)
+- [ ] `/api/admin/*` GET은 여전히 401 반환 (미인증 시)
+
+---
+
+### [FE-050] 공개 열람 모드 — proxy.ts + 레이아웃 + 페이지 컴포넌트
+
+**담당**: Frontend Role
+**우선순위**: 🔴 즉시 (BE-050과 병렬)
+**난이도**: 🟡 중간 (1일)
+**상태**: 🔴 오픈
+
+#### 변경 내용
+
+1. **`proxy.ts`** — 페이지 접근 제한 해제, API 변경 요청만 인증 요구
+2. **`app/layout.tsx`** — 미인증 시 내비게이션 표시 + 로그인 버튼
+3. **`app/change-password/page.tsx`** — 강제 비밀번호 변경 흐름 유지 (로그인한 사용자만)
+4. **개별 페이지 컴포넌트** — 수정/삭제/등록 버튼을 미인증 시 숨기거나 클릭 시 로그인으로 유도
+
+---
+
+#### 1. `proxy.ts` 변경
+
+```typescript
+// BEFORE: 미인증 → 페이지는 /login으로 리다이렉트, API는 401
+// AFTER:  미인증 → 페이지는 그대로 통과, API GET은 통과, API 변경(POST 등)은 401
+
+// 변경 후 로직:
+// 1. /_next, /favicon, static → pass
+// 2. /login, /api/auth, /api/cron → pass
+// 3. pathname.startsWith("/api/") 이고 method가 POST/PUT/PATCH/DELETE 이고 token 없음 → 401
+// 4. 나머지 → pass (페이지는 항상 통과)
+```
+
+**구체적 변경**:
+```typescript
+const sessionToken = request.cookies.get("session_token")?.value;
+
+// API 변경 요청만 인증 요구 (GET은 통과)
+if (!sessionToken && pathname.startsWith("/api/")) {
+  const method = request.method;
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+    return NextResponse.json(
+      { error: "인증이 필요합니다." },
+      { status: 401 }
+    );
+  }
+}
+
+// 페이지 및 API GET → 항상 통과 (로그인 리다이렉트 없음)
+return passthrough();
+```
+
+---
+
+#### 2. `app/layout.tsx` 변경
+
+```typescript
+// BEFORE:
+if (!user && pathname !== "/login") {
+  redirect("/login");   // ← 이 줄 제거
+}
+// {user && <nav>...</nav>}  ← 조건부 표시를 항상 표시로 변경
+
+// AFTER:
+// redirect 제거
+// 네비게이션: 항상 표시 (user 유무 무관)
+// 우측 영역: 로그인 상태면 username + 로그아웃, 미인증이면 "로그인" 링크
+```
+
+**변경 후 우측 영역 (nav 안):**
+```tsx
+{user ? (
+  <div className="flex items-center gap-3 border-l border-gray-200 pl-4">
+    <span className="text-xs text-gray-400">{user.username}</span>
+    <LogoutButton />
+  </div>
+) : (
+  <div className="border-l border-gray-200 pl-4">
+    <Link href="/login" className="text-sm text-blue-600 hover:text-blue-800">
+      로그인
+    </Link>
+  </div>
+)}
+```
+
+**admin 메뉴**: `user?.role === "ADMIN"` 일 때만 표시 (기존과 동일)
+
+---
+
+#### 3. 수정/삭제/등록 버튼 처리
+
+각 페이지에서 `user` prop 또는 서버 컴포넌트의 `getCurrentUser()` 결과를 기반으로:
+
+**원칙**: 미인증 사용자에게 **버튼 자체를 숨긴다** (클릭 유도 방식보다 단순)
+
+```tsx
+// 예시 — 라이선스 목록 페이지
+{user && (
+  <Link href="/licenses/new">
+    <button>+ 라이선스 등록</button>
+  </Link>
+)}
+
+// 예시 — 상세 페이지 수정/삭제 버튼
+{user && (
+  <Link href={`/licenses/${id}/edit`}>수정</Link>
+)}
+{user?.role === "ADMIN" && (
+  <button onClick={handleDelete}>삭제</button>
+)}
+```
+
+**변경이 필요한 페이지 목록**:
+```
+app/licenses/page.tsx           "등록" 버튼 → user 있을 때만
+app/licenses/[id]/page.tsx      "수정", "삭제" → user 있을 때만
+app/licenses/[id]/edit/page.tsx 이 페이지 자체 → user 없으면 /login 리다이렉트
+app/licenses/new/page.tsx       이 페이지 자체 → user 없으면 /login 리다이렉트
+app/employees/page.tsx          "등록" 버튼 → user 있을 때만
+app/employees/[id]/page.tsx     "수정", "삭제" → user 있을 때만
+app/assets/page.tsx             "등록" 버튼 → user 있을 때만
+app/assets/[id]/page.tsx        "수정", "삭제" → user 있을 때만
+app/org/page.tsx                편집 UI → user 있을 때만
+app/settings/import/page.tsx    → user 없으면 /login 리다이렉트 (쓰기 전용 페이지)
+app/settings/groups/page.tsx    그룹 생성/삭제 → user 있을 때만
+app/admin/users/page.tsx        → user 없거나 ADMIN 아니면 /login 리다이렉트 (유지)
+```
+
+> ⚠️ **읽기 전용 페이지** (목록, 상세)는 미인증 접근 허용.
+> **쓰기 전용 페이지** (new, edit)는 미인증 시 `/login?redirect=<원래경로>` 리다이렉트.
+
+---
+
+#### 4. 로그인 후 원래 페이지 복귀 (선택 구현)
+
+`/login?redirect=/licenses/new` 형태로 이동 후, 로그인 성공 시 `redirect` 파라미터 경로로 복귀.
+현재 로그인 페이지가 이를 지원하지 않으면 추가 구현 필요.
+
+---
+
+#### 완료 조건
+
+- [ ] 비로그인 상태로 `/licenses`, `/employees`, `/dashboard`, `/org`, `/history` 접근 가능
+- [ ] 비로그인 상태에서 nav가 표시되고, 우측에 "로그인" 링크 노출
+- [ ] 비로그인 상태에서 `+ 등록`, `수정`, `삭제` 버튼이 보이지 않음
+- [ ] `/licenses/new`, `/licenses/[id]/edit` 직접 접근 시 로그인 페이지로 이동
+- [ ] 로그인 후 기존과 동일하게 모든 기능 작동
+- [ ] `/admin/users` 는 ADMIN 로그인 필수 (기존 동작 유지)
+
+---
+
 ## 🎯 BACKEND 티켓
 
 ### [BE-020] Prisma Schema — Asset 모델 추가
