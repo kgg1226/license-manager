@@ -36,6 +36,9 @@
 | **Phase 4 BE** — 증적 DB 스키마 + API + 배치 | ✅ 완료 | 2026-03-11 |
 | **Phase 4 FE** — 증적 관리 UI (/admin/archives) | ✅ 완료 | 2026-03-11 |
 | **Phase 4 FE** — 자산카테고리 관리 UI (/admin/asset-categories) | ✅ 완료 | 2026-03-11 |
+| **FE-ORG-001** — Company CRUD UI (조직도 회사 생성/수정/삭제) | ✅ 완료 | 2026-03-11 |
+| **FE-001** — mustChangePassword API + UI 연결 완성 | ✅ 완료 | 2026-03-11 |
+| **자산 페이지** — Mock 데이터 → 실제 API 연결 | ✅ 완료 | 2026-03-11 |
 | **Phase 4** — Google Drive 연동 | 🔴 미완성 | 외부 OAuth 환경변수 필요 |
 | **EC2 배포** | ⏳ 대기 | **사람이 직접 실행** (아래 절차 참고) |
 
