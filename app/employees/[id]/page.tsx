@@ -19,6 +19,8 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
     prisma.employee.findUnique({
       where: { id: employeeId },
       include: {
+        orgUnit: { select: { name: true } },
+        company: { select: { name: true } },
         assignments: {
           include: {
             license: true,
@@ -189,8 +191,8 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
               <dd className="mt-1 text-sm text-gray-900">{employee.name}</dd>
             </div>
             <div>
-              <dt className="text-xs font-medium uppercase text-gray-500">부서</dt>
-              <dd className="mt-1 text-sm text-gray-900">{employee.department}</dd>
+              <dt className="text-xs font-medium uppercase text-gray-500">소속</dt>
+              <dd className="mt-1 text-sm text-gray-900">{employee.orgUnit?.name ?? (employee.department && employee.department !== "-" ? employee.department : "—")}</dd>
             </div>
             <div>
               <dt className="text-xs font-medium uppercase text-gray-500">이메일</dt>

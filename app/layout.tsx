@@ -1,4 +1,4 @@
-// 변경: 상단 nav → 왼쪽 사이드바 레이아웃
+// 상단 헤더 바 + 왼쪽 사이드바 레이아웃
 
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import Providers from "./providers";
 import Sidebar from "./sidebar";
+import TopHeader from "./_components/top-header";
 import { getCurrentUser } from "@/lib/auth";
 import "./globals.css";
 
@@ -34,7 +35,6 @@ export default async function RootLayout({
   const user = await getCurrentUser().catch(() => null);
 
   // 비밀번호 변경 필수인 경우 비밀번호 변경 페이지로 리다이렉트
-  // (change-password 페이지에서는 리다이렉트 방지)
   if (
     user &&
     user.mustChangePassword &&
@@ -44,6 +44,7 @@ export default async function RootLayout({
   }
 
   const showSidebar = pathname !== "/login";
+  const userProp = user ? { username: user.username, role: user.role } : null;
 
   return (
     <html lang="ko">
@@ -51,11 +52,12 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} font-[family-name:var(--font-geist-sans)] bg-gray-50 text-gray-900 antialiased`}
       >
         {showSidebar && (
-          <Sidebar
-            user={user ? { username: user.username, role: user.role } : null}
-          />
+          <>
+            <TopHeader user={userProp} />
+            <Sidebar />
+          </>
         )}
-        <main className={showSidebar ? "md:ml-60" : ""}>
+        <main className={showSidebar ? "md:ml-60 pt-14" : ""}>
           <Providers>{children}</Providers>
         </main>
       </body>

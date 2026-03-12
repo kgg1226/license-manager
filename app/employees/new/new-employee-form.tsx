@@ -61,10 +61,6 @@ export default function NewEmployeeForm({ companies }: { companies: Company[] })
               <input type="text" name="name" required className="input" placeholder="예: 홍길동" />
             </Field>
 
-            <Field label="부서" required error={state.errors?.department}>
-              <input type="text" name="department" required className="input" placeholder="예: 개발팀" />
-            </Field>
-
             <Field label="이메일" error={state.errors?.email}>
               <input type="email" name="email" className="input" placeholder="예: hong@company.com" />
             </Field>

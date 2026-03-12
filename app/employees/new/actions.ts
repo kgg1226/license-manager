@@ -17,7 +17,7 @@ export async function createEmployee(
 ): Promise<FormState> {
   await requireAdmin();
   const name = formData.get("name") as string;
-  const department = formData.get("department") as string;
+  const department = (formData.get("department") as string) || null;
   const email = formData.get("email") as string;
   const title = formData.get("title") as string;
   const companyIdRaw = formData.get("companyId") as string;
@@ -26,7 +26,6 @@ export async function createEmployee(
   const errors: Record<string, string> = {};
 
   if (!name?.trim()) errors.name = "이름은 필수입니다.";
-  if (!department?.trim()) errors.department = "부서는 필수입니다.";
 
   if (Object.keys(errors).length > 0) {
     return { errors };
@@ -40,7 +39,7 @@ export async function createEmployee(
       const employee = await tx.employee.create({
         data: {
           name: name.trim(),
-          department: department.trim(),
+          department: department?.trim() || "-",
           email: email?.trim() || null,
           title: title?.trim() || null,
           companyId,
