@@ -153,7 +153,7 @@ export default function DashboardCharts({
                   outerRadius={80}
                   innerRadius={44}
                   paddingAngle={3}
-                  label={({ label, percent }: { label: string; percent: number }) => `${label} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                  label={({ name, percent }: { name: string; percent: number }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                   labelLine={false}
                 >
                   {typeDistribution.map((d) => (
@@ -190,7 +190,7 @@ export default function DashboardCharts({
                   outerRadius={80}
                   innerRadius={44}
                   paddingAngle={3}
-                  label={({ label, percent }: { label: string; percent: number }) => `${label} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                  label={({ name, percent }: { name: string; percent: number }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                   labelLine={false}
                 >
                   {statusDistribution.map((d) => (
