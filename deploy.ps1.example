@@ -104,7 +104,7 @@ Invoke-OrFail {
 Success "배포 스크립트 업로드 완료"
 
 # 배포 명령어를 클립보드에 복사
-$deployCmd = "cd $REMOTE_DIR && aws s3 cp $S3_BUCKET/deploy-remote.sh . && chmod +x deploy-remote.sh && bash deploy-remote.sh"
+$deployCmd = "cd $REMOTE_DIR && aws s3 cp $S3_BUCKET/deploy-remote.sh . && sed -i 's/\r$//' deploy-remote.sh && chmod +x deploy-remote.sh && bash deploy-remote.sh"
 try {
     Set-Clipboard -Value $deployCmd
     Success "배포 명령어가 클립보드에 복사되었습니다!"
