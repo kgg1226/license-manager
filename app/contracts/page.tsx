@@ -154,8 +154,8 @@ export default function ContractListPage() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-lg bg-white shadow-sm">
-          <table className="w-full">
+        <div className="overflow-x-auto rounded-lg bg-white shadow-sm">
+          <table className="w-full min-w-[800px]">
             <thead className="border-b bg-gray-50">
               <tr>
                 <th className="cursor-pointer select-none px-6 py-3 text-left text-xs font-semibold hover:text-blue-600" onClick={() => handleSort("name")}>계약명<SortIcon field="name" /></th>

@@ -13,6 +13,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import GlobalSearch from "./global-search";
+import NotificationBell from "./notification-bell";
 
 interface TopHeaderProps {
   user: { username: string; role: string } | null;
@@ -54,6 +55,8 @@ export default function TopHeader({ user }: TopHeaderProps) {
         <GlobalSearch />
       </div>
       <div className="flex items-center gap-3">
+        <NotificationBell />
+
         {/* Admin Dropdown */}
         {user?.role === "ADMIN" && (
           <div ref={adminRef} className="relative">
