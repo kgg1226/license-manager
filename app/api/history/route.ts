@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 
 // GET /api/history — AuditLog 조회
 // Query: ?entityType=LICENSE&entityId=1&action=CREATED&actor=admin
-//        &from=2026-01-01&to=2026-12-31&page=1&limit=50
+//        &from=2026-01-01&to=2026-12-31&page=1&limit=50&q=검색어
 export async function GET(request: NextRequest) {
 
   try {
@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
     const actor = searchParams.get("actor");
     const from = searchParams.get("from");
     const to = searchParams.get("to");
+    const q = searchParams.get("q")?.trim();
     const page = Math.max(1, Number(searchParams.get("page") ?? "1"));
     const limit = Math.min(200, Math.max(1, Number(searchParams.get("limit") ?? "50")));
 
@@ -21,12 +22,20 @@ export async function GET(request: NextRequest) {
     if (entityType) where.entityType = entityType;
     if (entityId) where.entityId = Number(entityId);
     if (action) where.action = action;
-    if (actor) where.actor = actor;
+    if (actor) where.actor = { contains: actor, mode: "insensitive" };
     if (from || to) {
       where.createdAt = {
         ...(from ? { gte: new Date(from) } : {}),
         ...(to ? { lte: new Date(to) } : {}),
       };
+    }
+    if (q) {
+      where.OR = [
+        { actor: { contains: q, mode: "insensitive" } },
+        { details: { contains: q, mode: "insensitive" } },
+        { entityType: { contains: q, mode: "insensitive" } },
+        { action: { contains: q, mode: "insensitive" } },
+      ];
     }
 
     const [total, logs] = await Promise.all([
