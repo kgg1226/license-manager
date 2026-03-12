@@ -3,9 +3,13 @@
 // - 데이터가 있으면 아무것도 하지 않음
 
 const { PrismaClient } = await import("./generated/prisma/client.js");
+const { PrismaPg } = await import("@prisma/adapter-pg");
 const bcrypt = await import("bcryptjs");
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL,
+});
+const prisma = new PrismaClient({ adapter });
 
 try {
   const count = await prisma.user.count();

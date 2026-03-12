@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { PrismaClient } from "../generated/prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
 
 // ── 프로덕션 안전장치 ────────────────────────────────────────────────────────
@@ -8,7 +9,10 @@ if (process.env.NODE_ENV === "production") {
   process.exit(1);
 }
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL!,
+});
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   const username = process.env.SEED_ADMIN_USERNAME;

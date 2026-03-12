@@ -10,9 +10,13 @@
 
 import "dotenv/config";
 import { PrismaClient } from "../generated/prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { runRenewalNotification } from "../lib/batch/renewal-notification";
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL!,
+});
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log(`[${new Date().toISOString()}] 라이선스 갱신 알림 스케줄러 시작`);

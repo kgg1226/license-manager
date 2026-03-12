@@ -3,13 +3,14 @@ set -e
 
 # ── [1/3] DB 스키마 동기화 ──────────────────────────────────────────
 # prisma db push: 테이블 없으면 생성, 새 필드 추가, 삭제된 필드 제거
+# Prisma v7: --skip-generate 플래그 제거됨 (db push가 자동 generate 하지 않음)
 echo "[entrypoint] DB 스키마 동기화 중..."
 
-if npx prisma db push --skip-generate 2>&1; then
+if npx prisma db push 2>&1; then
     echo "[entrypoint] 스키마 동기화 완료"
 else
     echo "[entrypoint] 스키마 변경 감지 (필드 삭제 등) — 변경분만 적용 중..."
-    npx prisma db push --skip-generate --accept-data-loss
+    npx prisma db push --accept-data-loss
     echo "[entrypoint] 스키마 동기화 완료 (필드 변경 포함)"
 fi
 

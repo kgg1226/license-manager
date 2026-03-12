@@ -52,7 +52,7 @@ COPY --from=builder /app/.next ./.next
 # Prisma 생성 클라이언트 (@/generated/prisma 경로로 import됨)
 COPY --from=builder /app/generated ./generated
 
-# Prisma 스키마 (런타임 Prisma CLI 미사용 시 불필요하지만 안전을 위해 포함)
+# Prisma 스키마 (entrypoint.sh에서 prisma db push 실행에 필요)
 COPY --from=builder /app/prisma ./prisma
 
 # 정적 에셋·설정
