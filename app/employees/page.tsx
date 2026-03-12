@@ -89,7 +89,7 @@ export default async function EmployeesPage({
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">이름</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">부서</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">소속</th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">이메일</th>
                   <th className="px-4 py-3 text-center text-xs font-medium uppercase text-gray-500">배정 라이선스</th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">상태</th>
@@ -104,7 +104,7 @@ export default async function EmployeesPage({
                         {displayNames[emp.id]}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{emp.department}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{emp.department && emp.department !== "-" ? emp.department : "—"}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{emp.email ?? "—"}</td>
                     <td className="px-4 py-3 text-center text-sm text-gray-600">{emp.assignments.length}</td>
                     <td className="px-4 py-3 text-sm">

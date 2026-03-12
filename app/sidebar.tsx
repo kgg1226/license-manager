@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutDashboard,
@@ -15,12 +15,7 @@ import {
   History,
   Settings,
   Upload,
-  Shield,
-  Archive,
-  DollarSign,
-  Tags,
-  LogOut,
-  LogIn,
+  FileSignature,
   Menu,
   X,
   ChevronDown,
@@ -28,22 +23,16 @@ import {
   Package,
 } from "lucide-react";
 
-interface SidebarProps {
-  user: { username: string; role: string } | null;
-}
-
 interface NavItem {
   href: string;
   label: string;
   icon: React.ReactNode;
   authRequired?: boolean;
-  adminOnly?: boolean;
 }
 
 interface NavGroup {
   title: string;
   items: NavItem[];
-  adminOnly?: boolean;
   collapsible?: boolean;
 }
 
@@ -52,12 +41,13 @@ const NAV_GROUPS: NavGroup[] = [
     title: "",
     items: [
       { href: "/dashboard", label: "\uB300\uC2DC\uBCF4\uB4DC", icon: <LayoutDashboard className="h-4 w-4" /> },
+      { href: "/hardware", label: "\uD558\uB4DC\uC6E8\uC5B4", icon: <HardDrive className="h-4 w-4" /> },
       { href: "/licenses", label: "\uB77C\uC774\uC120\uC2A4", icon: <FileText className="h-4 w-4" /> },
+      { href: "/cloud", label: "\uD074\uB77C\uC6B0\uB4DC", icon: <Cloud className="h-4 w-4" /> },
+      { href: "/domains", label: "\uB3C4\uBA54\uC778\u00b7SSL", icon: <Globe className="h-4 w-4" /> },
+      { href: "/contracts", label: "\uC5C5\uCCB4 \uACC4\uC57D", icon: <FileSignature className="h-4 w-4" /> },
       { href: "/employees", label: "\uC870\uC9C1\uC6D0", icon: <Users className="h-4 w-4" /> },
       { href: "/org", label: "\uC870\uC9C1\uB3C4", icon: <Network className="h-4 w-4" /> },
-      { href: "/cloud", label: "\uD074\uB77C\uC6B0\uB4DC", icon: <Cloud className="h-4 w-4" /> },
-      { href: "/hardware", label: "\uD558\uB4DC\uC6E8\uC5B4", icon: <HardDrive className="h-4 w-4" /> },
-      { href: "/domains", label: "\uB3C4\uBA54\uC778\u00b7SSL", icon: <Globe className="h-4 w-4" /> },
       { href: "/reports", label: "\uBCF4\uACE0\uC11C", icon: <BarChart3 className="h-4 w-4" /> },
       { href: "/history", label: "\uC774\uB825", icon: <History className="h-4 w-4" /> },
     ],
@@ -70,25 +60,12 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/settings/import", label: "\uB370\uC774\uD130 \uAC00\uC838\uC624\uAE30", icon: <Upload className="h-4 w-4" />, authRequired: true },
     ],
   },
-  {
-    title: "\uAD00\uB9AC\uC790",
-    adminOnly: true,
-    collapsible: true,
-    items: [
-      { href: "/admin/users", label: "\uC0AC\uC6A9\uC790 \uAD00\uB9AC", icon: <Shield className="h-4 w-4" />, adminOnly: true },
-      { href: "/admin/archives", label: "\uC99D\uC801", icon: <Archive className="h-4 w-4" />, adminOnly: true },
-      { href: "/admin/exchange-rates", label: "\uD658\uC728", icon: <DollarSign className="h-4 w-4" />, adminOnly: true },
-      { href: "/admin/asset-categories", label: "\uC790\uC0B0\uCE74\uD14C\uACE0\uB9AC", icon: <Tags className="h-4 w-4" />, adminOnly: true },
-    ],
-  },
 ];
 
-export default function Sidebar({ user }: SidebarProps) {
+export default function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
-  const [loggingOut, setLoggingOut] = useState(false);
 
   const isActive = (href: string) => {
     if (href === "/dashboard") return pathname === "/dashboard";
@@ -99,19 +76,12 @@ export default function Sidebar({ user }: SidebarProps) {
     setCollapsedGroups((prev) => ({ ...prev, [title]: !prev[title] }));
   };
 
-  const handleLogout = async () => {
-    setLoggingOut(true);
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-    router.refresh();
-  };
-
   const sidebarContent = (
     <div className="flex h-full flex-col">
       {/* Brand */}
       <div className="flex h-14 items-center gap-2 border-b border-gray-200 px-4">
         <Package className="h-5 w-5 text-blue-600" />
-        <Link href="/licenses" className="text-sm font-bold text-gray-900">
+        <Link href="/dashboard" className="text-sm font-bold text-gray-900">
           Asset Manager
         </Link>
       </div>
@@ -119,16 +89,6 @@ export default function Sidebar({ user }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         {NAV_GROUPS.map((group) => {
-          if (group.adminOnly && user?.role !== "ADMIN") return null;
-
-          const visibleItems = group.items.filter((item) => {
-            if (item.adminOnly && user?.role !== "ADMIN") return false;
-            if (item.authRequired && !user) return false;
-            return true;
-          });
-
-          if (visibleItems.length === 0) return null;
-
           const isCollapsed = group.collapsible && collapsedGroups[group.title];
 
           return (
@@ -148,7 +108,7 @@ export default function Sidebar({ user }: SidebarProps) {
               )}
               {!isCollapsed && (
                 <ul className="space-y-0.5">
-                  {visibleItems.map((item) => (
+                  {group.items.map((item) => (
                     <li key={item.href}>
                       <Link
                         href={item.href}
@@ -170,48 +130,13 @@ export default function Sidebar({ user }: SidebarProps) {
           );
         })}
       </nav>
-
-      {/* User section (bottom) */}
-      <div className="border-t border-gray-200 p-3">
-        {user ? (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 overflow-hidden">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600">
-                {user.username.charAt(0).toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-gray-700">{user.username}</p>
-                <p className="text-xs text-gray-400">
-                  {user.role === "ADMIN" ? "관리자" : "사용자"}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={handleLogout}
-              disabled={loggingOut}
-              className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50"
-              title="로그아웃"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
-        ) : (
-          <Link
-            href="/login"
-            className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
-          >
-            <LogIn className="h-4 w-4" />
-            로그인
-          </Link>
-        )}
-      </div>
     </div>
   );
 
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-gray-200 bg-white md:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-gray-200 bg-white pt-14 md:block">
         {sidebarContent}
       </aside>
 
