@@ -420,9 +420,11 @@ model CloudDetail {
   contractNumber          String?                    // 계약 번호/구독 ID
 
   // ── 관리 정보 ──
-  adminEmail  String?                                // 관리자 이메일
-  autoRenew   Boolean?                               // 자동 갱신 여부 (RI, Savings Plan 등)
-  notes       String?                                // 비고
+  adminEmail      String?                            // 관리자 이메일
+  adminSlackId    String?                            // 관리자 Slack 멤버 ID (U로 시작, ex: U01AB23CD)
+  notifyChannels  String?                            // 알림 채널: EMAIL, SLACK, BOTH, NONE (기본 EMAIL)
+  autoRenew       Boolean?                           // 자동 갱신 여부 (RI, Savings Plan 등)
+  notes           String?                            // 비고
 
   asset       Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
 }

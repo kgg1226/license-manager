@@ -23,7 +23,8 @@ interface Asset {
     contractStartDate?: string | null; contractTermMonths?: number | null;
     renewalDate?: string | null; cancellationNoticeDate?: string | null;
     cancellationNoticeDays?: number | null; paymentMethod?: string | null; contractNumber?: string | null;
-    adminEmail?: string | null; autoRenew?: boolean | null; notes?: string | null;
+    adminEmail?: string | null; adminSlackId?: string | null; notifyChannels?: string | null;
+    autoRenew?: boolean | null; notes?: string | null;
   } | null;
   createdAt: string; updatedAt: string;
 }
@@ -146,6 +147,18 @@ export default function CloudDetailPage() {
                 {cd.seatCount != null && <div><p className="text-sm text-gray-600">시트 수</p><p className="mt-1 text-gray-900">{cd.seatCount}개</p></div>}
                 {cd.adminEmail && <div><p className="text-sm text-gray-600">관리자</p><p className="mt-1 text-gray-900">{cd.adminEmail}</p></div>}
                 {cd.autoRenew != null && <div><p className="text-sm text-gray-600">자동 갱신</p><p className="mt-1 text-gray-900">{cd.autoRenew ? "예" : "아니오"}</p></div>}
+                {cd.notifyChannels && cd.notifyChannels !== "NONE" && (
+                  <div>
+                    <p className="text-sm text-gray-600">알림 채널</p>
+                    <p className="mt-1">
+                      {(cd.notifyChannels === "EMAIL" || cd.notifyChannels === "BOTH") && <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 mr-1">이메일</span>}
+                      {(cd.notifyChannels === "SLACK" || cd.notifyChannels === "BOTH") && <span className="inline-flex rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">Slack</span>}
+                    </p>
+                  </div>
+                )}
+                {cd.notifyChannels === "NONE" && (
+                  <div><p className="text-sm text-gray-600">알림 채널</p><p className="mt-1 text-xs text-gray-400">알림 꺼짐</p></div>
+                )}
               </div>
 
               {/* 서비스 분류 */}

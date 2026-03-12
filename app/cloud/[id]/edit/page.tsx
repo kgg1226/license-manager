@@ -38,7 +38,7 @@ export default function CloudEditPage() {
     instanceSpec: "", storageSize: "", endpoint: "", vpcId: "", availabilityZone: "",
     contractStartDate: "", contractTermMonths: "", renewalDate: "", cancellationNoticeDate: "",
     cancellationNoticeDays: "", paymentMethod: "", contractNumber: "",
-    adminEmail: "", autoRenew: "", notes: "",
+    adminEmail: "", adminSlackId: "", notifyChannels: "EMAIL", autoRenew: "", notes: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -66,7 +66,8 @@ export default function CloudEditPage() {
             cancellationNoticeDate: cd.cancellationNoticeDate ? cd.cancellationNoticeDate.split("T")[0] : "",
             cancellationNoticeDays: cd.cancellationNoticeDays != null ? String(cd.cancellationNoticeDays) : "",
             paymentMethod: cd.paymentMethod || "", contractNumber: cd.contractNumber || "",
-            adminEmail: cd.adminEmail || "",
+            adminEmail: cd.adminEmail || "", adminSlackId: cd.adminSlackId || "",
+            notifyChannels: cd.notifyChannels || "EMAIL",
             autoRenew: cd.autoRenew === true ? "true" : cd.autoRenew === false ? "false" : "",
             notes: cd.notes || "",
           });
@@ -119,6 +120,8 @@ export default function CloudEditPage() {
           paymentMethod: cloud.paymentMethod || null,
           contractNumber: cloud.contractNumber || null,
           adminEmail: cloud.adminEmail || null,
+          adminSlackId: cloud.adminSlackId || null,
+          notifyChannels: cloud.notifyChannels || "EMAIL",
           autoRenew: cloud.autoRenew === "true" ? true : cloud.autoRenew === "false" ? false : null,
           notes: cloud.notes || null,
         },
@@ -285,16 +288,47 @@ export default function CloudEditPage() {
             </div>
           </div>
 
+          {/* 알림 설정 */}
+          <div className="rounded-lg bg-white p-6 shadow-sm">
+            <h2 className="mb-4 text-base font-semibold text-gray-900">알림 설정</h2>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">알림 채널</label>
+              <div className="flex flex-wrap gap-3">
+                {[
+                  { value: "EMAIL", label: "이메일만" },
+                  { value: "SLACK", label: "Slack만" },
+                  { value: "BOTH", label: "이메일 + Slack" },
+                  { value: "NONE", label: "알림 끄기" },
+                ].map((opt) => (
+                  <label key={opt.value} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-4 py-2.5 text-sm transition ${cloud.notifyChannels === opt.value ? "border-blue-500 bg-blue-50 text-blue-700 font-medium" : "border-gray-200 hover:bg-gray-50"}`}>
+                    <input type="radio" name="notifyChannels" value={opt.value} checked={cloud.notifyChannels === opt.value} onChange={onCloudChange} className="sr-only" />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-gray-500">갱신일, 해지 통보 기한 등 주요 일정에 대한 알림 (D-70, D-30, D-15, D-7)</p>
+            </div>
+            <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+              {(cloud.notifyChannels === "EMAIL" || cloud.notifyChannels === "BOTH") && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">관리자 이메일</label>
+                  <input type="email" name="adminEmail" value={cloud.adminEmail} onChange={onCloudChange} className={inputCls} />
+                  <p className="mt-1 text-xs text-gray-500">알림 수신 이메일 주소</p>
+                </div>
+              )}
+              {(cloud.notifyChannels === "SLACK" || cloud.notifyChannels === "BOTH") && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Slack 멤버 ID</label>
+                  <input type="text" name="adminSlackId" value={cloud.adminSlackId} onChange={onCloudChange} placeholder="U01AB23CD" className={`${inputCls} font-mono`} />
+                  <p className="mt-1 text-xs text-gray-500">Slack DM으로 알림 발송</p>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* 관리 정보 */}
           <div className="rounded-lg bg-white p-6 shadow-sm">
             <h2 className="mb-4 text-base font-semibold text-gray-900">관리 정보</h2>
-            <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">관리자 이메일</label>
-                <input type="email" name="adminEmail" value={cloud.adminEmail} onChange={onCloudChange} className={inputCls} />
-                <p className="mt-1 text-xs text-gray-500">갱신/해지 알림 수신 대상</p>
-              </div>
-            </div>
             <div><label className="block text-sm font-medium text-gray-700 mb-2">비고</label><textarea name="notes" value={cloud.notes} onChange={(e) => setCloud((p) => ({ ...p, notes: e.target.value }))} rows={2} className={inputCls} /></div>
           </div>
 

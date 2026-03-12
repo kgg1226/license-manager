@@ -260,6 +260,8 @@ export async function POST(request: NextRequest) {
             contractNumber: vStr(cd.contractNumber, 255),
             // 관리 정보
             adminEmail: vStr(cd.adminEmail, 255),
+            adminSlackId: vStr(cd.adminSlackId, 50),
+            notifyChannels: vStr(cd.notifyChannels, 10),
             autoRenew: cd.autoRenew != null ? Boolean(cd.autoRenew) : null,
             notes: vStr(cd.notes, 2000),
           },

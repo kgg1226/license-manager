@@ -338,118 +338,107 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // ── 3. Cloud 갱신일(renewalDate) 알림 ──────────────────────────────
-  for (const days of NOTICE_DAYS) {
-    const range = dayRange(days);
-
-    const cloudAssets = await prisma.asset.findMany({
-      where: {
-        type: "CLOUD",
-        status: { in: ["IN_STOCK", "IN_USE", "INACTIVE"] },
-        cloudDetail: { renewalDate: range },
+  // ── 3 & 4. Cloud 갱신일 + 해지 통보 기한 알림 (notifyChannels 기반) ──
+  const cloudDateFilters: Array<{
+    dateField: "renewalDate" | "cancellationNoticeDate";
+    subjectPrefix: string;
+    buildMsg: (asset: { name: string }, cd: { platform?: string | null; autoRenew?: boolean | null; renewalDate?: Date | null }, dateStr: string, days: number) => string;
+  }> = [
+    {
+      dateField: "renewalDate",
+      subjectPrefix: "클라우드 갱신 알림",
+      buildMsg: (asset, cd, dateStr, days) => {
+        const autoRenewStr = cd.autoRenew ? " (자동갱신)" : "";
+        return `⚠️ 클라우드 구독 갱신 D-${days} 알림\n서비스: ${asset.name} (${cd.platform ?? "클라우드"})${autoRenewStr}\n갱신 예정일: ${dateStr}\n갱신 여부를 확인해주세요.`;
       },
-      include: {
-        cloudDetail: { select: { renewalDate: true, adminEmail: true, platform: true, autoRenew: true } },
-        assignee: { select: { id: true, name: true, email: true } },
+    },
+    {
+      dateField: "cancellationNoticeDate",
+      subjectPrefix: "해지 통보 기한",
+      buildMsg: (asset, cd, dateStr, days) => {
+        const renewalStr = cd.renewalDate ? ` (갱신일: ${cd.renewalDate.toISOString().slice(0, 10)})` : "";
+        return `🚨 해지 통보 기한 D-${days} 알림\n서비스: ${asset.name} (${cd.platform ?? "클라우드"})\n해지 통보 기한: ${dateStr}${renewalStr}\n해지 의향이 있으면 기한 내 통보가 필요합니다.`;
       },
-    });
+    },
+  ];
 
-    for (const asset of cloudAssets) {
-      const cd = asset.cloudDetail!;
-      const dateStr = cd.renewalDate!.toISOString().slice(0, 10);
-      const autoRenewStr = cd.autoRenew ? " (자동갱신)" : "";
-      const message = `⚠️ 클라우드 구독 갱신 D-${days} 알림\n서비스: ${asset.name} (${cd.platform ?? "클라우드"})${autoRenewStr}\n갱신 예정일: ${dateStr}\n갱신 여부를 확인해주세요.`;
+  for (const { dateField, subjectPrefix, buildMsg } of cloudDateFilters) {
+    for (const days of NOTICE_DAYS) {
+      const range = dayRange(days);
 
-      let sent = false;
+      const cloudAssets = await prisma.asset.findMany({
+        where: {
+          type: "CLOUD",
+          status: { in: ["IN_STOCK", "IN_USE", "INACTIVE"] },
+          cloudDetail: { [dateField]: range },
+        },
+        include: {
+          cloudDetail: {
+            select: { renewalDate: true, cancellationNoticeDate: true, adminEmail: true, adminSlackId: true, notifyChannels: true, platform: true, autoRenew: true },
+          },
+          assignee: { select: { id: true, name: true, email: true } },
+        },
+      });
 
-      // CloudDetail.adminEmail → 우선 발송 대상
-      if (cd.adminEmail) {
-        const result = await sendEmail({
-          to: cd.adminEmail,
-          subject: `[클라우드 갱신 알림] ${asset.name} — D-${days}`,
-          text: message,
-        });
-        await prisma.notificationLog.create({
-          data: { assetId: asset.id, entityType: "ASSET", channel: "EMAIL", recipient: cd.adminEmail, status: result.ok ? "SUCCESS" : "FAILED", errorMsg: result.ok ? null : result.error },
-        });
-        summary.push({ entityType: "ASSET", entityId: asset.id, entityName: asset.name, daysLeft: days, channel: "EMAIL", recipient: cd.adminEmail, status: result.ok ? "SUCCESS" : "FAILED", ...(!result.ok && { error: result.error }) });
-        result.ok ? notified++ : skipped++;
-        sent = true;
-      }
+      for (const asset of cloudAssets) {
+        const cd = asset.cloudDetail!;
+        const channels = cd.notifyChannels ?? "EMAIL";
 
-      // assignee 이메일 (adminEmail과 다를 때만)
-      if (asset.assignee?.email && asset.assignee.email !== cd.adminEmail) {
-        const result = await sendEmail({ to: asset.assignee.email, subject: `[클라우드 갱신 알림] ${asset.name} — D-${days}`, text: message });
-        await prisma.notificationLog.create({
-          data: { assetId: asset.id, entityType: "ASSET", channel: "EMAIL", recipient: asset.assignee.email, status: result.ok ? "SUCCESS" : "FAILED", errorMsg: result.ok ? null : result.error },
-        });
-        summary.push({ entityType: "ASSET", entityId: asset.id, entityName: asset.name, daysLeft: days, channel: "EMAIL", recipient: asset.assignee.email, status: result.ok ? "SUCCESS" : "FAILED", ...(!result.ok && { error: result.error }) });
-        result.ok ? notified++ : skipped++;
-        sent = true;
-      }
+        // NONE → 알림 끄기
+        if (channels === "NONE") { skipped++; continue; }
 
-      if (!sent) {
-        const result = await sendSlackMessage(message);
-        await prisma.notificationLog.create({
-          data: { assetId: asset.id, entityType: "ASSET", channel: "SLACK", recipient: "webhook_channel", status: result.ok ? "SUCCESS" : "FAILED", errorMsg: result.ok ? null : result.error },
-        });
-        summary.push({ entityType: "ASSET", entityId: asset.id, entityName: asset.name, daysLeft: days, channel: "SLACK", recipient: "webhook_channel", status: result.ok ? "SUCCESS" : "FAILED", ...(!result.ok && { error: result.error }) });
-        result.ok ? notified++ : skipped++;
-      }
-    }
-  }
+        const dateVal = cd[dateField]!;
+        const dateStr = dateVal.toISOString().slice(0, 10);
+        const message = buildMsg(asset, cd, dateStr, days);
+        const subject = `[${subjectPrefix}] ${asset.name} — D-${days}`;
+        let sent = false;
 
-  // ── 4. Cloud 해지 통보 기한(cancellationNoticeDate) 알림 ──────────
-  for (const days of NOTICE_DAYS) {
-    const range = dayRange(days);
+        // 이메일 발송 (EMAIL 또는 BOTH)
+        if (channels === "EMAIL" || channels === "BOTH") {
+          if (cd.adminEmail) {
+            const result = await sendEmail({ to: cd.adminEmail, subject, text: message });
+            await prisma.notificationLog.create({
+              data: { assetId: asset.id, entityType: "ASSET", channel: "EMAIL", recipient: cd.adminEmail, status: result.ok ? "SUCCESS" : "FAILED", errorMsg: result.ok ? null : result.error },
+            });
+            summary.push({ entityType: "ASSET", entityId: asset.id, entityName: asset.name, daysLeft: days, channel: "EMAIL", recipient: cd.adminEmail, status: result.ok ? "SUCCESS" : "FAILED", ...(!result.ok && { error: result.error }) });
+            result.ok ? notified++ : skipped++;
+            sent = true;
+          }
 
-    const cancelAssets = await prisma.asset.findMany({
-      where: {
-        type: "CLOUD",
-        status: { in: ["IN_STOCK", "IN_USE", "INACTIVE"] },
-        cloudDetail: { cancellationNoticeDate: range },
-      },
-      include: {
-        cloudDetail: { select: { cancellationNoticeDate: true, adminEmail: true, platform: true, renewalDate: true } },
-        assignee: { select: { id: true, name: true, email: true } },
-      },
-    });
+          // assignee 이메일 (adminEmail과 다를 때만 보조 발송)
+          if (asset.assignee?.email && asset.assignee.email !== cd.adminEmail) {
+            const result = await sendEmail({ to: asset.assignee.email, subject, text: message });
+            await prisma.notificationLog.create({
+              data: { assetId: asset.id, entityType: "ASSET", channel: "EMAIL", recipient: asset.assignee.email, status: result.ok ? "SUCCESS" : "FAILED", errorMsg: result.ok ? null : result.error },
+            });
+            summary.push({ entityType: "ASSET", entityId: asset.id, entityName: asset.name, daysLeft: days, channel: "EMAIL", recipient: asset.assignee.email, status: result.ok ? "SUCCESS" : "FAILED", ...(!result.ok && { error: result.error }) });
+            result.ok ? notified++ : skipped++;
+            sent = true;
+          }
+        }
 
-    for (const asset of cancelAssets) {
-      const cd = asset.cloudDetail!;
-      const dateStr = cd.cancellationNoticeDate!.toISOString().slice(0, 10);
-      const renewalStr = cd.renewalDate ? ` (갱신일: ${cd.renewalDate.toISOString().slice(0, 10)})` : "";
-      const message = `🚨 해지 통보 기한 D-${days} 알림\n서비스: ${asset.name} (${cd.platform ?? "클라우드"})\n해지 통보 기한: ${dateStr}${renewalStr}\n해지 의향이 있으면 기한 내 통보가 필요합니다.`;
+        // Slack 발송 (SLACK 또는 BOTH)
+        if (channels === "SLACK" || channels === "BOTH") {
+          const slackRecipient = cd.adminSlackId ?? "webhook_channel";
+          const slackMsg = cd.adminSlackId ? `<@${cd.adminSlackId}> ${message}` : message;
+          const result = await sendSlackMessage(slackMsg);
+          await prisma.notificationLog.create({
+            data: { assetId: asset.id, entityType: "ASSET", channel: "SLACK", recipient: slackRecipient, status: result.ok ? "SUCCESS" : "FAILED", errorMsg: result.ok ? null : result.error },
+          });
+          summary.push({ entityType: "ASSET", entityId: asset.id, entityName: asset.name, daysLeft: days, channel: "SLACK", recipient: slackRecipient, status: result.ok ? "SUCCESS" : "FAILED", ...(!result.ok && { error: result.error }) });
+          result.ok ? notified++ : skipped++;
+          sent = true;
+        }
 
-      let sent = false;
-
-      if (cd.adminEmail) {
-        const result = await sendEmail({ to: cd.adminEmail, subject: `[해지 통보 기한] ${asset.name} — D-${days}`, text: message });
-        await prisma.notificationLog.create({
-          data: { assetId: asset.id, entityType: "ASSET", channel: "EMAIL", recipient: cd.adminEmail, status: result.ok ? "SUCCESS" : "FAILED", errorMsg: result.ok ? null : result.error },
-        });
-        summary.push({ entityType: "ASSET", entityId: asset.id, entityName: asset.name, daysLeft: days, channel: "EMAIL", recipient: cd.adminEmail, status: result.ok ? "SUCCESS" : "FAILED", ...(!result.ok && { error: result.error }) });
-        result.ok ? notified++ : skipped++;
-        sent = true;
-      }
-
-      if (asset.assignee?.email && asset.assignee.email !== cd.adminEmail) {
-        const result = await sendEmail({ to: asset.assignee.email, subject: `[해지 통보 기한] ${asset.name} — D-${days}`, text: message });
-        await prisma.notificationLog.create({
-          data: { assetId: asset.id, entityType: "ASSET", channel: "EMAIL", recipient: asset.assignee.email, status: result.ok ? "SUCCESS" : "FAILED", errorMsg: result.ok ? null : result.error },
-        });
-        summary.push({ entityType: "ASSET", entityId: asset.id, entityName: asset.name, daysLeft: days, channel: "EMAIL", recipient: asset.assignee.email, status: result.ok ? "SUCCESS" : "FAILED", ...(!result.ok && { error: result.error }) });
-        result.ok ? notified++ : skipped++;
-        sent = true;
-      }
-
-      if (!sent) {
-        const result = await sendSlackMessage(message);
-        await prisma.notificationLog.create({
-          data: { assetId: asset.id, entityType: "ASSET", channel: "SLACK", recipient: "webhook_channel", status: result.ok ? "SUCCESS" : "FAILED", errorMsg: result.ok ? null : result.error },
-        });
-        summary.push({ entityType: "ASSET", entityId: asset.id, entityName: asset.name, daysLeft: days, channel: "SLACK", recipient: "webhook_channel", status: result.ok ? "SUCCESS" : "FAILED", ...(!result.ok && { error: result.error }) });
-        result.ok ? notified++ : skipped++;
+        // 채널 설정했지만 실제 발송 안 됐으면 (이메일 없이 EMAIL만 선택 등) → Slack 채널 폴백
+        if (!sent) {
+          const result = await sendSlackMessage(message);
+          await prisma.notificationLog.create({
+            data: { assetId: asset.id, entityType: "ASSET", channel: "SLACK", recipient: "webhook_channel", status: result.ok ? "SUCCESS" : "FAILED", errorMsg: result.ok ? null : result.error },
+          });
+          summary.push({ entityType: "ASSET", entityId: asset.id, entityName: asset.name, daysLeft: days, channel: "SLACK", recipient: "webhook_channel", status: result.ok ? "SUCCESS" : "FAILED", ...(!result.ok && { error: result.error }) });
+          result.ok ? notified++ : skipped++;
+        }
       }
     }
   }

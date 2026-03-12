@@ -240,6 +240,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
             paymentMethod: cd.paymentMethod !== undefined ? vStr(cd.paymentMethod, 50) : undefined,
             contractNumber: cd.contractNumber !== undefined ? vStr(cd.contractNumber, 255) : undefined,
             adminEmail: vStr(cd.adminEmail, 255),
+            adminSlackId: cd.adminSlackId !== undefined ? vStr(cd.adminSlackId, 50) : undefined,
+            notifyChannels: cd.notifyChannels !== undefined ? vStr(cd.notifyChannels, 10) : undefined,
             autoRenew: cd.autoRenew != null ? Boolean(cd.autoRenew) : null,
             notes: vStr(cd.notes, 2000),
           };
