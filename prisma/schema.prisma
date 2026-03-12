@@ -391,13 +391,31 @@ model HardwareDetail {
 }
 
 model CloudDetail {
-  id          Int     @id @default(autoincrement())
-  assetId     Int     @unique
+  id          Int      @id @default(autoincrement())
+  assetId     Int      @unique
   platform    String?                                // AWS, GCP, Azure, Slack 등
   accountId   String?                                // 계정 ID / 이메일
-  region      String?                                // 리전
+  region      String?                                // 리전 (ap-northeast-2 등)
   seatCount   Int?                                   // 라이선스 수량
-  asset       Asset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  // ── 서비스 분류 ──
+  serviceCategory String?                            // IaaS / PaaS / SaaS / Security / Database / Storage / Network / Other
+  resourceType    String?                            // EC2, S3, RDS, SecurityGroup, VPC, Lambda, ECS, ELB, CloudFront, Route53, IAM, Web/App, Database 등
+  resourceId      String?                            // AWS 리소스 ID (i-xxx, sg-xxx, arn:aws:... 등)
+
+  // ── 인프라 상세 ──
+  instanceSpec      String?                          // 인스턴스 사양 (t4g.small, db.r6g.large 등)
+  storageSize       String?                          // 저장 용량 (100GB, 1TB 등)
+  endpoint          String?                          // 접속 URL/엔드포인트
+  vpcId             String?                          // VPC ID
+  availabilityZone  String?                          // 가용 영역 (ap-northeast-2a 등)
+
+  // ── 관리 정보 ──
+  adminEmail  String?                                // 관리자 이메일
+  autoRenew   Boolean?                               // 자동 갱신 여부 (RI, Savings Plan 등)
+  notes       String?                                // 비고
+
+  asset       Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
 }
 
 model ContractDetail {

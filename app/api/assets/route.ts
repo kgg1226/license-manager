@@ -240,6 +240,20 @@ export async function POST(request: NextRequest) {
             accountId: vStr(cd.accountId, 255),
             region: vStr(cd.region, 100),
             seatCount: vNum(cd.seatCount, { min: 0, integer: true }),
+            // 서비스 분류
+            serviceCategory: vStr(cd.serviceCategory, 50),
+            resourceType: vStr(cd.resourceType, 100),
+            resourceId: vStr(cd.resourceId, 500),
+            // 인프라 상세
+            instanceSpec: vStr(cd.instanceSpec, 100),
+            storageSize: vStr(cd.storageSize, 100),
+            endpoint: vStr(cd.endpoint, 500),
+            vpcId: vStr(cd.vpcId, 50),
+            availabilityZone: vStr(cd.availabilityZone, 50),
+            // 관리 정보
+            adminEmail: vStr(cd.adminEmail, 255),
+            autoRenew: cd.autoRenew != null ? Boolean(cd.autoRenew) : null,
+            notes: vStr(cd.notes, 2000),
           },
         });
       }

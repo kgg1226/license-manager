@@ -16,6 +16,13 @@ const BILLING_CYCLES = [
 ];
 
 const PLATFORMS = ["AWS", "GCP", "Azure", "Slack", "Notion", "Jira", "GitHub", "GitLab", "Figma", "Vercel", "Datadog", "Other"];
+const SERVICE_CATEGORIES = ["IaaS", "PaaS", "SaaS", "Security", "Database", "Storage", "Network", "Other"];
+const RESOURCE_TYPES: Record<string, string[]> = {
+  AWS: ["EC2", "S3", "RDS", "Lambda", "ECS", "ELB", "CloudFront", "Route53", "VPC", "SecurityGroup", "IAM", "EBS", "SQS", "SNS", "DynamoDB", "ElastiCache", "Redshift", "Other"],
+  GCP: ["Compute Engine", "Cloud Storage", "Cloud SQL", "Cloud Functions", "GKE", "BigQuery", "Cloud CDN", "VPC", "IAM", "Other"],
+  Azure: ["VM", "Blob Storage", "SQL Database", "Functions", "AKS", "CDN", "VNet", "Active Directory", "Other"],
+  _default: ["Web/App", "Database", "Storage", "API", "Auth", "Monitoring", "CI/CD", "Other"],
+};
 
 export default function CloudNewPage() {
   const router = useRouter();
@@ -29,7 +36,12 @@ export default function CloudNewPage() {
     name: "", description: "", vendor: "", cost: "", currency: "KRW",
     billingCycle: "MONTHLY", purchaseDate: "", expiryDate: "",
   });
-  const [cloud, setCloud] = useState({ platform: "", accountId: "", region: "", seatCount: "" });
+  const [cloud, setCloud] = useState({
+    platform: "", accountId: "", region: "", seatCount: "",
+    serviceCategory: "", resourceType: "", resourceId: "",
+    instanceSpec: "", storageSize: "", endpoint: "", vpcId: "", availabilityZone: "",
+    adminEmail: "", autoRenew: "", notes: "",
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -70,6 +82,13 @@ export default function CloudNewPage() {
         cloudDetail: {
           platform: cloud.platform || null, accountId: cloud.accountId || null,
           region: cloud.region || null, seatCount: cloud.seatCount ? Number(cloud.seatCount) : null,
+          serviceCategory: cloud.serviceCategory || null, resourceType: cloud.resourceType || null,
+          resourceId: cloud.resourceId || null, instanceSpec: cloud.instanceSpec || null,
+          storageSize: cloud.storageSize || null, endpoint: cloud.endpoint || null,
+          vpcId: cloud.vpcId || null, availabilityZone: cloud.availabilityZone || null,
+          adminEmail: cloud.adminEmail || null,
+          autoRenew: cloud.autoRenew === "true" ? true : cloud.autoRenew === "false" ? false : null,
+          notes: cloud.notes || null,
         },
       };
       const res = await fetch("/api/assets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -164,6 +183,85 @@ export default function CloudNewPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">시트 수</label>
                 <input type="number" name="seatCount" value={cloud.seatCount} onChange={onCloudChange} placeholder="0" min="0" className={inputCls} />
               </div>
+            </div>
+          </div>
+
+          {/* 서비스 분류 */}
+          <div className="rounded-lg bg-white p-6 shadow-sm">
+            <h2 className="mb-4 text-base font-semibold text-gray-900">서비스 분류</h2>
+            <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">서비스 카테고리</label>
+                <select name="serviceCategory" value={cloud.serviceCategory} onChange={onCloudChange} className={inputCls}>
+                  <option value="">선택</option>
+                  {SERVICE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">리소스 타입</label>
+                <select name="resourceType" value={cloud.resourceType} onChange={onCloudChange} className={inputCls}>
+                  <option value="">선택</option>
+                  {(RESOURCE_TYPES[cloud.platform] || RESOURCE_TYPES._default).map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">리소스 ID</label>
+              <input type="text" name="resourceId" value={cloud.resourceId} onChange={onCloudChange} placeholder="i-0abc123, sg-xxx, arn:aws:... 등" className={`${inputCls} font-mono`} />
+            </div>
+          </div>
+
+          {/* 인프라 상세 — IaaS/Database/Storage/Security/Network 계열에서 표시 */}
+          {(["IaaS", "Database", "Storage", "Security", "Network", ""].includes(cloud.serviceCategory) || ["AWS", "GCP", "Azure"].includes(cloud.platform)) && (
+            <div className="rounded-lg bg-white p-6 shadow-sm">
+              <h2 className="mb-4 text-base font-semibold text-gray-900">인프라 상세</h2>
+              <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">인스턴스 사양</label>
+                  <input type="text" name="instanceSpec" value={cloud.instanceSpec} onChange={onCloudChange} placeholder="t4g.small, db.r6g.large 등" className={`${inputCls} font-mono`} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">저장 용량</label>
+                  <input type="text" name="storageSize" value={cloud.storageSize} onChange={onCloudChange} placeholder="100GB, 1TB 등" className={inputCls} />
+                </div>
+              </div>
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">엔드포인트</label>
+                <input type="text" name="endpoint" value={cloud.endpoint} onChange={onCloudChange} placeholder="접속 URL 또는 엔드포인트" className={`${inputCls} font-mono`} />
+              </div>
+              <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">VPC ID</label>
+                  <input type="text" name="vpcId" value={cloud.vpcId} onChange={onCloudChange} placeholder="vpc-xxx" className={`${inputCls} font-mono`} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">가용 영역</label>
+                  <input type="text" name="availabilityZone" value={cloud.availabilityZone} onChange={onCloudChange} placeholder="ap-northeast-2a" className={`${inputCls} font-mono`} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">자동 갱신</label>
+                  <select name="autoRenew" value={cloud.autoRenew} onChange={onCloudChange} className={inputCls}>
+                    <option value="">미지정</option>
+                    <option value="true">예 (RI/Savings Plan 등)</option>
+                    <option value="false">아니오</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 관리 정보 */}
+          <div className="rounded-lg bg-white p-6 shadow-sm">
+            <h2 className="mb-4 text-base font-semibold text-gray-900">관리 정보</h2>
+            <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">관리자 이메일</label>
+                <input type="email" name="adminEmail" value={cloud.adminEmail} onChange={onCloudChange} placeholder="admin@example.com" className={inputCls} />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">비고</label>
+              <textarea name="notes" value={cloud.notes} onChange={(e) => setCloud((p) => ({ ...p, notes: e.target.value }))} rows={2} placeholder="추가 메모" className={inputCls} />
             </div>
           </div>
 

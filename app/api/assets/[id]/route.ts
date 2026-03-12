@@ -218,21 +218,27 @@ export async function PUT(request: NextRequest, { params }: Params) {
       if (body.cloudDetail !== undefined) {
         if (body.cloudDetail) {
           const cd = body.cloudDetail;
+          const cdFields = {
+            platform: vStr(cd.platform, 100),
+            accountId: vStr(cd.accountId, 255),
+            region: vStr(cd.region, 100),
+            seatCount: vNum(cd.seatCount, { min: 0, integer: true }),
+            serviceCategory: vStr(cd.serviceCategory, 50),
+            resourceType: vStr(cd.resourceType, 100),
+            resourceId: vStr(cd.resourceId, 500),
+            instanceSpec: vStr(cd.instanceSpec, 100),
+            storageSize: vStr(cd.storageSize, 100),
+            endpoint: vStr(cd.endpoint, 500),
+            vpcId: vStr(cd.vpcId, 50),
+            availabilityZone: vStr(cd.availabilityZone, 50),
+            adminEmail: vStr(cd.adminEmail, 255),
+            autoRenew: cd.autoRenew != null ? Boolean(cd.autoRenew) : null,
+            notes: vStr(cd.notes, 2000),
+          };
           await tx.cloudDetail.upsert({
             where: { assetId },
-            create: {
-              assetId,
-              platform: vStr(cd.platform, 100),
-              accountId: vStr(cd.accountId, 255),
-              region: vStr(cd.region, 100),
-              seatCount: vNum(cd.seatCount, { min: 0, integer: true }),
-            },
-            update: {
-              platform: vStr(cd.platform, 100),
-              accountId: vStr(cd.accountId, 255),
-              region: vStr(cd.region, 100),
-              seatCount: vNum(cd.seatCount, { min: 0, integer: true }),
-            },
+            create: { assetId, ...cdFields },
+            update: cdFields,
           });
         } else {
           await tx.cloudDetail.deleteMany({ where: { assetId } });
