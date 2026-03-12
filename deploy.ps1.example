@@ -52,7 +52,7 @@ if ($currentBranch -ne "master") {
     exit 1
 }
 
-Invoke-OrFail { git fetch origin } "git fetch 실패"
+Invoke-OrFail { git fetch origin master } "git fetch 실패"
 Invoke-OrFail { git pull origin master } "git pull 실패 (충돌 시 수동 해결 필요)"
 Invoke-OrFail { git push origin master } "git push 실패"
 Success "Git 동기화 완료"
