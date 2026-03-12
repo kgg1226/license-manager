@@ -250,6 +250,14 @@ export async function POST(request: NextRequest) {
             endpoint: vStr(cd.endpoint, 500),
             vpcId: vStr(cd.vpcId, 50),
             availabilityZone: vStr(cd.availabilityZone, 50),
+            // 계약/구독 관리
+            contractStartDate: cd.contractStartDate ? new Date(cd.contractStartDate) : null,
+            contractTermMonths: vNum(cd.contractTermMonths, { min: 1, max: 120, integer: true }),
+            renewalDate: cd.renewalDate ? new Date(cd.renewalDate) : null,
+            cancellationNoticeDate: cd.cancellationNoticeDate ? new Date(cd.cancellationNoticeDate) : null,
+            cancellationNoticeDays: vNum(cd.cancellationNoticeDays, { min: 1, max: 365, integer: true }),
+            paymentMethod: vStr(cd.paymentMethod, 50),
+            contractNumber: vStr(cd.contractNumber, 255),
             // 관리 정보
             adminEmail: vStr(cd.adminEmail, 255),
             autoRenew: cd.autoRenew != null ? Boolean(cd.autoRenew) : null,

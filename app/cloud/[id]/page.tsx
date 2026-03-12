@@ -20,6 +20,9 @@ interface Asset {
     serviceCategory?: string | null; resourceType?: string | null; resourceId?: string | null;
     instanceSpec?: string | null; storageSize?: string | null; endpoint?: string | null;
     vpcId?: string | null; availabilityZone?: string | null;
+    contractStartDate?: string | null; contractTermMonths?: number | null;
+    renewalDate?: string | null; cancellationNoticeDate?: string | null;
+    cancellationNoticeDays?: number | null; paymentMethod?: string | null; contractNumber?: string | null;
     adminEmail?: string | null; autoRenew?: boolean | null; notes?: string | null;
   } | null;
   createdAt: string; updatedAt: string;
@@ -168,6 +171,52 @@ export default function CloudDetailPage() {
                     {cd.availabilityZone && <div><p className="text-sm text-gray-600">가용 영역</p><p className="mt-1 text-gray-900">{cd.availabilityZone}</p></div>}
                   </div>
                   {cd.endpoint && <div className="mt-3"><p className="text-sm text-gray-600">엔드포인트</p><p className="mt-1 font-mono text-sm text-gray-900 break-all">{cd.endpoint}</p></div>}
+                </>
+              )}
+
+              {/* 계약/구독 관리 */}
+              {(cd.contractStartDate || cd.contractTermMonths || cd.renewalDate || cd.cancellationNoticeDate || cd.paymentMethod || cd.contractNumber) && (
+                <>
+                  <h3 className="mt-6 mb-3 text-sm font-semibold text-gray-700 border-t pt-4">계약 / 구독 관리</h3>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {cd.contractStartDate && <div><p className="text-sm text-gray-600">계약 시작일</p><p className="mt-1 text-gray-900">{new Date(cd.contractStartDate).toLocaleDateString("ko-KR")}</p></div>}
+                    {cd.contractTermMonths != null && <div><p className="text-sm text-gray-600">계약 기간</p><p className="mt-1 text-gray-900">{cd.contractTermMonths}개월</p></div>}
+                    {cd.renewalDate && (() => {
+                      const renewal = new Date(cd.renewalDate);
+                      const daysLeft = Math.ceil((renewal.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                      const isUrgent = daysLeft <= 30 && daysLeft > 0;
+                      const isPast = daysLeft <= 0;
+                      return (
+                        <div>
+                          <p className="text-sm text-gray-600">갱신 예정일</p>
+                          <p className={`mt-1 font-semibold ${isPast ? "text-red-600" : isUrgent ? "text-orange-600" : "text-gray-900"}`}>
+                            {renewal.toLocaleDateString("ko-KR")}
+                            {isPast && " (경과)"}
+                            {isUrgent && ` (D-${daysLeft})`}
+                          </p>
+                        </div>
+                      );
+                    })()}
+                    {cd.cancellationNoticeDate && (() => {
+                      const notice = new Date(cd.cancellationNoticeDate);
+                      const daysLeft = Math.ceil((notice.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                      const isUrgent = daysLeft <= 14 && daysLeft > 0;
+                      const isPast = daysLeft <= 0;
+                      return (
+                        <div>
+                          <p className="text-sm text-gray-600">해지 통보 기한</p>
+                          <p className={`mt-1 font-semibold ${isPast ? "text-red-600" : isUrgent ? "text-orange-600" : "text-gray-900"}`}>
+                            {notice.toLocaleDateString("ko-KR")}
+                            {isPast && " (경과)"}
+                            {isUrgent && ` (D-${daysLeft})`}
+                          </p>
+                        </div>
+                      );
+                    })()}
+                    {cd.cancellationNoticeDays != null && <div><p className="text-sm text-gray-600">해지 통보 사전 일수</p><p className="mt-1 text-gray-900">{cd.cancellationNoticeDays}일 전</p></div>}
+                    {cd.paymentMethod && <div><p className="text-sm text-gray-600">결제 수단</p><p className="mt-1 text-gray-900">{{ CARD: "카드", TRANSFER: "계좌이체", INVOICE: "청구서", OTHER: "기타" }[cd.paymentMethod] ?? cd.paymentMethod}</p></div>}
+                    {cd.contractNumber && <div><p className="text-sm text-gray-600">계약/구독 번호</p><p className="mt-1 font-mono text-gray-900">{cd.contractNumber}</p></div>}
+                  </div>
                 </>
               )}
 

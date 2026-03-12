@@ -40,6 +40,9 @@ export default function CloudNewPage() {
     platform: "", accountId: "", region: "", seatCount: "",
     serviceCategory: "", resourceType: "", resourceId: "",
     instanceSpec: "", storageSize: "", endpoint: "", vpcId: "", availabilityZone: "",
+    // 계약/구독
+    contractStartDate: "", contractTermMonths: "", renewalDate: "", cancellationNoticeDate: "",
+    cancellationNoticeDays: "", paymentMethod: "", contractNumber: "",
     adminEmail: "", autoRenew: "", notes: "",
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -86,6 +89,14 @@ export default function CloudNewPage() {
           resourceId: cloud.resourceId || null, instanceSpec: cloud.instanceSpec || null,
           storageSize: cloud.storageSize || null, endpoint: cloud.endpoint || null,
           vpcId: cloud.vpcId || null, availabilityZone: cloud.availabilityZone || null,
+          // 계약/구독
+          contractStartDate: cloud.contractStartDate || null,
+          contractTermMonths: cloud.contractTermMonths ? Number(cloud.contractTermMonths) : null,
+          renewalDate: cloud.renewalDate || null,
+          cancellationNoticeDate: cloud.cancellationNoticeDate || null,
+          cancellationNoticeDays: cloud.cancellationNoticeDays ? Number(cloud.cancellationNoticeDays) : null,
+          paymentMethod: cloud.paymentMethod || null,
+          contractNumber: cloud.contractNumber || null,
           adminEmail: cloud.adminEmail || null,
           autoRenew: cloud.autoRenew === "true" ? true : cloud.autoRenew === "false" ? false : null,
           notes: cloud.notes || null,
@@ -250,6 +261,53 @@ export default function CloudNewPage() {
             </div>
           )}
 
+          {/* 계약/구독 관리 */}
+          <div className="rounded-lg bg-white p-6 shadow-sm">
+            <h2 className="mb-4 text-base font-semibold text-gray-900">계약 / 구독 관리</h2>
+            <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">계약 시작일</label>
+                <input type="date" name="contractStartDate" value={cloud.contractStartDate} onChange={onCloudChange} className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">계약 기간 (개월)</label>
+                <input type="number" name="contractTermMonths" value={cloud.contractTermMonths} onChange={onCloudChange} min="1" max="120" placeholder="12" className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">갱신 예정일</label>
+                <input type="date" name="renewalDate" value={cloud.renewalDate} onChange={onCloudChange} className={inputCls} />
+              </div>
+            </div>
+            <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">해지 통보 기한</label>
+                <input type="date" name="cancellationNoticeDate" value={cloud.cancellationNoticeDate} onChange={onCloudChange} className={inputCls} />
+                <p className="mt-1 text-xs text-gray-500">이 날짜까지 해지 의사를 통보해야 합니다</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">해지 통보 사전 일수</label>
+                <input type="number" name="cancellationNoticeDays" value={cloud.cancellationNoticeDays} onChange={onCloudChange} min="1" max="365" placeholder="30" className={inputCls} />
+                <p className="mt-1 text-xs text-gray-500">갱신일 N일 전 통보 필요</p>
+              </div>
+            </div>
+            <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">결제 수단</label>
+                <select name="paymentMethod" value={cloud.paymentMethod} onChange={onCloudChange} className={inputCls}>
+                  <option value="">선택</option>
+                  <option value="CARD">카드</option>
+                  <option value="TRANSFER">계좌이체</option>
+                  <option value="INVOICE">청구서</option>
+                  <option value="OTHER">기타</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">계약/구독 번호</label>
+                <input type="text" name="contractNumber" value={cloud.contractNumber} onChange={onCloudChange} placeholder="계약번호, 구독ID 등" className={`${inputCls} font-mono`} />
+              </div>
+            </div>
+          </div>
+
           {/* 관리 정보 */}
           <div className="rounded-lg bg-white p-6 shadow-sm">
             <h2 className="mb-4 text-base font-semibold text-gray-900">관리 정보</h2>
@@ -257,6 +315,7 @@ export default function CloudNewPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">관리자 이메일</label>
                 <input type="email" name="adminEmail" value={cloud.adminEmail} onChange={onCloudChange} placeholder="admin@example.com" className={inputCls} />
+                <p className="mt-1 text-xs text-gray-500">갱신/해지 알림 수신 대상</p>
               </div>
             </div>
             <div>

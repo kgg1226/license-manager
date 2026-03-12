@@ -410,6 +410,15 @@ model CloudDetail {
   vpcId             String?                          // VPC ID
   availabilityZone  String?                          // 가용 영역 (ap-northeast-2a 등)
 
+  // ── 계약/구독 관리 ──
+  contractStartDate       DateTime?                  // 계약 시작일
+  contractTermMonths      Int?                       // 계약 기간 (개월)
+  renewalDate             DateTime?                  // 갱신일 (다음 갱신 예정일)
+  cancellationNoticeDate  DateTime?                  // 해지 통보 기한 (이 날짜까지 해지 통보 필요)
+  cancellationNoticeDays  Int?                       // 해지 통보 사전 일수 (N일 전 통보 필요)
+  paymentMethod           String?                    // 결제 수단 (카드 / 계좌이체 / 청구서 등)
+  contractNumber          String?                    // 계약 번호/구독 ID
+
   // ── 관리 정보 ──
   adminEmail  String?                                // 관리자 이메일
   autoRenew   Boolean?                               // 자동 갱신 여부 (RI, Savings Plan 등)
