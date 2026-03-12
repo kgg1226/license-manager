@@ -24,7 +24,11 @@ export type AuditAction =
   | "OWNER_REMOVED"
   | "RENEWAL_STATUS_CHANGED"
   | "RENEWAL_DATE_SET"
-  | "PASSWORD_RESET";
+  | "PASSWORD_RESET"
+  | "ASSET_ASSIGNED"
+  | "ASSET_UNASSIGNED"
+  | "STATUS_CHANGED"
+  | "AUTO_DISPOSAL_CHECK";
 
 export async function writeAuditLog(
   tx: Tx,

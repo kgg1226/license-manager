@@ -16,8 +16,12 @@ import {
   vDate,
 } from "@/lib/validation";
 
-const ASSET_TYPES = ["SOFTWARE", "CLOUD", "HARDWARE", "DOMAIN_SSL", "OTHER"] as const;
+const ASSET_TYPES = ["SOFTWARE", "CLOUD", "HARDWARE", "DOMAIN_SSL", "CONTRACT", "OTHER"] as const;
 const BILLING_CYCLES = ["MONTHLY", "ANNUAL", "ONE_TIME", "USAGE_BASED"] as const;
+
+function isPcDeviceType(deviceType: string | null | undefined): boolean {
+  return deviceType === "Laptop" || deviceType === "Desktop";
+}
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -37,6 +41,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
         company: { select: { id: true, name: true } },
         hardwareDetail: true,
         cloudDetail: true,
+        contractDetail: true,
       },
     });
 
@@ -93,18 +98,38 @@ export async function PUT(request: NextRequest, { params }: Params) {
     if (body.orgUnitId !== undefined) data.orgUnitId = vNum(body.orgUnitId, { min: 1, integer: true });
     if (body.assigneeId !== undefined) data.assigneeId = vNum(body.assigneeId, { min: 1, integer: true });
 
-    // monthlyCost 자동 계산 (cost나 billingCycle이 변경되었으면)
-    if (body.monthlyCost === undefined && (body.cost !== undefined || body.billingCycle !== undefined)) {
-      const existing = await prisma.asset.findUnique({ where: { id: assetId }, select: { cost: true, billingCycle: true } });
+    // PC(Laptop/Desktop) 감가상각 자동 계산 또는 기존 방식
+    if (body.monthlyCost === undefined) {
+      const existing = await prisma.asset.findUnique({
+        where: { id: assetId },
+        select: { type: true, cost: true, billingCycle: true, hardwareDetail: { select: { deviceType: true, usefulLifeYears: true } } },
+      });
       if (existing) {
+        const assetType = existing.type;
+        const hdDeviceType = body.hardwareDetail?.deviceType ?? existing.hardwareDetail?.deviceType;
         const finalCost = data.cost !== undefined ? data.cost : existing.cost ? Number(existing.cost) : null;
-        const finalCycle = data.billingCycle !== undefined ? data.billingCycle : existing.billingCycle;
-        if (finalCost != null && finalCycle) {
-          switch (finalCycle) {
-            case "MONTHLY": data.monthlyCost = finalCost; break;
-            case "ANNUAL": data.monthlyCost = Math.round((finalCost / 12) * 100) / 100; break;
-            case "ONE_TIME": data.monthlyCost = 0; break;
-            case "USAGE_BASED": data.monthlyCost = finalCost; break;
+
+        if (assetType === "HARDWARE" && isPcDeviceType(hdDeviceType)) {
+          // PC 자산: 감가상각 자동 계산
+          const usefulLife = body.hardwareDetail?.usefulLifeYears
+            ? (vNum(body.hardwareDetail.usefulLifeYears, { min: 1, max: 50, integer: true }) ?? 5)
+            : (existing.hardwareDetail?.usefulLifeYears ?? 5);
+          data.billingCycle = "DEPRECIATION";
+          if (finalCost != null) {
+            data.monthlyCost = Math.floor(finalCost / usefulLife / 12);
+          } else {
+            data.monthlyCost = null;
+          }
+        } else if (body.cost !== undefined || body.billingCycle !== undefined) {
+          // 비PC 자산: 기존 로직
+          const finalCycle = data.billingCycle !== undefined ? data.billingCycle : existing.billingCycle;
+          if (finalCost != null && finalCycle) {
+            switch (finalCycle) {
+              case "MONTHLY": data.monthlyCost = finalCost; break;
+              case "ANNUAL": data.monthlyCost = Math.round((finalCost / 12) * 100) / 100; break;
+              case "ONE_TIME": data.monthlyCost = 0; break;
+              case "USAGE_BASED": data.monthlyCost = finalCost; break;
+            }
           }
         }
       }
@@ -134,6 +159,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
           company: { select: { id: true, name: true } },
           hardwareDetail: true,
           cloudDetail: true,
+          contractDetail: true,
         },
       });
 
@@ -153,6 +179,11 @@ export async function PUT(request: NextRequest, { params }: Params) {
             os: vStr(hd.os, 50),
             osVersion: vStr(hd.osVersion, 100),
             location: vStr(hd.location, 500),
+            cpu: vStr(hd.cpu, 255),
+            ram: vStr(hd.ram, 255),
+            storage: vStr(hd.storage, 255),
+            gpu: vStr(hd.gpu, 255),
+            displaySize: vStr(hd.displaySize, 100),
             usefulLifeYears: vNum(hd.usefulLifeYears, { min: 1, max: 50, integer: true }) ?? 5,
           };
           await tx.hardwareDetail.upsert({
@@ -186,6 +217,25 @@ export async function PUT(request: NextRequest, { params }: Params) {
           });
         } else {
           await tx.cloudDetail.deleteMany({ where: { assetId } });
+        }
+      }
+
+      if (body.contractDetail !== undefined) {
+        if (body.contractDetail) {
+          const ct = body.contractDetail;
+          const ctFields = {
+            contractNumber: vStr(ct.contractNumber, 255),
+            counterparty: vStr(ct.counterparty, 255),
+            contractType: vStr(ct.contractType, 100),
+            autoRenew: ct.autoRenew === true,
+          };
+          await tx.contractDetail.upsert({
+            where: { assetId },
+            create: { assetId, ...ctFields },
+            update: ctFields,
+          });
+        } else {
+          await tx.contractDetail.deleteMany({ where: { assetId } });
         }
       }
 

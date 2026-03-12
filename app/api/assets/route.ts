@@ -17,10 +17,15 @@ import {
 } from "@/lib/validation";
 import type { Prisma } from "@/generated/prisma/client";
 
-const ASSET_TYPES = ["SOFTWARE", "CLOUD", "HARDWARE", "DOMAIN_SSL", "OTHER"] as const;
+const ASSET_TYPES = ["SOFTWARE", "CLOUD", "HARDWARE", "DOMAIN_SSL", "CONTRACT", "OTHER"] as const;
 const ASSET_STATUSES = ["IN_STOCK", "IN_USE", "INACTIVE", "UNUSABLE", "PENDING_DISPOSAL", "DISPOSED"] as const;
 const BILLING_CYCLES = ["MONTHLY", "ANNUAL", "ONE_TIME", "USAGE_BASED"] as const;
-const SORT_FIELDS = ["name", "cost", "monthlyCost", "expiryDate", "createdAt"] as const;
+const SORT_FIELDS = ["name", "type", "status", "cost", "monthlyCost", "purchaseDate", "expiryDate", "createdAt"] as const;
+
+/** PC(Laptop/Desktop) 여부에 따라 감가상각 자동 계산 */
+function isPcDeviceType(deviceType: string | null | undefined): boolean {
+  return deviceType === "Laptop" || deviceType === "Desktop";
+}
 
 // ── GET /api/assets — 자산 목록 조회 ──
 
@@ -60,6 +65,7 @@ export async function GET(request: NextRequest) {
           company: { select: { id: true, name: true } },
           hardwareDetail: true,
           cloudDetail: true,
+          contractDetail: true,
         },
         orderBy: { [sortBy]: sortOrder },
         skip: (page - 1) * limit,
@@ -115,9 +121,22 @@ export async function POST(request: NextRequest) {
     const orgUnitIdVal = vNum(body.orgUnitId, { min: 1, integer: true });
     const assigneeIdVal = vNum(body.assigneeId, { min: 1, integer: true });
 
-    // monthlyCost: 직접 입력 또는 자동 계산
+    // PC(Laptop/Desktop) 감가상각 자동 계산
+    let finalBillingCycle = billingCycleVal as string | null;
     let monthlyCostVal = vNum(body.monthlyCost, { min: 0 });
-    if (monthlyCostVal == null && costVal != null && billingCycleVal) {
+
+    const hdDeviceType = body.hardwareDetail?.deviceType;
+    if (typeVal === "HARDWARE" && isPcDeviceType(hdDeviceType)) {
+      // PC 자산: billingCycle = DEPRECIATION, monthlyCost 자동 계산
+      finalBillingCycle = "DEPRECIATION";
+      const usefulLife = vNum(body.hardwareDetail?.usefulLifeYears, { min: 1, max: 50, integer: true }) ?? 5;
+      if (costVal != null) {
+        monthlyCostVal = Math.floor(costVal / usefulLife / 12);
+      } else {
+        monthlyCostVal = null;
+      }
+    } else if (monthlyCostVal == null && costVal != null && billingCycleVal) {
+      // 비PC 자산: 기존 로직
       switch (billingCycleVal) {
         case "MONTHLY":
           monthlyCostVal = costVal;
@@ -158,7 +177,7 @@ export async function POST(request: NextRequest) {
         cost: costVal,
         monthlyCost: monthlyCostVal,
         currency: currencyVal ?? "KRW",
-        billingCycle: billingCycleVal,
+        billingCycle: finalBillingCycle,
         purchaseDate: purchaseDateVal,
         expiryDate: expiryDateVal,
         renewalDate: renewalDateVal,
@@ -187,6 +206,11 @@ export async function POST(request: NextRequest) {
             os: vStr(hd.os, 50),
             osVersion: vStr(hd.osVersion, 100),
             location: vStr(hd.location, 500),
+            cpu: vStr(hd.cpu, 255),
+            ram: vStr(hd.ram, 255),
+            storage: vStr(hd.storage, 255),
+            gpu: vStr(hd.gpu, 255),
+            displaySize: vStr(hd.displaySize, 100),
             usefulLifeYears: vNum(hd.usefulLifeYears, { min: 1, max: 50, integer: true }) ?? 5,
           },
         });
@@ -201,6 +225,19 @@ export async function POST(request: NextRequest) {
             accountId: vStr(cd.accountId, 255),
             region: vStr(cd.region, 100),
             seatCount: vNum(cd.seatCount, { min: 0, integer: true }),
+          },
+        });
+      }
+
+      if (typeVal === "CONTRACT" && body.contractDetail) {
+        const ct = body.contractDetail;
+        await tx.contractDetail.create({
+          data: {
+            assetId: created.id,
+            contractNumber: vStr(ct.contractNumber, 255),
+            counterparty: vStr(ct.counterparty, 255),
+            contractType: vStr(ct.contractType, 100),
+            autoRenew: ct.autoRenew === true,
           },
         });
       }
@@ -225,6 +262,7 @@ export async function POST(request: NextRequest) {
           company: { select: { id: true, name: true } },
           hardwareDetail: true,
           cloudDetail: true,
+          contractDetail: true,
         },
       });
     });

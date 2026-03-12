@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
     const employees = await prisma.employee.findMany({
       where,
       include: {
+        orgUnit: { select: { id: true, name: true } },
         assignments: {
           where: { returnedDate: null },
           include: { license: true },
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     // ── 입력 검증 ──
     const nameVal = vStrReq(body.name, "이름", 100);
-    const departmentVal = vStrReq(body.department, "부서", 100);
+    const departmentVal = vStr(body.department, 100);  // deprecated → optional
     const emailVal = vEmail(body.email);
     const titleVal = vStr(body.title, 100);
     const companyIdVal = vNum(body.companyId, { min: 1, integer: true });
@@ -154,7 +155,11 @@ export async function POST(request: NextRequest) {
         details: { name: emp.name, department: emp.department, email: emp.email },
       });
 
-      return emp;
+      // orgUnit을 포함해서 반환
+      return tx.employee.findUnique({
+        where: { id: emp.id },
+        include: { orgUnit: { select: { id: true, name: true } } },
+      });
     });
 
     return NextResponse.json({ ...employee, autoAssigned }, { status: 201 });

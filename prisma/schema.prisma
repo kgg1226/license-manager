@@ -72,7 +72,7 @@ model License {
 model Employee {
   id               Int           @id @default(autoincrement())
   name             String
-  department       String
+  department       String?
   email            String?       @unique
   title            String?
   companyId        Int?
@@ -83,6 +83,7 @@ model Employee {
   updatedAt        DateTime      @updatedAt
   assignments      Assignment[]
   assets           Asset[]
+  assetAssignmentHistories AssetAssignmentHistory[]
   company          OrgCompany?   @relation(fields: [companyId], references: [id])
   orgUnit          OrgUnit?      @relation("OrgMembers", fields: [orgUnitId], references: [id])
 
@@ -288,6 +289,7 @@ enum AssetType {
   CLOUD       // 클라우드·SaaS 구독
   HARDWARE    // 실물 자산
   DOMAIN_SSL  // 도메인·SSL 인증서
+  CONTRACT    // 업체 계약 (유지보수, SLA, 외주 등)
   OTHER       // 기타
 }
 
@@ -333,9 +335,11 @@ model Asset {
   company           OrgCompany?       @relation(fields: [companyId], references: [id])
   orgUnit           OrgUnit?          @relation(fields: [orgUnitId], references: [id])
   assignee          Employee?         @relation(fields: [assigneeId], references: [id])
-  hardwareDetail    HardwareDetail?
-  cloudDetail       CloudDetail?
-  notificationLogs  NotificationLog[]
+  hardwareDetail         HardwareDetail?
+  cloudDetail            CloudDetail?
+  contractDetail         ContractDetail?
+  assignmentHistories    AssetAssignmentHistory[]
+  notificationLogs       NotificationLog[]
 
   @@index([type])
   @@index([status])
@@ -357,6 +361,11 @@ model HardwareDetail {
   os              String?                              // macOS / Windows / Linux
   osVersion       String?                              // OS 버전
   location        String?                              // 보관 위치
+  cpu             String?                              // CPU 모델명 (Apple M4 Pro, Intel i7-13700 등)
+  ram             String?                              // 메모리 (16GB, 32GB DDR5 등)
+  storage         String?                              // 저장장치 (512GB SSD, 1TB NVMe 등)
+  gpu             String?                              // 그래픽카드 (RTX 4060 등, 선택)
+  displaySize     String?                              // 화면 크기 (14인치, 16.2인치 등, 노트북용)
   usefulLifeYears Int     @default(5)                  // 내용연수 (감가상각, 기본 5년)
   asset           Asset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
 }
@@ -369,6 +378,31 @@ model CloudDetail {
   region      String?                                // 리전
   seatCount   Int?                                   // 라이선스 수량
   asset       Asset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+model ContractDetail {
+  id              Int     @id @default(autoincrement())
+  assetId         Int     @unique
+  contractNumber  String?                              // 계약서 번호
+  counterparty    String?                              // 계약 상대방 (업체명)
+  contractType    String?                              // 유지보수 | SLA | 외주 | 기타
+  autoRenew       Boolean @default(false)              // 자동 갱신 여부
+  asset           Asset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+model AssetAssignmentHistory {
+  id           Int       @id @default(autoincrement())
+  assetId      Int
+  employeeId   Int
+  action       String                                  // ASSIGNED | UNASSIGNED
+  reason       String?
+  performedBy  Int?                                    // userId (누가 할당/회수했는지)
+  createdAt    DateTime  @default(now())
+  asset        Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  employee     Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@index([employeeId])
 }
 
 // ── Phase 4: 자동 증적 시스템 ──

@@ -13,6 +13,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     const employee = await prisma.employee.findUnique({
       where: { id: Number(id) },
       include: {
+        orgUnit: { select: { id: true, name: true } },
         assignments: {
           include: { license: true },
           orderBy: { assignedDate: "desc" },
@@ -46,9 +47,9 @@ export async function PUT(request: NextRequest, { params }: Params) {
     const { id } = await params;
     const body = await request.json();
 
-    // ── 입력 검증 (name, department는 DB 필수 → null 불가) ──
+    // ── 입력 검증 (department는 deprecated → optional) ──
     const nameVal = body.name !== undefined ? vStrReq(body.name, "이름", 100) : undefined;
-    const departmentVal = body.department !== undefined ? vStrReq(body.department, "부서", 100) : undefined;
+    const departmentVal = body.department !== undefined ? vStr(body.department, 100) : undefined;
     const emailVal = body.email !== undefined ? vEmail(body.email) : undefined;
     const titleVal = body.title !== undefined ? vStr(body.title, 100) : undefined;
 
@@ -61,6 +62,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
           ...(emailVal !== undefined && { email: emailVal }),
           ...(titleVal !== undefined && { title: titleVal }),
         },
+        include: { orgUnit: { select: { id: true, name: true } } },
       });
 
       await writeAuditLog(tx, {
