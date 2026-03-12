@@ -350,8 +350,8 @@ model Asset {
 }
 
 model HardwareDetail {
-  id              Int     @id @default(autoincrement())
-  assetId         Int     @unique
+  id              Int       @id @default(autoincrement())
+  assetId         Int       @unique
   assetTag        String?                              // 내부 자산 식별번호
   deviceType      String?                              // Laptop / Desktop / Server / Network / Mobile / Other
   manufacturer    String?                              // 제조사 (Apple, Dell, Lenovo 등)
@@ -368,8 +368,26 @@ model HardwareDetail {
   storage         String?                              // 저장장치 (512GB SSD, 1TB NVMe 등)
   gpu             String?                              // 그래픽카드 (RTX 4060 등, 선택)
   displaySize     String?                              // 화면 크기 (14인치, 16.2인치 등, 노트북용)
-  usefulLifeYears Int     @default(5)                  // 내용연수 (감가상각, 기본 5년)
-  asset           Asset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  usefulLifeYears Int       @default(5)                // 내용연수 (감가상각, 기본 5년)
+
+  // ── 보증/구매 관리 ──
+  warrantyEndDate     DateTime?                        // 보증 만료일
+  warrantyProvider    String?                          // 보증 업체 (제조사 AS센터, 리셀러 등)
+  purchaseOrderNumber String?                          // PO 번호 (구매주문번호)
+  invoiceNumber       String?                          // 인보이스 번호
+  condition           String?                          // 상태 등급: A(최상) / B(양호) / C(보통) / D(불량)
+  notes               String?                          // 비고/메모
+
+  // ── 네트워크/인프라 ──
+  secondaryIp         String?                          // 보조 IP (이중화, 관리용 등)
+  subnetMask          String?                          // 서브넷 마스크 (255.255.255.0 등)
+  gateway             String?                          // 게이트웨이
+  vlanId              String?                          // VLAN ID
+  dnsName             String?                          // DNS 호스트명 (FQDN)
+  portCount           Int?                             // 포트 수 (스위치/라우터용)
+  firmwareVersion     String?                          // 펌웨어 버전
+
+  asset           Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
 }
 
 model CloudDetail {

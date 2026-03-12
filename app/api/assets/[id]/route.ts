@@ -189,6 +189,21 @@ export async function PUT(request: NextRequest, { params }: Params) {
             gpu: vStr(hd.gpu, 255),
             displaySize: vStr(hd.displaySize, 100),
             usefulLifeYears: vNum(hd.usefulLifeYears, { min: 1, max: 50, integer: true }) ?? 5,
+            // 보증/구매 관리
+            warrantyEndDate: hd.warrantyEndDate !== undefined ? (hd.warrantyEndDate ? new Date(hd.warrantyEndDate) : null) : undefined,
+            warrantyProvider: hd.warrantyProvider !== undefined ? vStr(hd.warrantyProvider, 255) : undefined,
+            purchaseOrderNumber: hd.purchaseOrderNumber !== undefined ? vStr(hd.purchaseOrderNumber, 100) : undefined,
+            invoiceNumber: hd.invoiceNumber !== undefined ? vStr(hd.invoiceNumber, 100) : undefined,
+            condition: hd.condition !== undefined ? vStr(hd.condition, 1) : undefined,
+            notes: hd.notes !== undefined ? vStr(hd.notes, 2000) : undefined,
+            // 네트워크/인프라
+            secondaryIp: hd.secondaryIp !== undefined ? vStr(hd.secondaryIp, 50) : undefined,
+            subnetMask: hd.subnetMask !== undefined ? vStr(hd.subnetMask, 50) : undefined,
+            gateway: hd.gateway !== undefined ? vStr(hd.gateway, 50) : undefined,
+            vlanId: hd.vlanId !== undefined ? vStr(hd.vlanId, 20) : undefined,
+            dnsName: hd.dnsName !== undefined ? vStr(hd.dnsName, 255) : undefined,
+            portCount: hd.portCount !== undefined ? vNum(hd.portCount, { min: 0, max: 10000, integer: true }) : undefined,
+            firmwareVersion: hd.firmwareVersion !== undefined ? vStr(hd.firmwareVersion, 100) : undefined,
           };
           await tx.hardwareDetail.upsert({
             where: { assetId },

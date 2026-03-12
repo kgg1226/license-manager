@@ -17,7 +17,14 @@ export default function HardwareNewPage() {
   useEffect(() => { if (!loading && !user) router.push("/login"); }, [user, loading, router]);
 
   const [form, setForm] = useState({ name: "", description: "", vendor: "", cost: "", currency: "KRW", billingCycle: "ONE_TIME", purchaseDate: "", expiryDate: "" });
-  const [hw, setHw] = useState({ assetTag: "", deviceType: "", manufacturer: "", model: "", serialNumber: "", hostname: "", macAddress: "", ipAddress: "", os: "", osVersion: "", location: "", usefulLifeYears: "5" });
+  const [hw, setHw] = useState({
+    assetTag: "", deviceType: "", manufacturer: "", model: "", serialNumber: "", hostname: "",
+    macAddress: "", ipAddress: "", os: "", osVersion: "", location: "", usefulLifeYears: "5",
+    // 보증/구매
+    warrantyEndDate: "", warrantyProvider: "", purchaseOrderNumber: "", invoiceNumber: "", condition: "", notes: "",
+    // 네트워크
+    secondaryIp: "", subnetMask: "", gateway: "", vlanId: "", dnsName: "", portCount: "", firmwareVersion: "",
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -52,6 +59,14 @@ export default function HardwareNewPage() {
           macAddress: hw.macAddress || null, ipAddress: hw.ipAddress || null, os: hw.os || null,
           osVersion: hw.osVersion || null, location: hw.location || null,
           usefulLifeYears: hw.usefulLifeYears ? Number(hw.usefulLifeYears) : 5,
+          // 보증/구매
+          warrantyEndDate: hw.warrantyEndDate || null, warrantyProvider: hw.warrantyProvider || null,
+          purchaseOrderNumber: hw.purchaseOrderNumber || null, invoiceNumber: hw.invoiceNumber || null,
+          condition: hw.condition || null, notes: hw.notes || null,
+          // 네트워크
+          secondaryIp: hw.secondaryIp || null, subnetMask: hw.subnetMask || null,
+          gateway: hw.gateway || null, vlanId: hw.vlanId || null, dnsName: hw.dnsName || null,
+          portCount: hw.portCount ? Number(hw.portCount) : null, firmwareVersion: hw.firmwareVersion || null,
         },
       };
       const res = await fetch("/api/assets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -116,6 +131,56 @@ export default function HardwareNewPage() {
             </div>
             <div><label className="block text-sm font-medium text-gray-700 mb-2">보관 위치</label><input type="text" name="location" value={hw.location} onChange={onHwChange} placeholder="사무실, 서버실 등" className={ic} /></div>
           </div>
+
+          {/* 보증/구매 관리 */}
+          <div className="rounded-lg bg-white p-6 shadow-sm">
+            <h2 className="mb-4 text-base font-semibold text-gray-900">보증 / 구매 관리</h2>
+            <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div><label className="block text-sm font-medium text-gray-700 mb-2">보증 만료일</label><input type="date" name="warrantyEndDate" value={hw.warrantyEndDate} onChange={onHwChange} className={ic} /></div>
+              <div><label className="block text-sm font-medium text-gray-700 mb-2">보증 업체</label><input type="text" name="warrantyProvider" value={hw.warrantyProvider} onChange={onHwChange} placeholder="제조사 AS센터, 리셀러 등" className={ic} /></div>
+            </div>
+            <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div><label className="block text-sm font-medium text-gray-700 mb-2">PO 번호</label><input type="text" name="purchaseOrderNumber" value={hw.purchaseOrderNumber} onChange={onHwChange} placeholder="구매주문번호" className={`${ic} font-mono`} /></div>
+              <div><label className="block text-sm font-medium text-gray-700 mb-2">인보이스 번호</label><input type="text" name="invoiceNumber" value={hw.invoiceNumber} onChange={onHwChange} placeholder="인보이스 번호" className={`${ic} font-mono`} /></div>
+            </div>
+            <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">상태 등급</label>
+                <select name="condition" value={hw.condition} onChange={onHwChange} className={ic}>
+                  <option value="">미지정</option>
+                  <option value="A">A (최상)</option>
+                  <option value="B">B (양호)</option>
+                  <option value="C">C (보통)</option>
+                  <option value="D">D (불량)</option>
+                </select>
+              </div>
+            </div>
+            <div><label className="block text-sm font-medium text-gray-700 mb-2">비고</label><textarea name="notes" value={hw.notes} onChange={(e) => setHw((p) => ({ ...p, notes: e.target.value }))} rows={2} placeholder="추가 메모" className={ic} /></div>
+          </div>
+
+          {/* 네트워크/인프라 (Server, Network 장비용) */}
+          {(hw.deviceType === "Server" || hw.deviceType === "Network") && (
+            <div className="rounded-lg bg-white p-6 shadow-sm">
+              <h2 className="mb-4 text-base font-semibold text-gray-900">네트워크 / 인프라</h2>
+              <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div><label className="block text-sm font-medium text-gray-700 mb-2">보조 IP</label><input type="text" name="secondaryIp" value={hw.secondaryIp} onChange={onHwChange} placeholder="관리용/이중화 IP" className={`${ic} font-mono`} /></div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-2">서브넷 마스크</label><input type="text" name="subnetMask" value={hw.subnetMask} onChange={onHwChange} placeholder="255.255.255.0" className={`${ic} font-mono`} /></div>
+              </div>
+              <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div><label className="block text-sm font-medium text-gray-700 mb-2">게이트웨이</label><input type="text" name="gateway" value={hw.gateway} onChange={onHwChange} placeholder="192.168.1.1" className={`${ic} font-mono`} /></div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-2">VLAN ID</label><input type="text" name="vlanId" value={hw.vlanId} onChange={onHwChange} placeholder="100" className={`${ic} font-mono`} /></div>
+              </div>
+              <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div><label className="block text-sm font-medium text-gray-700 mb-2">DNS 호스트명</label><input type="text" name="dnsName" value={hw.dnsName} onChange={onHwChange} placeholder="server01.internal.corp" className={`${ic} font-mono`} /></div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-2">펌웨어 버전</label><input type="text" name="firmwareVersion" value={hw.firmwareVersion} onChange={onHwChange} placeholder="v2.4.1" className={`${ic} font-mono`} /></div>
+              </div>
+              {hw.deviceType === "Network" && (
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <div><label className="block text-sm font-medium text-gray-700 mb-2">포트 수</label><input type="number" name="portCount" value={hw.portCount} onChange={onHwChange} min="0" placeholder="24, 48 등" className={ic} /></div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex gap-3">
             <button type="submit" disabled={isLoading} className="flex-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">{isLoading ? "등록 중..." : "하드웨어 등록"}</button>

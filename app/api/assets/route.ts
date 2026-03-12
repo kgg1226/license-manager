@@ -212,6 +212,21 @@ export async function POST(request: NextRequest) {
             gpu: vStr(hd.gpu, 255),
             displaySize: vStr(hd.displaySize, 100),
             usefulLifeYears: vNum(hd.usefulLifeYears, { min: 1, max: 50, integer: true }) ?? 5,
+            // 보증/구매 관리
+            warrantyEndDate: hd.warrantyEndDate ? new Date(hd.warrantyEndDate) : null,
+            warrantyProvider: vStr(hd.warrantyProvider, 255),
+            purchaseOrderNumber: vStr(hd.purchaseOrderNumber, 100),
+            invoiceNumber: vStr(hd.invoiceNumber, 100),
+            condition: vStr(hd.condition, 1),
+            notes: vStr(hd.notes, 2000),
+            // 네트워크/인프라
+            secondaryIp: vStr(hd.secondaryIp, 50),
+            subnetMask: vStr(hd.subnetMask, 50),
+            gateway: vStr(hd.gateway, 50),
+            vlanId: vStr(hd.vlanId, 20),
+            dnsName: vStr(hd.dnsName, 255),
+            portCount: vNum(hd.portCount, { min: 0, max: 10000, integer: true }),
+            firmwareVersion: vStr(hd.firmwareVersion, 100),
           },
         });
       }
