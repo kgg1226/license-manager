@@ -42,6 +42,10 @@ export async function GET(request: NextRequest, { params }: Params) {
         },
         parent: { select: { id: true, name: true } },
         children: { select: { id: true, name: true }, orderBy: { name: "asc" } },
+        assetLinks: {
+          include: { asset: { select: { id: true, name: true, type: true, status: true } } },
+          orderBy: { createdAt: "desc" },
+        },
       },
     });
 

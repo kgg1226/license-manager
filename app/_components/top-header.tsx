@@ -12,6 +12,7 @@ import {
   Tags,
   ChevronDown,
 } from "lucide-react";
+import GlobalSearch from "./global-search";
 
 interface TopHeaderProps {
   user: { username: string; role: string } | null;
@@ -48,7 +49,10 @@ export default function TopHeader({ user }: TopHeaderProps) {
   ];
 
   return (
-    <header className="fixed top-0 right-0 left-0 z-20 flex h-14 items-center justify-end border-b border-gray-200 bg-white px-4 md:left-60">
+    <header className="fixed top-0 right-0 left-0 z-20 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 md:left-60">
+      <div className="hidden sm:block">
+        <GlobalSearch />
+      </div>
       <div className="flex items-center gap-3">
         {/* Admin Dropdown */}
         {user?.role === "ADMIN" && (

@@ -65,6 +65,7 @@ model License {
   renewalHistories   LicenseRenewalHistory[]
   owners             LicenseOwner[]
   notificationLogs   NotificationLog[]
+  assetLinks         AssetLicenseLink[]
 
   @@index([parentId])
 }
@@ -340,6 +341,7 @@ model Asset {
   contractDetail         ContractDetail?
   assignmentHistories    AssetAssignmentHistory[]
   notificationLogs       NotificationLog[]
+  licenseLinks           AssetLicenseLink[]
 
   @@index([type])
   @@index([status])
@@ -403,6 +405,23 @@ model AssetAssignmentHistory {
 
   @@index([assetId])
   @@index([employeeId])
+}
+
+// ── Phase 5: 자산-라이선스 연결 (M:N) ──
+
+model AssetLicenseLink {
+  id         Int      @id @default(autoincrement())
+  assetId    Int
+  licenseId  Int
+  note       String?                                // 연결 메모 (설치 위치 등)
+  createdAt  DateTime @default(now())
+  createdBy  Int?                                   // userId
+  asset      Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  license    License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, licenseId])
+  @@index([assetId])
+  @@index([licenseId])
 }
 
 // ── Phase 4: 자동 증적 시스템 ──

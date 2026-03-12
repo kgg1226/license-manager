@@ -42,6 +42,10 @@ export async function GET(_request: NextRequest, { params }: Params) {
         hardwareDetail: true,
         cloudDetail: true,
         contractDetail: true,
+        licenseLinks: {
+          include: { license: { select: { id: true, name: true, licenseType: true, expiryDate: true } } },
+          orderBy: { createdAt: "desc" },
+        },
       },
     });
 
