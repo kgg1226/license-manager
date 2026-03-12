@@ -24,7 +24,7 @@ rollback() {
             echo "롤백 완료: backup → $APP"
             # 이전 버전 재시작 시도
             cd $DIR/$APP
-            sudo docker compose up -d 2>/dev/null || true
+            sudo docker-compose up -d 2>/dev/null || true
             echo "이전 버전 재시작 시도 완료"
         fi
         echo "!!! 롤백 종료 !!!"
@@ -68,8 +68,8 @@ fi
 
 if [ -d $DIR/$APP ]; then
     cd $DIR/$APP
-    sudo docker compose stop app || true
-    sudo docker compose rm -f app || true
+    sudo docker-compose stop app || true
+    sudo docker-compose rm -f app || true
     echo 'PASS: 앱 컨테이너 중지됨 (postgres 유지)'
 else
     echo '(최초 배포: 기존 앱 없음)'
@@ -98,9 +98,9 @@ sudo docker build -t license-manager:latest -f dockerfile .
 echo 'PASS: Docker 빌드 성공'
 
 echo '=== [7/7] 앱 시작 + 검증 ==='
-sudo docker compose up -d
+sudo docker-compose up -d
 sleep 5
-sudo docker compose ps
+sudo docker-compose ps
 
 if sudo docker volume ls -q | grep -q postgres_data; then
     echo 'DB 볼륨 정상'
