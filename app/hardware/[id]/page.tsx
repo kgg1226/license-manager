@@ -107,7 +107,7 @@ export default function HardwareDetailPage() {
       const res = await fetch(`/api/employees?${params}`);
       if (res.ok) {
         const data = await res.json();
-        setEmployees(Array.isArray(data) ? data : data.employees ?? []);
+        setEmployees(Array.isArray(data) ? data : data.data ?? []);
       }
     } catch { /* ignore */ }
   };

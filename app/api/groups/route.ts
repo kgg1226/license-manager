@@ -5,22 +5,44 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { ValidationError, handleValidationError, handlePrismaError, vStrReq, vStr, vBool, vNumArr } from "@/lib/validation";
 
 // GET /api/groups — 그룹 목록 조회
-export async function GET() {
-
+// Query: ?page=1&limit=50&search=keyword
+export async function GET(request: NextRequest) {
   try {
-    const groups = await prisma.licenseGroup.findMany({
-      include: {
-        members: { include: { license: true } },
-      },
-      orderBy: { name: "asc" },
-    });
+    const { searchParams } = new URL(request.url);
+    const page = Math.max(1, Number(searchParams.get("page") ?? "1"));
+    const limit = Math.min(200, Math.max(1, Number(searchParams.get("limit") ?? "50")));
+    const search = searchParams.get("search")?.trim();
+
+    const where: Record<string, unknown> = {};
+    if (search) {
+      where.name = { contains: search, mode: "insensitive" };
+    }
+
+    const [total, groups] = await Promise.all([
+      prisma.licenseGroup.count({ where }),
+      prisma.licenseGroup.findMany({
+        where,
+        include: {
+          members: { include: { license: true } },
+        },
+        orderBy: { name: "asc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
 
     const result = groups.map((g) => ({
       ...g,
       licenseCount: g.members.length,
     }));
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      data: result,
+    });
   } catch (error) {
     console.error("Failed to fetch groups:", error);
     return NextResponse.json({ error: "그룹 목록을 불러오는데 실패했습니다." }, { status: 500 });

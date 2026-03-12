@@ -19,23 +19,41 @@ const VALID_LICENSE_TYPES = ["NO_KEY", "KEY_BASED", "VOLUME"] as const;
 type LicenseType = (typeof VALID_LICENSE_TYPES)[number];
 
 // GET /api/licenses — 라이선스 목록 조회 (계층 구조 지원)
-export async function GET() {
+// Query: ?page=1&limit=50&search=keyword
+export async function GET(request: NextRequest) {
   try {
-    const licenses = await prisma.license.findMany({
-      include: {
-        assignments: {
-          where: { returnedDate: null },
+    const { searchParams } = new URL(request.url);
+    const page = Math.max(1, Number(searchParams.get("page") ?? "1"));
+    const limit = Math.min(200, Math.max(1, Number(searchParams.get("limit") ?? "50")));
+    const search = searchParams.get("search")?.trim();
+
+    const where: Record<string, unknown> = {};
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { adminName: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const [total, licenses] = await Promise.all([
+      prisma.license.count({ where }),
+      prisma.license.findMany({
+        where,
+        include: {
+          assignments: {
+            where: { returnedDate: null },
+          },
+          seats: {
+            select: { id: true, key: true },
+          },
+          children: {
+            select: { id: true, name: true },
+            orderBy: { name: "asc" },
+          },
         },
-        seats: {
-          select: { id: true, key: true },
-        },
-        children: {
-          select: { id: true, name: true },
-          orderBy: { name: "asc" },
-        },
-      },
-      orderBy: { name: "asc" },
-    });
+        orderBy: { name: "asc" },
+      }),
+    ]);
 
     // 계층 정렬: 부모 먼저, 바로 뒤에 하위 라이선스 (depth 포함)
     const childMap = new Map<number, typeof licenses>();
@@ -72,7 +90,17 @@ export async function GET() {
     }
     walk(roots, 0);
 
-    return NextResponse.json(sorted);
+    // 계층 정렬 후 페이지네이션 적용
+    const start = (page - 1) * limit;
+    const paged = sorted.slice(start, start + limit);
+
+    return NextResponse.json({
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      data: paged,
+    });
   } catch (error) {
     console.error("Failed to fetch licenses:", error);
     return NextResponse.json(
