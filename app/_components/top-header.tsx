@@ -10,6 +10,7 @@ import {
   Archive,
   DollarSign,
   Tags,
+  Layers,
   ChevronDown,
   Download,
 } from "lucide-react";
@@ -48,6 +49,7 @@ export default function TopHeader({ user }: TopHeaderProps) {
     { href: "/admin/archives", label: "증적", icon: <Archive className="h-4 w-4" /> },
     { href: "/admin/exchange-rates", label: "환율", icon: <DollarSign className="h-4 w-4" /> },
     { href: "/admin/asset-categories", label: "자산카테고리", icon: <Tags className="h-4 w-4" /> },
+    { href: "/admin/asset-classifications", label: "자산분류체계", icon: <Layers className="h-4 w-4" /> },
   ];
 
   return (

@@ -39,6 +39,8 @@ export async function GET(request: NextRequest) {
     const companyId = vNum(url.searchParams.get("companyId"), { min: 1, integer: true });
     const orgUnitId = vNum(url.searchParams.get("orgUnitId"), { min: 1, integer: true });
     const assigneeId = vNum(url.searchParams.get("assigneeId"), { min: 1, integer: true });
+    const subCategoryId = vNum(url.searchParams.get("subCategoryId"), { min: 1, integer: true });
+    const majorCategoryId = vNum(url.searchParams.get("majorCategoryId"), { min: 1, integer: true });
 
     const page = vNum(url.searchParams.get("page"), { min: 1, integer: true }) ?? 1;
     const limit = vNum(url.searchParams.get("limit"), { min: 1, max: 100, integer: true }) ?? 20;
@@ -52,6 +54,8 @@ export async function GET(request: NextRequest) {
     if (companyId) where.companyId = companyId;
     if (orgUnitId) where.orgUnitId = orgUnitId;
     if (assigneeId) where.assigneeId = assigneeId;
+    if (subCategoryId) where.subCategoryId = subCategoryId;
+    if (majorCategoryId) where.subCategory = { majorCategoryId };
     if (search) {
       where.name = { contains: search, mode: "insensitive" };
     }
@@ -63,6 +67,7 @@ export async function GET(request: NextRequest) {
           assignee: { select: { id: true, name: true } },
           orgUnit: { select: { id: true, name: true } },
           company: { select: { id: true, name: true } },
+          subCategory: { include: { majorCategory: { select: { id: true, name: true, code: true } } } },
           hardwareDetail: true,
           cloudDetail: true,
           contractDetail: true,
@@ -117,6 +122,7 @@ export async function POST(request: NextRequest) {
     const purchaseDateVal = vDate(body.purchaseDate);
     const expiryDateVal = vDate(body.expiryDate);
     const renewalDateVal = vDate(body.renewalDate);
+    const subCategoryIdVal = vNum(body.subCategoryId, { min: 1, integer: true });
     const companyIdVal = vNum(body.companyId, { min: 1, integer: true });
     const orgUnitIdVal = vNum(body.orgUnitId, { min: 1, integer: true });
     const assigneeIdVal = vNum(body.assigneeId, { min: 1, integer: true });
@@ -167,6 +173,10 @@ export async function POST(request: NextRequest) {
         const emp = await tx.employee.findUnique({ where: { id: assigneeIdVal }, select: { id: true } });
         if (!emp) throw new ValidationError("존재하지 않는 조직원입니다.");
       }
+      if (subCategoryIdVal) {
+        const sub = await tx.assetSubCategory.findUnique({ where: { id: subCategoryIdVal }, select: { id: true } });
+        if (!sub) throw new ValidationError("존재하지 않는 자산 소분류입니다.");
+      }
 
       // ── Asset 생성 ──
       const assetData: Prisma.AssetCreateInput = {
@@ -182,6 +192,7 @@ export async function POST(request: NextRequest) {
         expiryDate: expiryDateVal,
         renewalDate: renewalDateVal,
         createdBy: user.id,
+        ...(subCategoryIdVal && { subCategory: { connect: { id: subCategoryIdVal } } }),
         ...(companyIdVal && { company: { connect: { id: companyIdVal } } }),
         ...(orgUnitIdVal && { orgUnit: { connect: { id: orgUnitIdVal } } }),
         ...(assigneeIdVal && { assignee: { connect: { id: assigneeIdVal } } }),

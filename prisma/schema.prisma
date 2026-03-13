@@ -294,6 +294,42 @@ enum AssetType {
   OTHER       // 기타
 }
 
+// ── 자산 분류 체계 (대분류 + 소분류) ──
+
+// 대분류 (클라우드, 서버, 공개 IP, 데이터베이스, ...)
+model AssetMajorCategory {
+  id            Int       @id @default(autoincrement())
+  name          String    @unique                    // 표시명 (클라우드, 서버, ...)
+  code          String    @unique                    // 코드 (CL, SVR, IP, DB, ...)
+  abbr          String?                              // 약자 (CLoud, SerVeR, IP, ...)
+  description   String?                              // 비고
+  sortOrder     Int       @default(0)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  subCategories AssetSubCategory[]
+}
+
+// 소분류 (VPC, Security Group, S3 Bucket, Linux, ...)
+model AssetSubCategory {
+  id                 Int       @id @default(autoincrement())
+  majorCategoryId    Int
+  name               String                          // 표시명 (VPC, Security Group, S3 Bucket, ...)
+  code               String    @unique               // 코드 (VPC, SG, S3, LB, LI, ...)
+  isIsmsTarget       Boolean   @default(false)       // ISMS-P 대상 여부
+  isConsultingTarget Boolean   @default(false)       // 컨설팅 대상 여부
+  description        String?
+  sortOrder          Int       @default(0)
+  isActive           Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  majorCategory      AssetMajorCategory @relation(fields: [majorCategoryId], references: [id], onDelete: Cascade)
+  assets             Asset[]
+
+  @@unique([majorCategoryId, code])
+  @@index([majorCategoryId])
+}
+
 enum AssetStatus {
   IN_STOCK           // 재고 (미할당)
   IN_USE             // 사용 중
@@ -306,6 +342,7 @@ enum AssetStatus {
 model Asset {
   id              Int          @id @default(autoincrement())
   type            AssetType
+  subCategoryId   Int?                                // 소분류 FK (자산 분류 체계)
   status          AssetStatus  @default(IN_STOCK)
   name            String                              // 자산명
   vendor          String?                             // 공급업체
@@ -333,6 +370,7 @@ model Asset {
   createdBy       Int?                                // userId
 
   // 관계
+  subCategory       AssetSubCategory? @relation(fields: [subCategoryId], references: [id])
   company           OrgCompany?       @relation(fields: [companyId], references: [id])
   orgUnit           OrgUnit?          @relation(fields: [orgUnitId], references: [id])
   assignee          Employee?         @relation(fields: [assigneeId], references: [id])
@@ -344,6 +382,7 @@ model Asset {
   licenseLinks           AssetLicenseLink[]
 
   @@index([type])
+  @@index([subCategoryId])
   @@index([status])
   @@index([expiryDate])
   @@index([companyId])

@@ -39,6 +39,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
         assignee: { select: { id: true, name: true, department: true, email: true } },
         orgUnit: { select: { id: true, name: true } },
         company: { select: { id: true, name: true } },
+        subCategory: { include: { majorCategory: { select: { id: true, name: true, code: true } } } },
         hardwareDetail: true,
         cloudDetail: true,
         contractDetail: true,
@@ -101,6 +102,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
     if (body.companyId !== undefined) data.companyId = vNum(body.companyId, { min: 1, integer: true });
     if (body.orgUnitId !== undefined) data.orgUnitId = vNum(body.orgUnitId, { min: 1, integer: true });
     if (body.assigneeId !== undefined) data.assigneeId = vNum(body.assigneeId, { min: 1, integer: true });
+    if (body.subCategoryId !== undefined) data.subCategoryId = vNum(body.subCategoryId, { min: 1, integer: true });
 
     // PC(Laptop/Desktop) 감가상각 자동 계산 또는 기존 방식
     if (body.monthlyCost === undefined) {
@@ -153,6 +155,10 @@ export async function PUT(request: NextRequest, { params }: Params) {
         const emp = await tx.employee.findUnique({ where: { id: data.assigneeId }, select: { id: true } });
         if (!emp) throw new ValidationError("존재하지 않는 조직원입니다.");
       }
+      if (data.subCategoryId) {
+        const sub = await tx.assetSubCategory.findUnique({ where: { id: data.subCategoryId }, select: { id: true } });
+        if (!sub) throw new ValidationError("존재하지 않는 자산 소분류입니다.");
+      }
 
       const updated = await tx.asset.update({
         where: { id: assetId },
@@ -161,6 +167,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
           assignee: { select: { id: true, name: true } },
           orgUnit: { select: { id: true, name: true } },
           company: { select: { id: true, name: true } },
+          subCategory: { include: { majorCategory: { select: { id: true, name: true, code: true } } } },
           hardwareDetail: true,
           cloudDetail: true,
           contractDetail: true,

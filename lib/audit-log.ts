@@ -5,7 +5,7 @@ type Tx = Omit<
   "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends"
 >;
 
-export type AuditEntityType = "LICENSE" | "EMPLOYEE" | "ASSIGNMENT" | "SEAT" | "ORG_UNIT" | "ORG_COMPANY" | "GROUP" | "USER" | "ASSET" | "ARCHIVE" | "ASSET_CATEGORY" | "EXCHANGE_RATE";
+export type AuditEntityType = "LICENSE" | "EMPLOYEE" | "ASSIGNMENT" | "SEAT" | "ORG_UNIT" | "ORG_COMPANY" | "GROUP" | "USER" | "ASSET" | "ARCHIVE" | "ASSET_CATEGORY" | "EXCHANGE_RATE" | "ASSET_MAJOR_CATEGORY" | "ASSET_SUB_CATEGORY";
 
 export type AuditAction =
   | "CREATED"
