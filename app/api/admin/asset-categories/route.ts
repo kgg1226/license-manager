@@ -42,8 +42,8 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(category, { status: 201 });
-  } catch (error: any) {
-    if (error?.code === "P2002") {
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
       return NextResponse.json({ error: "이미 존재하는 카테고리명 또는 코드입니다." }, { status: 409 });
     }
     return NextResponse.json({ error: "카테고리 생성에 실패했습니다." }, { status: 500 });

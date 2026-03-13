@@ -212,6 +212,21 @@ export async function POST(request: NextRequest) {
             gpu: vStr(hd.gpu, 255),
             displaySize: vStr(hd.displaySize, 100),
             usefulLifeYears: vNum(hd.usefulLifeYears, { min: 1, max: 50, integer: true }) ?? 5,
+            // 보증/구매 관리
+            warrantyEndDate: hd.warrantyEndDate ? new Date(hd.warrantyEndDate) : null,
+            warrantyProvider: vStr(hd.warrantyProvider, 255),
+            purchaseOrderNumber: vStr(hd.purchaseOrderNumber, 100),
+            invoiceNumber: vStr(hd.invoiceNumber, 100),
+            condition: vStr(hd.condition, 1),
+            notes: vStr(hd.notes, 2000),
+            // 네트워크/인프라
+            secondaryIp: vStr(hd.secondaryIp, 50),
+            subnetMask: vStr(hd.subnetMask, 50),
+            gateway: vStr(hd.gateway, 50),
+            vlanId: vStr(hd.vlanId, 20),
+            dnsName: vStr(hd.dnsName, 255),
+            portCount: vNum(hd.portCount, { min: 0, max: 10000, integer: true }),
+            firmwareVersion: vStr(hd.firmwareVersion, 100),
           },
         });
       }
@@ -225,6 +240,30 @@ export async function POST(request: NextRequest) {
             accountId: vStr(cd.accountId, 255),
             region: vStr(cd.region, 100),
             seatCount: vNum(cd.seatCount, { min: 0, integer: true }),
+            // 서비스 분류
+            serviceCategory: vStr(cd.serviceCategory, 50),
+            resourceType: vStr(cd.resourceType, 100),
+            resourceId: vStr(cd.resourceId, 500),
+            // 인프라 상세
+            instanceSpec: vStr(cd.instanceSpec, 100),
+            storageSize: vStr(cd.storageSize, 100),
+            endpoint: vStr(cd.endpoint, 500),
+            vpcId: vStr(cd.vpcId, 50),
+            availabilityZone: vStr(cd.availabilityZone, 50),
+            // 계약/구독 관리
+            contractStartDate: cd.contractStartDate ? new Date(cd.contractStartDate) : null,
+            contractTermMonths: vNum(cd.contractTermMonths, { min: 1, max: 120, integer: true }),
+            renewalDate: cd.renewalDate ? new Date(cd.renewalDate) : null,
+            cancellationNoticeDate: cd.cancellationNoticeDate ? new Date(cd.cancellationNoticeDate) : null,
+            cancellationNoticeDays: vNum(cd.cancellationNoticeDays, { min: 1, max: 365, integer: true }),
+            paymentMethod: vStr(cd.paymentMethod, 50),
+            contractNumber: vStr(cd.contractNumber, 255),
+            // 관리 정보
+            adminEmail: vStr(cd.adminEmail, 255),
+            adminSlackId: vStr(cd.adminSlackId, 50),
+            notifyChannels: vStr(cd.notifyChannels, 10),
+            autoRenew: cd.autoRenew != null ? Boolean(cd.autoRenew) : null,
+            notes: vStr(cd.notes, 2000),
           },
         });
       }

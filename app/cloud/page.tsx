@@ -134,8 +134,8 @@ export default function CloudListPage() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-lg bg-white shadow-sm">
-          <table className="w-full">
+        <div className="overflow-x-auto rounded-lg bg-white shadow-sm">
+          <table className="w-full min-w-[800px]">
             <thead className="border-b bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold">자산명</th>
@@ -158,7 +158,10 @@ export default function CloudListPage() {
                     <td className="px-6 py-4 font-medium">
                       <Link href={`/cloud/${asset.id}`} className="text-blue-600 hover:underline">{asset.name}</Link>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{asset.cloudDetail?.platform || "—"}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {asset.cloudDetail?.platform || "—"}
+                      {asset.cloudDetail?.resourceType && <span className="ml-1.5 inline-flex rounded bg-indigo-50 px-1.5 py-0.5 text-xs text-indigo-600">{asset.cloudDetail.resourceType}</span>}
+                    </td>
                     <td className="px-6 py-4">
                       <span className={`inline-block rounded-full px-2 py-1 text-xs font-medium ${STATUS_COLORS[asset.status]}`}>{STATUS_LABELS[asset.status]}</span>
                     </td>

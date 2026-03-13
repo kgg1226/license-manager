@@ -7,7 +7,7 @@
 
 // ── 타입 정의 ──
 
-export type AssetCategory = "SOFTWARE" | "CLOUD" | "HARDWARE" | "DOMAIN_SSL" | "OTHER";
+export type AssetCategory = "SOFTWARE" | "CLOUD" | "HARDWARE" | "DOMAIN_SSL" | "CONTRACT" | "OTHER";
 export type UnifiedStatus = "IN_STOCK" | "IN_USE" | "INACTIVE" | "UNUSABLE" | "PENDING_DISPOSAL" | "DISPOSED";
 
 /** 비용 계산에 포함되는 상태 */
@@ -78,6 +78,7 @@ export const CATEGORY_LABELS: Record<AssetCategory, string> = {
   CLOUD: "클라우드",
   HARDWARE: "하드웨어",
   DOMAIN_SSL: "도메인·SSL",
+  CONTRACT: "계약",
   OTHER: "기타",
 };
 
@@ -251,7 +252,7 @@ export function computeTypeDistribution(items: UnifiedItem[]): TypeDistPoint[] {
     map.set(item.category, entry);
   }
 
-  const order: AssetCategory[] = ["SOFTWARE", "CLOUD", "HARDWARE", "DOMAIN_SSL", "OTHER"];
+  const order: AssetCategory[] = ["SOFTWARE", "CLOUD", "HARDWARE", "DOMAIN_SSL", "CONTRACT", "OTHER"];
   return order
     .filter((cat) => map.has(cat))
     .map((cat) => ({

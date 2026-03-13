@@ -1,7 +1,7 @@
 "use client";
 
 import { CATEGORY_LABELS, type AssetCategory } from "@/lib/dashboard-aggregator";
-import { LayoutDashboard, Monitor, Cloud, HardDrive, Globe, MoreHorizontal } from "lucide-react";
+import { LayoutDashboard, Monitor, Cloud, HardDrive, Globe, FileText, MoreHorizontal } from "lucide-react";
 
 const TABS: { key: AssetCategory | null; label: string; icon: React.ReactNode }[] = [
   { key: null, label: "전체", icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -9,6 +9,7 @@ const TABS: { key: AssetCategory | null; label: string; icon: React.ReactNode }[
   { key: "CLOUD", label: CATEGORY_LABELS.CLOUD, icon: <Cloud className="h-4 w-4" /> },
   { key: "HARDWARE", label: CATEGORY_LABELS.HARDWARE, icon: <HardDrive className="h-4 w-4" /> },
   { key: "DOMAIN_SSL", label: CATEGORY_LABELS.DOMAIN_SSL, icon: <Globe className="h-4 w-4" /> },
+  { key: "CONTRACT", label: CATEGORY_LABELS.CONTRACT, icon: <FileText className="h-4 w-4" /> },
   { key: "OTHER", label: CATEGORY_LABELS.OTHER, icon: <MoreHorizontal className="h-4 w-4" /> },
 ];
 

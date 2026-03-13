@@ -41,11 +41,11 @@ export async function PUT(
     });
 
     return NextResponse.json(category);
-  } catch (error: any) {
-    if (error?.code === "P2025") {
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "P2025") {
       return NextResponse.json({ error: "카테고리를 찾을 수 없습니다." }, { status: 404 });
     }
-    if (error?.code === "P2002") {
+    if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
       return NextResponse.json({ error: "이미 존재하는 카테고리명 또는 코드입니다." }, { status: 409 });
     }
     return NextResponse.json({ error: "카테고리 수정에 실패했습니다." }, { status: 500 });
@@ -83,8 +83,8 @@ export async function DELETE(
     });
 
     return NextResponse.json({ ok: true });
-  } catch (error: any) {
-    if (error?.code === "P2025") {
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "P2025") {
       return NextResponse.json({ error: "카테고리를 찾을 수 없습니다." }, { status: 404 });
     }
     return NextResponse.json({ error: "카테고리 삭제에 실패했습니다." }, { status: 500 });

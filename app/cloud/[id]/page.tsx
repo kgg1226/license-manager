@@ -15,7 +15,17 @@ interface Asset {
   currency: string; billingCycle?: string | null; expiryDate?: string | null;
   purchaseDate?: string | null; assignee?: { id: number; name: string } | null;
   orgUnit?: { id: number; name: string } | null; company?: { id: number; name: string } | null;
-  cloudDetail?: { platform?: string | null; accountId?: string | null; region?: string | null; seatCount?: number | null } | null;
+  cloudDetail?: {
+    platform?: string | null; accountId?: string | null; region?: string | null; seatCount?: number | null;
+    serviceCategory?: string | null; resourceType?: string | null; resourceId?: string | null;
+    instanceSpec?: string | null; storageSize?: string | null; endpoint?: string | null;
+    vpcId?: string | null; availabilityZone?: string | null;
+    contractStartDate?: string | null; contractTermMonths?: number | null;
+    renewalDate?: string | null; cancellationNoticeDate?: string | null;
+    cancellationNoticeDays?: number | null; paymentMethod?: string | null; contractNumber?: string | null;
+    adminEmail?: string | null; adminSlackId?: string | null; notifyChannels?: string | null;
+    autoRenew?: boolean | null; notes?: string | null;
+  } | null;
   createdAt: string; updatedAt: string;
 }
 
@@ -125,17 +135,114 @@ export default function CloudDetailPage() {
         </div>
 
         {/* 클라우드 상세 */}
-        {asset.cloudDetail && (
-          <div className="mb-8 rounded-lg bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold text-gray-900">클라우드 정보</h2>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {asset.cloudDetail.platform && <div><p className="text-sm text-gray-600">플랫폼</p><p className="mt-1 text-gray-900">{asset.cloudDetail.platform}</p></div>}
-              {asset.cloudDetail.accountId && <div><p className="text-sm text-gray-600">계정 ID</p><p className="mt-1 font-mono text-gray-900">{asset.cloudDetail.accountId}</p></div>}
-              {asset.cloudDetail.region && <div><p className="text-sm text-gray-600">리전</p><p className="mt-1 text-gray-900">{asset.cloudDetail.region}</p></div>}
-              {asset.cloudDetail.seatCount != null && <div><p className="text-sm text-gray-600">시트 수</p><p className="mt-1 text-gray-900">{asset.cloudDetail.seatCount}개</p></div>}
+        {asset.cloudDetail && (() => {
+          const cd = asset.cloudDetail;
+          return (
+            <div className="mb-8 rounded-lg bg-white p-6 shadow-sm">
+              <h2 className="mb-4 text-lg font-bold text-gray-900">클라우드 정보</h2>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {cd.platform && <div><p className="text-sm text-gray-600">플랫폼</p><p className="mt-1 text-gray-900">{cd.platform}</p></div>}
+                {cd.accountId && <div><p className="text-sm text-gray-600">계정 ID</p><p className="mt-1 font-mono text-gray-900">{cd.accountId}</p></div>}
+                {cd.region && <div><p className="text-sm text-gray-600">리전</p><p className="mt-1 text-gray-900">{cd.region}</p></div>}
+                {cd.seatCount != null && <div><p className="text-sm text-gray-600">시트 수</p><p className="mt-1 text-gray-900">{cd.seatCount}개</p></div>}
+                {cd.adminEmail && <div><p className="text-sm text-gray-600">관리자</p><p className="mt-1 text-gray-900">{cd.adminEmail}</p></div>}
+                {cd.autoRenew != null && <div><p className="text-sm text-gray-600">자동 갱신</p><p className="mt-1 text-gray-900">{cd.autoRenew ? "예" : "아니오"}</p></div>}
+                {cd.notifyChannels && cd.notifyChannels !== "NONE" && (
+                  <div>
+                    <p className="text-sm text-gray-600">알림 채널</p>
+                    <p className="mt-1">
+                      {(cd.notifyChannels === "EMAIL" || cd.notifyChannels === "BOTH") && <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 mr-1">이메일</span>}
+                      {(cd.notifyChannels === "SLACK" || cd.notifyChannels === "BOTH") && <span className="inline-flex rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">Slack</span>}
+                    </p>
+                  </div>
+                )}
+                {cd.notifyChannels === "NONE" && (
+                  <div><p className="text-sm text-gray-600">알림 채널</p><p className="mt-1 text-xs text-gray-400">알림 꺼짐</p></div>
+                )}
+              </div>
+
+              {/* 서비스 분류 */}
+              {(cd.serviceCategory || cd.resourceType || cd.resourceId) && (
+                <>
+                  <h3 className="mt-6 mb-3 text-sm font-semibold text-gray-700 border-t pt-4">서비스 분류</h3>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {cd.serviceCategory && <div><p className="text-sm text-gray-600">카테고리</p><p className="mt-1"><span className="inline-flex rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">{cd.serviceCategory}</span></p></div>}
+                    {cd.resourceType && <div><p className="text-sm text-gray-600">리소스 타입</p><p className="mt-1"><span className="inline-flex rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">{cd.resourceType}</span></p></div>}
+                    {cd.resourceId && <div><p className="text-sm text-gray-600">리소스 ID</p><p className="mt-1 font-mono text-sm text-gray-900 break-all">{cd.resourceId}</p></div>}
+                  </div>
+                </>
+              )}
+
+              {/* 인프라 상세 */}
+              {(cd.instanceSpec || cd.storageSize || cd.endpoint || cd.vpcId || cd.availabilityZone) && (
+                <>
+                  <h3 className="mt-6 mb-3 text-sm font-semibold text-gray-700 border-t pt-4">인프라 상세</h3>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {cd.instanceSpec && <div><p className="text-sm text-gray-600">인스턴스 사양</p><p className="mt-1 font-mono text-gray-900">{cd.instanceSpec}</p></div>}
+                    {cd.storageSize && <div><p className="text-sm text-gray-600">저장 용량</p><p className="mt-1 text-gray-900">{cd.storageSize}</p></div>}
+                    {cd.vpcId && <div><p className="text-sm text-gray-600">VPC ID</p><p className="mt-1 font-mono text-gray-900">{cd.vpcId}</p></div>}
+                    {cd.availabilityZone && <div><p className="text-sm text-gray-600">가용 영역</p><p className="mt-1 text-gray-900">{cd.availabilityZone}</p></div>}
+                  </div>
+                  {cd.endpoint && <div className="mt-3"><p className="text-sm text-gray-600">엔드포인트</p><p className="mt-1 font-mono text-sm text-gray-900 break-all">{cd.endpoint}</p></div>}
+                </>
+              )}
+
+              {/* 계약/구독 관리 */}
+              {(cd.contractStartDate || cd.contractTermMonths || cd.renewalDate || cd.cancellationNoticeDate || cd.paymentMethod || cd.contractNumber) && (
+                <>
+                  <h3 className="mt-6 mb-3 text-sm font-semibold text-gray-700 border-t pt-4">계약 / 구독 관리</h3>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {cd.contractStartDate && <div><p className="text-sm text-gray-600">계약 시작일</p><p className="mt-1 text-gray-900">{new Date(cd.contractStartDate).toLocaleDateString("ko-KR")}</p></div>}
+                    {cd.contractTermMonths != null && <div><p className="text-sm text-gray-600">계약 기간</p><p className="mt-1 text-gray-900">{cd.contractTermMonths}개월</p></div>}
+                    {cd.renewalDate && (() => {
+                      const renewal = new Date(cd.renewalDate);
+                      const daysLeft = Math.ceil((renewal.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                      const isUrgent = daysLeft <= 30 && daysLeft > 0;
+                      const isPast = daysLeft <= 0;
+                      return (
+                        <div>
+                          <p className="text-sm text-gray-600">갱신 예정일</p>
+                          <p className={`mt-1 font-semibold ${isPast ? "text-red-600" : isUrgent ? "text-orange-600" : "text-gray-900"}`}>
+                            {renewal.toLocaleDateString("ko-KR")}
+                            {isPast && " (경과)"}
+                            {isUrgent && ` (D-${daysLeft})`}
+                          </p>
+                        </div>
+                      );
+                    })()}
+                    {cd.cancellationNoticeDate && (() => {
+                      const notice = new Date(cd.cancellationNoticeDate);
+                      const daysLeft = Math.ceil((notice.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                      const isUrgent = daysLeft <= 14 && daysLeft > 0;
+                      const isPast = daysLeft <= 0;
+                      return (
+                        <div>
+                          <p className="text-sm text-gray-600">해지 통보 기한</p>
+                          <p className={`mt-1 font-semibold ${isPast ? "text-red-600" : isUrgent ? "text-orange-600" : "text-gray-900"}`}>
+                            {notice.toLocaleDateString("ko-KR")}
+                            {isPast && " (경과)"}
+                            {isUrgent && ` (D-${daysLeft})`}
+                          </p>
+                        </div>
+                      );
+                    })()}
+                    {cd.cancellationNoticeDays != null && <div><p className="text-sm text-gray-600">해지 통보 사전 일수</p><p className="mt-1 text-gray-900">{cd.cancellationNoticeDays}일 전</p></div>}
+                    {cd.paymentMethod && <div><p className="text-sm text-gray-600">결제 수단</p><p className="mt-1 text-gray-900">{{ CARD: "카드", TRANSFER: "계좌이체", INVOICE: "청구서", OTHER: "기타" }[cd.paymentMethod] ?? cd.paymentMethod}</p></div>}
+                    {cd.contractNumber && <div><p className="text-sm text-gray-600">계약/구독 번호</p><p className="mt-1 font-mono text-gray-900">{cd.contractNumber}</p></div>}
+                  </div>
+                </>
+              )}
+
+              {/* 비고 */}
+              {cd.notes && (
+                <>
+                  <h3 className="mt-6 mb-3 text-sm font-semibold text-gray-700 border-t pt-4">비고</h3>
+                  <p className="whitespace-pre-wrap text-gray-900">{cd.notes}</p>
+                </>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* 액션 */}
         {user && (

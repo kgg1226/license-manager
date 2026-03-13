@@ -7,13 +7,16 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { ValidationError, handleValidationError, handlePrismaError, vStrReq, vStr, vNum, vEmail } from "@/lib/validation";
 
 // GET /api/employees — 조직원 목록 조회
-// Query: ?orgUnitId=1&status=ACTIVE&unassigned=true
+// Query: ?orgUnitId=1&status=ACTIVE&unassigned=true&page=1&limit=50&search=keyword
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const orgUnitId = searchParams.get("orgUnitId");
     const status = searchParams.get("status");
     const unassigned = searchParams.get("unassigned");
+    const search = searchParams.get("search")?.trim() || searchParams.get("q")?.trim();
+    const page = Math.max(1, Number(searchParams.get("page") ?? "1"));
+    const limit = Math.min(200, Math.max(1, Number(searchParams.get("limit") ?? "50")));
 
     const where: Record<string, unknown> = {};
     if (orgUnitId) where.orgUnitId = Number(orgUnitId);
@@ -21,18 +24,30 @@ export async function GET(request: NextRequest) {
     if (unassigned === "true") {
       where.assignments = { none: { returnedDate: null } };
     }
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { department: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+      ];
+    }
 
-    const employees = await prisma.employee.findMany({
-      where,
-      include: {
-        orgUnit: { select: { id: true, name: true } },
-        assignments: {
-          where: { returnedDate: null },
-          include: { license: true },
+    const [total, employees] = await Promise.all([
+      prisma.employee.count({ where }),
+      prisma.employee.findMany({
+        where,
+        include: {
+          orgUnit: { select: { id: true, name: true } },
+          assignments: {
+            where: { returnedDate: null },
+            include: { license: true },
+          },
         },
-      },
-      orderBy: { name: "asc" },
-    });
+        orderBy: { name: "asc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
 
     const result = employees.map((emp) => ({
       ...emp,
@@ -40,7 +55,13 @@ export async function GET(request: NextRequest) {
       assignments: undefined,
     }));
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      data: result,
+    });
   } catch (error) {
     console.error("Failed to fetch employees:", error);
     return NextResponse.json(

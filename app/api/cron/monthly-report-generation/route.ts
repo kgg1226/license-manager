@@ -12,13 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
-
-function isCronAuthorized(request: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-  const auth = request.headers.get("authorization") ?? "";
-  return auth === `Bearer ${secret}`;
-}
+import { isCronAuthorized } from "@/lib/cron-auth";
 
 /** 전월을 YYYY-MM 형식으로 반환 */
 function getPreviousMonth(): string {

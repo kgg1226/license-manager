@@ -21,6 +21,8 @@ import {
   ChevronDown,
   ChevronRight,
   Package,
+  BookOpen,
+  Bell,
 } from "lucide-react";
 
 interface NavItem {
@@ -57,7 +59,9 @@ const NAV_GROUPS: NavGroup[] = [
     collapsible: true,
     items: [
       { href: "/settings/groups", label: "\uADF8\uB8F9 \uC124\uC815", icon: <Settings className="h-4 w-4" /> },
+      { href: "/settings/notifications", label: "\uC54C\uB9BC \uC124\uC815", icon: <Bell className="h-4 w-4" /> },
       { href: "/settings/import", label: "\uB370\uC774\uD130 \uAC00\uC838\uC624\uAE30", icon: <Upload className="h-4 w-4" />, authRequired: true },
+      { href: "/guide", label: "\uAD00\uB9AC\uC790 \uAC00\uC774\uB4DC", icon: <BookOpen className="h-4 w-4" /> },
     ],
   },
 ];

@@ -58,13 +58,8 @@ function formatDate(val: Date | null): string {
   return new Date(val).toISOString().split("T")[0];
 }
 
-// ── CRON 인증 ───────────────────────────────────────────────────────────────
-function isCronAuthorized(request: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-  const auth = request.headers.get("authorization") ?? "";
-  return auth === `Bearer ${secret}`;
-}
+// ── CRON 인증 (공통 유틸리티) ────────────────────────────────────────────────
+import { isCronAuthorized } from "@/lib/cron-auth";
 
 // ── Excel 첨부파일 생성 (BE-031 로직 재사용) ────────────────────────────────
 async function generateExcelBuffer(

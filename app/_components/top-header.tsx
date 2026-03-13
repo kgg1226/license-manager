@@ -11,7 +11,10 @@ import {
   DollarSign,
   Tags,
   ChevronDown,
+  Download,
 } from "lucide-react";
+import GlobalSearch from "./global-search";
+import NotificationBell from "./notification-bell";
 
 interface TopHeaderProps {
   user: { username: string; role: string } | null;
@@ -48,8 +51,13 @@ export default function TopHeader({ user }: TopHeaderProps) {
   ];
 
   return (
-    <header className="fixed top-0 right-0 left-0 z-20 flex h-14 items-center justify-end border-b border-gray-200 bg-white px-4 md:left-60">
+    <header className="fixed top-0 right-0 left-0 z-20 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 md:left-60">
+      <div className="hidden sm:block">
+        <GlobalSearch />
+      </div>
       <div className="flex items-center gap-3">
+        <NotificationBell />
+
         {/* Admin Dropdown */}
         {user?.role === "ADMIN" && (
           <div ref={adminRef} className="relative">
@@ -74,6 +82,26 @@ export default function TopHeader({ user }: TopHeaderProps) {
                     {item.label}
                   </Link>
                 ))}
+                <div className="my-1 border-t border-gray-100" />
+                <button
+                  onClick={async () => {
+                    setAdminOpen(false);
+                    const res = await fetch("/api/export/all?format=xlsx");
+                    if (res.ok) {
+                      const blob = await res.blob();
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `asset-export-${new Date().toISOString().split("T")[0]}.xlsx`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }
+                  }}
+                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  <Download className="h-4 w-4" />
+                  전체 Excel 내보내기
+                </button>
               </div>
             )}
           </div>

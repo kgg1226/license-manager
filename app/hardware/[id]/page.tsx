@@ -107,7 +107,7 @@ export default function HardwareDetailPage() {
       const res = await fetch(`/api/employees?${params}`);
       if (res.ok) {
         const data = await res.json();
-        setEmployees(Array.isArray(data) ? data : data.employees ?? []);
+        setEmployees(Array.isArray(data) ? data : data.data ?? []);
       }
     } catch { /* ignore */ }
   };
@@ -357,7 +357,38 @@ export default function HardwareDetailPage() {
 
               {hd.os && <div><p className="text-sm text-gray-600">OS</p><p className="mt-1 text-gray-900">{hd.os}{hd.osVersion && ` ${hd.osVersion}`}</p></div>}
               {hd.location && <div><p className="text-sm text-gray-600">보관 위치</p><p className="mt-1 text-gray-900">{hd.location}</p></div>}
+              {hd.condition && <div><p className="text-sm text-gray-600">상태 등급</p><p className="mt-1"><span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold ${hd.condition === "A" ? "bg-green-100 text-green-700" : hd.condition === "B" ? "bg-blue-100 text-blue-700" : hd.condition === "C" ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>{hd.condition}</span></p></div>}
             </div>
+
+            {/* 보증/구매 관리 */}
+            {(hd.warrantyEndDate || hd.warrantyProvider || hd.purchaseOrderNumber || hd.invoiceNumber || hd.notes) && (
+              <>
+                <h3 className="mt-6 mb-3 text-sm font-semibold text-gray-700 border-t pt-4">보증 / 구매 관리</h3>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {hd.warrantyEndDate && <div><p className="text-sm text-gray-600">보증 만료일</p><p className={`mt-1 ${new Date(hd.warrantyEndDate) < new Date() ? "font-semibold text-red-600" : "text-gray-900"}`}>{new Date(hd.warrantyEndDate).toLocaleDateString("ko-KR")}{new Date(hd.warrantyEndDate) < new Date() && " (만료)"}</p></div>}
+                  {hd.warrantyProvider && <div><p className="text-sm text-gray-600">보증 업체</p><p className="mt-1 text-gray-900">{hd.warrantyProvider}</p></div>}
+                  {hd.purchaseOrderNumber && <div><p className="text-sm text-gray-600">PO 번호</p><p className="mt-1 font-mono text-gray-900">{hd.purchaseOrderNumber}</p></div>}
+                  {hd.invoiceNumber && <div><p className="text-sm text-gray-600">인보이스 번호</p><p className="mt-1 font-mono text-gray-900">{hd.invoiceNumber}</p></div>}
+                </div>
+                {hd.notes && <div className="mt-3"><p className="text-sm text-gray-600">비고</p><p className="mt-1 whitespace-pre-wrap text-gray-900">{hd.notes}</p></div>}
+              </>
+            )}
+
+            {/* 네트워크/인프라 */}
+            {(hd.secondaryIp || hd.subnetMask || hd.gateway || hd.vlanId || hd.dnsName || hd.portCount || hd.firmwareVersion) && (
+              <>
+                <h3 className="mt-6 mb-3 text-sm font-semibold text-gray-700 border-t pt-4">네트워크 / 인프라</h3>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {hd.secondaryIp && <div><p className="text-sm text-gray-600">보조 IP</p><p className="mt-1 font-mono text-gray-900">{hd.secondaryIp}</p></div>}
+                  {hd.subnetMask && <div><p className="text-sm text-gray-600">서브넷 마스크</p><p className="mt-1 font-mono text-gray-900">{hd.subnetMask}</p></div>}
+                  {hd.gateway && <div><p className="text-sm text-gray-600">게이트웨이</p><p className="mt-1 font-mono text-gray-900">{hd.gateway}</p></div>}
+                  {hd.vlanId && <div><p className="text-sm text-gray-600">VLAN ID</p><p className="mt-1 font-mono text-gray-900">{hd.vlanId}</p></div>}
+                  {hd.dnsName && <div><p className="text-sm text-gray-600">DNS 호스트명</p><p className="mt-1 font-mono text-gray-900">{hd.dnsName}</p></div>}
+                  {hd.portCount != null && <div><p className="text-sm text-gray-600">포트 수</p><p className="mt-1 text-gray-900">{hd.portCount}</p></div>}
+                  {hd.firmwareVersion && <div><p className="text-sm text-gray-600">펌웨어 버전</p><p className="mt-1 font-mono text-gray-900">{hd.firmwareVersion}</p></div>}
+                </div>
+              </>
+            )}
           </div>
         )}
 

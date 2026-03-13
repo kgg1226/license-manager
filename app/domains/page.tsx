@@ -91,8 +91,8 @@ export default function DomainsListPage() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-lg bg-white shadow-sm">
-          <table className="w-full">
+        <div className="overflow-x-auto rounded-lg bg-white shadow-sm">
+          <table className="w-full min-w-[700px]">
             <thead className="border-b bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold">도메인명</th>
