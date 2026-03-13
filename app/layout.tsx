@@ -1,7 +1,7 @@
 // 상단 헤더 바 + 왼쪽 사이드바 레이아웃
 
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import Providers from "./providers";
@@ -10,14 +10,14 @@ import TopHeader from "./_components/top-header";
 import { getCurrentUser } from "@/lib/auth";
 import "./globals.css";
 
-const geistSans = Geist({
+const geistSans = localFont({
+  src: "../public/fonts/geist-latin.woff2",
   variable: "--font-geist-sans",
-  subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
+const geistMono = localFont({
+  src: "../public/fonts/geist-mono-latin.woff2",
   variable: "--font-geist-mono",
-  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
