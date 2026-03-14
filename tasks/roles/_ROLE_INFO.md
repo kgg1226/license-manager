@@ -40,7 +40,7 @@
 ### 준비 단계 (지금 가능)
 ```bash
 # 1. Frontend 가이드 읽기
-cat tasks/FRONTEND-PHASE2-START.md
+cat tasks/roles/FRONTEND-PHASE2-START.md
 
 # 2. DB 스키마 이해
 cat tasks/phase2-db-design.md
@@ -65,7 +65,7 @@ cat tasks/api-spec.md
 
 | 문서 | 설명 |
 |------|------|
-| **tasks/FRONTEND-PHASE2-START.md** | 📍 시작 가이드 (5분) |
+| **tasks/roles/FRONTEND-PHASE2-START.md** | 📍 시작 가이드 (5분) |
 | **tasks/phase2-db-design.md** | API 응답 구조 |
 | **tasks/TICKETS.md** | 전체 티켓 목록 |
 | **tasks/api-spec.md** | API 엔드포인트 |
@@ -116,4 +116,4 @@ cat tasks/api-spec.md
 
 ---
 
-**준비 문서**: `cat tasks/FRONTEND-PHASE2-START.md` 👇
+**준비 문서**: `cat tasks/roles/FRONTEND-PHASE2-START.md` 👇

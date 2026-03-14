@@ -11,8 +11,8 @@ on:
 env:
   EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
   S3_PATH: ${{ secrets.S3_PATH }}
-  APP_NAME: license-manager
-  ZIP_NAME: license-manager.zip
+  APP_NAME: asset-manager
+  ZIP_NAME: asset-manager.zip
   REMOTE_DIR: /home/ssm-user/app
   HAS_SLACK: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
 
@@ -264,7 +264,7 @@ jobs:
             --arg dir "$REMOTE_DIR/$APP_NAME" \
             '{commands: [
               ("cd " + $dir),
-              "if sudo docker images | grep -q license-manager.*backup; then sudo docker-compose down || true && sudo docker tag license-manager:backup license-manager:latest && sudo docker-compose up -d && echo 롤백 완료; else echo 백업 이미지 없음 — 롤백 불가; fi"
+              "if sudo docker images | grep -q asset-manager.*backup; then sudo docker-compose down || true && sudo docker tag asset-manager:backup asset-manager:latest && sudo docker-compose up -d && echo 롤백 완료; else echo 백업 이미지 없음 — 롤백 불가; fi"
             ]}')
 
           aws ssm send-command \
@@ -280,7 +280,7 @@ jobs:
         with:
           payload: |
             {
-              "text": "✅ *license-manager 배포 성공*",
+              "text": "✅ *asset-manager 배포 성공*",
               "attachments": [{
                 "color": "good",
                 "fields": [
@@ -301,7 +301,7 @@ jobs:
         with:
           payload: |
             {
-              "text": "❌ *license-manager 배포 실패 — 롤백됨*",
+              "text": "❌ *asset-manager 배포 실패 — 롤백됨*",
               "attachments": [{
                 "color": "danger",
                 "fields": [

@@ -6,33 +6,33 @@ services:
     image: postgres:16-alpine
     container_name: postgres
     environment:
-      POSTGRES_USER: license_manager
-      POSTGRES_PASSWORD: license_manager_pass
-      POSTGRES_DB: license_manager
+      POSTGRES_USER: asset_manager
+      POSTGRES_PASSWORD: asset_manager_pass
+      POSTGRES_DB: asset_manager
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U license_manager"]
+      test: ["CMD-SHELL", "pg_isready -U asset_manager"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - license-network
+      - asset-network
 
   app:
     build:
       context: .
       dockerfile: dockerfile
-    image: license-manager:latest
+    image: asset-manager:latest
     container_name: license-app
     ports:
       - "8080:3000"
     environment:
       NODE_ENV: production
-      DATABASE_URL: "postgresql://license_manager:license_manager_pass@postgres:5432/license_manager"
+      DATABASE_URL: "postgresql://asset_manager:asset_manager_pass@postgres:5432/asset_manager"
       SECURE_COOKIE: "false"
       SEED_ADMIN_USERNAME: "admin"
       SEED_ADMIN_PASSWORD: "${SEED_ADMIN_PASSWORD:-changeme123}"
@@ -52,10 +52,10 @@ services:
         max-size: "10m"
         max-file: "3"
     networks:
-      - license-network
+      - asset-network
 
 networks:
-  license-network:
+  asset-network:
     driver: bridge
 
 volumes:

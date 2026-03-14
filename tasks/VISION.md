@@ -1,4 +1,4 @@
-# 📋 License Manager → Information Asset Platform 비전
+# 📋 Asset Manager → Information Asset Platform 비전
 
 > **최종 목표**: 사내 모든 정보자산을 하나의 플랫폼에서 통합 관리하고,
 > 월별 자동 증적으로 ISO27001/ISMS-P 준수

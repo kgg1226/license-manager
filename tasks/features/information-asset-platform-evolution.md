@@ -1,6 +1,6 @@
 # 정보자산 통합관리 플랫폼으로의 진화 전략
 
-> **목표**: License Manager → Information Asset Management Platform으로 점진적 진화
+> **목표**: Asset Manager → Information Asset Management Platform으로 점진적 진화
 >
 > **원칙**:
 > - 기존 라이선스 시스템 보존 (throw away ❌)
@@ -344,7 +344,7 @@ model AssetHistory {
 #### 사이드바 구조
 ```
 ┌─────────────────────┐
-│  License Manager    │
+│  Asset Manager    │
 │  (또는 Asset Hub)   │
 ├─────────────────────┤
 │ 📊 대시보ード       │

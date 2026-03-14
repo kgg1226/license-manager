@@ -12,7 +12,7 @@
 ### 1. 문서 확인 (필독)
 ```bash
 # 배포 관련
-cat DEVOPS-START.md          # 기본 DevOps 가이드
+cat tasks/roles/DEVOPS-START.md  # 기본 DevOps 가이드
 cat tasks/phase2-db-design.md # 마이그레이션 전략
 
 # 빌드 & 배포
@@ -26,14 +26,14 @@ cat deploy.ps1              # AWS EC2 배포 스크립트
 /devops
 
 # 또는 수동 worktree 전환
-cd /c/license-manager/.claude/worktrees/[role]/
+cd /c/asset-manager/.claude/worktrees/[role]/
 ```
 
 ### 3. 현재 상태 확인
 ```bash
 # Docker 빌드 테스트
-docker build -t license-manager:test .
-docker run -p 3000:8080 license-manager:test
+docker build -t asset-manager:test .
+docker run -p 3000:8080 asset-manager:test
 
 # 배포 스크립트 확인
 cat deploy.ps1
@@ -228,10 +228,10 @@ cat deploy.ps1
 ### 1. 로컬 빌드 & 테스트
 ```bash
 # Docker 빌드
-docker build -t license-manager:test .
+docker build -t asset-manager:test .
 
 # 컨테이너 실행
-docker run -p 3000:8080 license-manager:test
+docker run -p 3000:8080 asset-manager:test
 
 # API 테스트
 curl http://localhost:3000/api/assets
@@ -301,7 +301,7 @@ npm run dev
 ## 📚 참고 자료
 
 - **phase2-db-design.md**: 스키마 설계 및 마이그레이션 전략
-- **DEVOPS-START.md**: DevOps 기본 가이드
+- **tasks/roles/DEVOPS-START.md**: DevOps 기본 가이드
 - **deploy.ps1**: AWS EC2 배포 스크립트
 - **docker-compose.yml**: 컨테이너 설정
 - **dockerfile**: 빌드 설정
@@ -314,7 +314,7 @@ npm run dev
 
 ```bash
 # 1. 로컬 빌드 & 테스트 완료
-docker build -t license-manager:latest .
+docker build -t asset-manager:latest .
 docker-compose up -d
 # 테스트...
 docker-compose down
@@ -326,7 +326,7 @@ git push origin master
 
 # 3. EC2 배포 (Windows PowerShell)
 # EC2 인스턴스에서:
-cd C:\license-manager
+cd C:\asset-manager
 .\deploy.ps1
 
 # 4. 배포 후 검증

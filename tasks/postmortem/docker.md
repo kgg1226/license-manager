@@ -27,7 +27,7 @@ sudo swapon /swapfile
 
 ### 예방
 - 빌드 전 `free -h`로 스왑 확인을 습관화
-- `license-manager-deploy` 스킬에 스왑 체크 단계 포함됨
+- `asset-manager-deploy` 스킬에 스왑 체크 단계 포함됨
 
 ### 관련 파일
 - `dockerfile`

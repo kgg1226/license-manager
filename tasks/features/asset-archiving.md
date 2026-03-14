@@ -91,7 +91,7 @@
 
 ```
 Google Drive Root
-└── {관리자 설정 폴더1}  (예: License Manager)
+└── {관리자 설정 폴더1}  (예: Asset Manager)
     ├── 2026/
     │   ├── 2026-01/
     │   │   ├── 2026-01-asset-full.xlsx  (월간 전체 스냅샷)

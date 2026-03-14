@@ -5,9 +5,9 @@
 set -e
 
 DIR="/home/ssm-user/app"
-APP="license-manager"
+APP="asset-manager"
 S3_BUCKET="s3://triplecomma-releases/triplecomma-backoffice"
-ZIP_NAME="license-manager.zip"
+ZIP_NAME="asset-manager.zip"
 
 # ── 실패 시 자동 롤백 + 정리 ──
 rollback() {
@@ -76,7 +76,7 @@ else
 fi
 
 echo '--- 앱 이미지 정리 (postgres 이미지 보존) ---'
-sudo docker images --filter reference='*license-manager*' -q | xargs -r sudo docker rmi -f 2>/dev/null || true
+sudo docker images --filter reference='*asset-manager*' -q | xargs -r sudo docker rmi -f 2>/dev/null || true
 sudo docker builder prune -f 2>/dev/null || true
 
 cd $DIR
@@ -94,7 +94,7 @@ if [ $AVAIL_KB -lt 1048576 ]; then
     exit 1
 fi
 cd $DIR/$APP
-sudo docker build -t license-manager:latest -f dockerfile .
+sudo docker build -t asset-manager:latest -f dockerfile .
 echo 'PASS: Docker 빌드 성공'
 
 echo '=== [7/7] 앱 시작 + 검증 ==='

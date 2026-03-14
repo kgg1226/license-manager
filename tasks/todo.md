@@ -33,9 +33,9 @@
 > ⚠️ **이 섹션의 항목들은 아래 요약이므로, 자세한 요구사항은 반드시 `tasks/TICKETS.md`를 참조하세요.**
 >
 > 각 역할이 실제 작업할 때는:
-> - 🔵 **Backend**: `BACKEND-START.md` → BE-ORG-001, BE-ORG-002 in `TICKETS.md`
-> - 🎨 **Frontend**: `FRONTEND-START.md` → FE-001, FE-ORG-001 in `TICKETS.md`
-> - 🟢 **DevOps**: `DEVOPS-START.md` → OPS-010/011/001/002 in `TICKETS.md`
+> - 🔵 **Backend**: `tasks/roles/BACKEND-START.md` → BE-ORG-001, BE-ORG-002 in `TICKETS.md`
+> - 🎨 **Frontend**: `tasks/roles/FRONTEND-START.md` → FE-001, FE-ORG-001 in `TICKETS.md`
+> - 🟢 **DevOps**: `tasks/roles/DEVOPS-START.md` → OPS-010/011/001/002 in `TICKETS.md`
 
 ### 프론트엔드 (`role/frontend`)
 

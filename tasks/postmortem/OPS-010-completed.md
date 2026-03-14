@@ -38,7 +38,7 @@ npm install 완료 ✅
 prisma generate 완료 ✅
 
 # Docker 빌드 (Docker Desktop 실행 시)
-docker build -t license-manager:test .
+docker build -t asset-manager:test .
 # → 예상 빌드 시간: 8-12분 (캐시 적용 후 3-5분)
 ```
 
@@ -67,7 +67,7 @@ docker build -t license-manager:test .
 | 항목 | 상태 | 설명 |
 |------|------|------|
 | 빌드 설정 | ✅ | context: ., dockerfile: dockerfile |
-| 이미지명 | ✅ | license-manager:latest |
+| 이미지명 | ✅ | asset-manager:latest |
 | 포트 | ✅ | 8080:3000 (CLAUDE.md 규칙) |
 | 환경변수 | ✅ | NODE_ENV, DATABASE_URL, SECURE_COOKIE 설정 |
 | 볼륨 | ✅ | /home/ssm-user/app/data/dev.db:/app/dev.db |
@@ -138,7 +138,7 @@ Next.js 애플리케이션
 ## 🚀 다음 단계
 
 ### 배포 전 체크리스트
-- [ ] Docker Desktop에서 로컬 빌드 테스트 (docker build -t license-manager:test .)
+- [ ] Docker Desktop에서 로컬 빌드 테스트 (docker build -t asset-manager:test .)
 - [ ] 컨테이너 실행 확인 (docker-compose up -d)
 - [ ] 헬스 체크: curl http://localhost:8080/api/assets
 - [ ] 로그 확인: docker-compose logs app

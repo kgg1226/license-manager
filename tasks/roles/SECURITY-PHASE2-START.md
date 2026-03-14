@@ -28,7 +28,7 @@ cat SECURITY-START.md                  # Security 역할 가이드
 /security
 
 # 또는 수동 worktree 전환
-cd /c/license-manager/.claude/worktrees/[role]/
+cd /c/asset-manager/.claude/worktrees/[role]/
 ```
 
 ### 3. Phase 2 코드 리뷰 준비

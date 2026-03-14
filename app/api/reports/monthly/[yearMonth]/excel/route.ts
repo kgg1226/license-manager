@@ -96,7 +96,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
 
     // ── Excel 생성 ──
     const wb = new ExcelJS.Workbook();
-    wb.creator = "License Manager";
+    wb.creator = "Asset Manager";
     wb.created = new Date();
 
     const headerFill: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2563EB" } };

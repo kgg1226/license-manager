@@ -1,4 +1,4 @@
-# 위협 모델 — License Manager
+# 위협 모델 — Asset Manager
 
 > 🔒 보안 세션이 관리. 시스템의 위협 지점과 대응 현황을 추적한다.
 > 준거: ISMS-P, ISO 27001, ISO 27701, Zero Trust Architecture

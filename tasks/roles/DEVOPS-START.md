@@ -10,7 +10,7 @@
 
 ### 1️⃣ Master 브랜치 최신화
 ```bash
-cd /c/license-manager
+cd /c/asset-manager
 git checkout master
 git pull origin master
 ```

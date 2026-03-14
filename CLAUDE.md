@@ -1,4 +1,4 @@
-# License Manager
+# Asset Manager
 
 ## 프로젝트 개요
 사내 **정보자산 통합 관리** 웹 앱 — 소프트웨어 라이선스·클라우드 구독·하드웨어·도메인 등 회사의 모든 자산을 등록·배정·회수하고, 월별 비용 및 자산 추가/변경/삭제 이력 보고서를 내보낸다.
@@ -112,23 +112,23 @@ git diff master...role/frontend --stat
 docker-compose up -d
 
 # PostgreSQL + app이 동시에 시작되고, 자동으로 연결됨
-# DATABASE_URL: postgresql://license_manager:license_manager_pass@postgres:5432/license_manager
+# DATABASE_URL: postgresql://asset_manager:asset_manager_pass@postgres:5432/asset_manager
 ```
 
 ### 환경변수 (DATABASE_URL)
 **docker-compose 사용 시:** 자동으로 `postgres` 서비스명으로 연결
 ```
-DATABASE_URL=postgresql://license_manager:license_manager_pass@postgres:5432/license_manager
+DATABASE_URL=postgresql://asset_manager:asset_manager_pass@postgres:5432/asset_manager
 ```
 
 **EC2 호스트에서 직접 실행 시:** 호스트 IP 사용
 ```
-DATABASE_URL=postgresql://license_manager:license_manager_pass@172.17.0.1:5432/license_manager
+DATABASE_URL=postgresql://asset_manager:asset_manager_pass@172.17.0.1:5432/asset_manager
 ```
 
 **로컬 localhost 테스트:**
 ```
-DATABASE_URL=postgresql://license_manager:license_manager_pass@localhost:5432/license_manager
+DATABASE_URL=postgresql://asset_manager:asset_manager_pass@localhost:5432/asset_manager
 ```
 
 ### Prisma 스키마
@@ -141,7 +141,7 @@ DATABASE_URL=postgresql://license_manager:license_manager_pass@localhost:5432/li
 - 배포 환경: AWS EC2 t4g.small (ARM64, vCPU 2, RAM 2GB), ap-northeast-2
 - 단방향 폐쇄망 (내부→외부 접근 가능, 외부→내부 접근 불가)
 - 배포 방식: `deploy.ps1` 실행 → **[1/2] git push** + **[2/2] S3 업로드**까지 자동, EC2 배포는 출력된 명령어를 수동 실행
-  - S3: `s3://triplecomma-releases/triplecomma-backoffice/license-manager.zip`
+  - S3: `s3://triplecomma-releases/triplecomma-backoffice/asset-manager.zip`
   - EC2 ID: `i-03b9c1979ef4a2142` / AWS 프로필: `hyeongunk`
   - EC2 접속: `aws ssm start-session --target i-03b9c1979ef4a2142 --region ap-northeast-2 --profile hyeongunk`
 - 포트: 로컬 dev `3000` / 컨테이너 `3000` / 호스트 `8080`

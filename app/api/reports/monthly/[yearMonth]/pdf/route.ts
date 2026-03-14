@@ -186,7 +186,7 @@ interface ReportData {
 function ReportDocument({ data }: { data: ReportData }) {
   return React.createElement(
     Document,
-    { title: `Asset Report ${data.period}`, author: "License Manager" },
+    { title: `Asset Report ${data.period}`, author: "Asset Manager" },
 
     // ── Cover Page ──
     React.createElement(
@@ -202,7 +202,7 @@ function ReportDocument({ data }: { data: ReportData }) {
       React.createElement(
         Text,
         { style: s.coverMeta },
-        `Generated: ${fmtDate(new Date())} | License Manager`,
+        `Generated: ${fmtDate(new Date())} | Asset Manager`,
       ),
     ),
 
@@ -260,7 +260,7 @@ function ReportDocument({ data }: { data: ReportData }) {
       React.createElement(
         View,
         { style: s.footer, fixed: true },
-        React.createElement(Text, null, "License Manager"),
+        React.createElement(Text, null, "Asset Manager"),
         React.createElement(
           Text,
           { render: ({ pageNumber, totalPages }: { pageNumber: number; totalPages: number }) => `${pageNumber} / ${totalPages}` },
@@ -289,7 +289,7 @@ function ReportDocument({ data }: { data: ReportData }) {
       React.createElement(
         View,
         { style: s.footer, fixed: true },
-        React.createElement(Text, null, "License Manager"),
+        React.createElement(Text, null, "Asset Manager"),
         React.createElement(
           Text,
           { render: ({ pageNumber, totalPages }: { pageNumber: number; totalPages: number }) => `${pageNumber} / ${totalPages}` },

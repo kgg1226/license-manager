@@ -67,7 +67,7 @@
 
 | ID | 자산명 | 버전 | 역할 | 상태 | 책임자 |
 |----|--------|------|------|------|--------|
-| SYS-001 | License Manager | 1.0 | 라이선스 관리 | 운영 중 | Backend |
+| SYS-001 | Asset Manager | 1.0 | 라이선스 관리 | 운영 중 | Backend |
 | SYS-002 | Next.js | 16.2.0-canary | 웹 프레임워크 | 운영 중 | Frontend |
 | SYS-003 | Prisma | 7 | ORM | 운영 중 | Backend |
 | SYS-004 | SQLite | 3.x | DB 엔진 | 운영 중 | DevOps |
@@ -252,4 +252,4 @@
 
 | 날짜 | 변경 내용 |
 |------|-----------|
-| 2026-03-05 | 초안 작성 — License Manager 자산 완전 인벤토리화 |
+| 2026-03-05 | 초안 작성 — Asset Manager 자산 완전 인벤토리화 |

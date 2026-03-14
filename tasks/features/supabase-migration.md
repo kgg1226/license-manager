@@ -272,7 +272,7 @@ docker run \
 # 변경 후
 # EC2 SSM Parameter Store에서 DATABASE_URL 읽어오기
 DATABASE_URL=$(aws ssm get-parameter \
-  --name /license-manager/database-url \
+  --name /asset-manager/database-url \
   --with-decryption \
   --query 'Parameter.Value' \
   --output text)

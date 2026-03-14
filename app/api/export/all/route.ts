@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function buildExcelResponse(licenses: any[], assets: any[], employees: any[]) {
   const wb = new ExcelJS.Workbook();
-  wb.creator = "License Manager";
+  wb.creator = "Asset Manager";
   wb.created = new Date();
 
   const headerFill: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2563EB" } };

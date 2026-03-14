@@ -1,6 +1,6 @@
-# 🎯 License Manager — 협력 워크플로우
+# 🎯 Asset Manager — 협력 워크플로우
 
-> **목적**: 이 문서는 새로운 개발자가 License Manager 프로젝트의 작업 방식을 이해하고, 다른 로컬 환경에서도 동일한 프로세스를 따를 수 있도록 안내합니다.
+> **목적**: 이 문서는 새로운 개발자가 Asset Manager 프로젝트의 작업 방식을 이해하고, 다른 로컬 환경에서도 동일한 프로세스를 따를 수 있도록 안내합니다.
 >
 > **작성일**: 2026-03-08
 > **버전**: 1.0
@@ -11,7 +11,7 @@
 
 ### 개요
 ```
-license-manager/
+asset-manager/
 ├── app/                      ← Next.js App Router
 │   ├── api/                  ← API Routes
 │   ├── assets/               ← Asset 관리 페이지
@@ -73,7 +73,7 @@ git rev-parse --abbrev-ref HEAD
 # 🔧 Backend 역할 (ecstatic-sanderson)
 # 📋 할당 작업: BE-020~025 (6개)
 # ⏱️  예상 기간: 1-2주
-# 📚 시작 문서: cat tasks/BACKEND-PHASE2-START.md
+# 📚 시작 문서: cat tasks/roles/BACKEND-PHASE2-START.md
 # 🎯 다음 할 일: BE-020 (Asset Schema) 부터 시작
 # ===============================
 ```
@@ -85,7 +85,7 @@ git rev-parse --abbrev-ref HEAD
 cat tasks/TICKETS.md | grep "BE-0"
 
 # 또는 역할별 START.md 읽기
-cat tasks/BACKEND-PHASE2-START.md
+cat tasks/roles/BACKEND-PHASE2-START.md
 
 # 결과:
 # - BE-020: Asset Schema (1-2일, Critical)
@@ -336,18 +336,18 @@ git log --all --oneline --graph -20
 ### 새로운 환경에서
 ```bash
 # 1. 프로젝트 clone
-git clone https://github.com/kgg1226/license-manager.git
-cd license-manager
+git clone https://github.com/kgg1226/asset-manager.git
+cd asset-manager
 
 # 2. 이 문서 읽기
-cat tasks/WORKFLOW.md
+cat tasks/roles/WORKFLOW.md
 
 # 3. 역할 선택 후 진입
 /backend        # (예: Backend 역할)
 
 # 4. 자동으로 표시되는 정보 확인
 # 5. START.md 읽기
-cat tasks/BACKEND-PHASE2-START.md
+cat tasks/roles/BACKEND-PHASE2-START.md
 
 # 6. 할당 작업 시작!
 ```

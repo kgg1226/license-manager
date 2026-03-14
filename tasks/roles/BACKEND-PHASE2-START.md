@@ -30,7 +30,7 @@ cat tasks/security/guidelines.md # ISMS-P 컴플라이언스 규칙
 /backend
 
 # 또는 수동 worktree 전환
-cd /c/license-manager/.claude/worktrees/[role]/
+cd /c/asset-manager/.claude/worktrees/[role]/
 ```
 
 ### 3. 현재 상태 확인
@@ -254,7 +254,7 @@ cat tasks/phase2-db-design.md
 
 ### 2. BE-020: Schema 수정
 ```bash
-cd /c/license-manager
+cd /c/asset-manager
 
 # 1. schema.prisma 수정 (Asset 모델 추가)
 # 2. 마이그레이션 실행

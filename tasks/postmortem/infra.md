@@ -47,12 +47,12 @@ Google API, 외부 CDN 등에 대한 fetch 요청이 타임아웃.
 - `DATABASE_URL`, `NODE_ENV`, `SECURE_COOKIE`
 
 ### 예방
-- 환경변수 추가/변경 시 → `license-manager-deploy` 스킬의 환경변수 섹션도 함께 업데이트
+- 환경변수 추가/변경 시 → `asset-manager-deploy` 스킬의 환경변수 섹션도 함께 업데이트
 - 컨테이너 시작 후 `docker exec license-app env`로 환경변수 확인
 
 ### 관련 파일
 - `docker-compose.yml`
-- `license-manager-deploy` 스킬
+- `asset-manager-deploy` 스킬
 
 ---
 

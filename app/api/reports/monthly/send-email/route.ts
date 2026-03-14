@@ -100,7 +100,7 @@ async function generateExcelBuffer(
   }
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "License Manager";
+  wb.creator = "Asset Manager";
   wb.created = new Date();
 
   const headerFill: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2563EB" } };
@@ -247,7 +247,7 @@ function buildEmailHtml(
   <div style="padding:16px 24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;background:#fff">
     <p style="margin:0;font-size:13px;color:#6b7280">
       자세한 내용은 첨부된 Excel 파일을 참고하세요.<br>
-      이 이메일은 License Manager 시스템에서 자동 발송되었습니다.
+      이 이메일은 Asset Manager 시스템에서 자동 발송되었습니다.
     </p>
   </div>
 </body>

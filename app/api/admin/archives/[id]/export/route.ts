@@ -30,7 +30,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     if (isGoogleDriveConfigured()) {
       const ExcelJS = await import("exceljs");
       const workbook = new ExcelJS.Workbook();
-      workbook.creator = "License Manager";
+      workbook.creator = "Asset Manager";
       workbook.created = new Date();
 
       // Sheet 1: 요약

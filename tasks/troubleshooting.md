@@ -1,6 +1,6 @@
 # 🔧 트러블슈팅 가이드
 
-> License Manager 배포 과정에서 발생한 에러 및 해결 명령어 정리
+> Asset Manager 배포 과정에서 발생한 에러 및 해결 명령어 정리
 > 최종 업데이트: 2026-03-10
 
 ---
@@ -102,10 +102,10 @@ docker network connect license-network license-app
 ### 원인 2: DATABASE_URL 형식 오류
 ```bash
 # .env 파일 확인 (따옴표 없어야 함)
-cat /home/ssm-user/app/license-manager/.env
+cat /home/ssm-user/app/asset-manager/.env
 
 # 올바른 형식
-DATABASE_URL=postgresql://license_manager:license_manager_pass@postgres:5432/license_manager
+DATABASE_URL=postgresql://asset_manager:asset_manager_pass@postgres:5432/asset_manager
 
 # ❌ 틀린 형식
 DATABASE_URL="postgresql://..."  # 따옴표 포함 금지
@@ -122,9 +122,9 @@ sudo docker logs postgres
 # PostgreSQL 수동 시작
 sudo docker run -d \
   --name postgres \
-  -e POSTGRES_USER=license_manager \
-  -e POSTGRES_PASSWORD=license_manager_pass \
-  -e POSTGRES_DB=license_manager \
+  -e POSTGRES_USER=asset_manager \
+  -e POSTGRES_PASSWORD=asset_manager_pass \
+  -e POSTGRES_DB=asset_manager \
   -p 5432:5432 \
   --restart unless-stopped \
   postgres:16-alpine
@@ -138,7 +138,7 @@ sudo docker run -d \
 
 ```bash
 # 환경 변수 다시 로드
-export DATABASE_URL=postgresql://license_manager:license_manager_pass@postgres:5432/license_manager
+export DATABASE_URL=postgresql://asset_manager:asset_manager_pass@postgres:5432/asset_manager
 
 # Prisma 클라이언트 재생성
 npx prisma generate
@@ -161,7 +161,7 @@ NODE_ENV=development npx prisma db seed
 sudo docker logs license-app
 
 # 2. PostgreSQL 연결 테스트 (컨테이너 내부)
-sudo docker exec license-app psql -h postgres -U license_manager -d license_manager -c "SELECT 1;"
+sudo docker exec license-app psql -h postgres -U asset_manager -d asset_manager -c "SELECT 1;"
 
 # 3. 컨테이너 환경 변수 확인
 sudo docker exec license-app env | grep DATABASE_URL
@@ -222,10 +222,10 @@ npx prisma db execute --stdin < prisma/schema.prisma
 npx prisma db push --force-reset
 
 # 또는 PostgreSQL 직접 접근
-PGPASSWORD=license_manager_pass psql \
+PGPASSWORD=asset_manager_pass psql \
   -h localhost \
-  -U license_manager \
-  -d license_manager
+  -U asset_manager \
+  -d asset_manager
 
 # 테이블 목록 확인
 \dt
@@ -277,7 +277,7 @@ sudo mkswap /swapfile
 sudo swapon /swapfile
 
 # 캐시 없이 새로 빌드
-sudo docker build --no-cache -t license-manager:latest .
+sudo docker build --no-cache -t asset-manager:latest .
 
 # 또는 compose로 빌드
 sudo docker-compose build --no-cache
@@ -299,14 +299,14 @@ PGPASSWORD=<supabase_password> pg_dump \
   --no-owner > supabase_backup.sql
 
 # 2. EC2 PostgreSQL로 복원
-PGPASSWORD=license_manager_pass psql \
+PGPASSWORD=asset_manager_pass psql \
   -h localhost \
-  -U license_manager \
-  -d license_manager \
+  -U asset_manager \
+  -d asset_manager \
   -f supabase_backup.sql
 
 # 3. 시퀀스 재설정 (ID 자동증가 설정)
-psql -h localhost -U license_manager -d license_manager << EOF
+psql -h localhost -U asset_manager -d asset_manager << EOF
 SELECT setval(pg_get_serial_sequence('"User"', 'id'), (SELECT MAX(id) FROM "User"));
 SELECT setval(pg_get_serial_sequence('"License"', 'id'), (SELECT MAX(id) FROM "License"));
 EOF
@@ -323,10 +323,10 @@ sudo docker-compose logs -f
 sudo docker exec license-app env | grep DATABASE_URL
 
 # ── 데이터베이스 접근 ──
-PGPASSWORD=license_manager_pass psql \
+PGPASSWORD=asset_manager_pass psql \
   -h localhost \
-  -U license_manager \
-  -d license_manager
+  -U asset_manager \
+  -d asset_manager
 
 # ── Prisma ──
 npx prisma db push          # 스키마 동기화

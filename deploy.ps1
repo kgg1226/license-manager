@@ -5,10 +5,10 @@ Set-StrictMode -Version Latest
 $PROFILE_NAME = "hyeongunk"
 $REGION = "ap-northeast-2"
 $S3_BUCKET = "s3://triplecomma-releases/triplecomma-backoffice"
-$ZIP_NAME = "license-manager.zip"
+$ZIP_NAME = "asset-manager.zip"
 $EC2_ID = "i-0aeda7845a9634718"
 $REMOTE_DIR = "/home/ssm-user/app"
-$APP_NAME = "license-manager"
+$APP_NAME = "asset-manager"
 
 # --- [유틸리티 함수] ---
 function Log($msg)     { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $msg" }

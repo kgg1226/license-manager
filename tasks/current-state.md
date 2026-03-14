@@ -169,11 +169,11 @@
 aws ssm start-session --target i-03b9c1979ef4a2142 --region ap-northeast-2 --profile hyeongunk
 
 cd /home/ssm-user/app
-aws s3 cp s3://triplecomma-releases/triplecomma-backoffice/license-manager.zip .
-sudo rm -rf license-manager
-sudo mkdir -p license-manager && sudo chown -R ssm-user:ssm-user license-manager
-unzip -q license-manager.zip -d license-manager && rm license-manager.zip
-cd license-manager
+aws s3 cp s3://triplecomma-releases/triplecomma-backoffice/asset-manager.zip .
+sudo rm -rf asset-manager
+sudo mkdir -p asset-manager && sudo chown -R ssm-user:ssm-user asset-manager
+unzip -q asset-manager.zip -d asset-manager && rm asset-manager.zip
+cd asset-manager
 
 # 디스크 공간 확보
 sudo docker system prune -a -f
